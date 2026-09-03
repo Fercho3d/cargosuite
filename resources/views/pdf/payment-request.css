@@ -1,0 +1,192 @@
+/*
+ * Hoja de estilo de la solicitud de pago (el cheque impreso), copiada tal cual
+ * de `PaymentRequest::generateCss()` en Yii2.
+ *
+ * Está medida en centímetros para caer sobre el formato preimpreso: no se toca.
+ */
+
+html{
+    width: 21cm;
+    height: 29.7cm;
+    padding: 1cm;
+    border: .5px solid;
+    font-family: arial;
+}
+
+body{
+    border: .5px solid;
+    width: 100%;
+    height: 100%;
+    padding: 0px;
+    margin:0px;
+    float: left;
+}
+
+.paycheck{ 
+    border: .5px solid;
+    height: 7.5cm;
+    padding: 0.5cm;
+    width: 100%;
+    float: left;
+    width: 20cm;
+    position: relative;
+    background-color: #b6f0cf;
+}
+
+.company-name{
+    font-size: 18pt;
+    font-weight: bolder;
+    width: 10cm;
+    height:1cm;
+}
+
+.address{
+    font-size: 11pt;
+    margin-top: 1cm;
+    width:8cm;
+    float:left;
+}
+
+ .date{
+    width: 4cm;
+    float: right;
+    text-align: right;
+    position: relative;
+    maring-top: 10cm;
+    marging-right: .5cm;
+    border-bottom: 2px solid;
+}
+
+
+.number{ 
+    float: right;
+    text-align: right;
+    position: relative !important;
+    width: 5cm;
+    font-weight: bold;
+    color:red;
+    margin-top:-1cm;
+}
+       
+.pay{
+    margin-top: .1cm;
+    width: 20cm;
+    float:left;
+    position: relative;
+}
+
+.vendor-name{
+     width: 14cm;
+     float: left;
+     position: relative;
+     border-bottom: 2px solid;
+}
+
+.pay .label{
+    width: 1.5cm;
+    float: left;
+    position: relative;
+    font-weight: bold;
+}
+
+.pay .amount{
+     width: 3.5cm;
+     float: left;
+     position: relative;
+     border-bottom: 2px solid;
+     margin-left: .4cm;
+}
+
+.pay .amount-text{
+   width: 3cm;
+   float: left;
+   position: relative;
+   border-bottom: 2px solid;
+}
+.amount-text span{
+    float: left;
+    position:relative;
+}
+
+ .amount-text{
+   width: 20cm;
+   float: left;
+   position: relative;
+   margin-top: 10pt;
+   border-bottom: 2px solid;
+}
+.to-the span{
+    font-weight: bold;
+}
+
+ .to-the{
+   width: 20cm;
+   float: left;
+   position: relative;
+   margin-top: 20pt;
+}
+
+.memo .label{
+    font-weight: bold;
+    width: 1.5cm;
+    position: relative;
+    float: left;
+}
+
+.memo{
+   width: 19cm;
+   float: left;
+   position: relative;
+   margin-top: 20pt;
+   
+}
+
+.memo .col-1{
+   width: 8.5cm;
+   float: left;
+   position: relative;
+   border-bottom: 2px solid;
+  
+   display: inline-block;
+}
+
+.memo .col-2{
+   width: 8.75cm;
+   float: left;
+   position: relative;
+   border-bottom: 2px solid;
+   margin-left: .5cm;
+}
+
+.last-number{
+   width: 8.75cm;
+   float: left;
+   position: relative;
+   margin-top: 5pt;
+   margin-left:2cm;
+   text-align: center;
+}
+
+.bills{
+    margin-top: 1cm;
+    float: left;
+    font-size: 12px;
+    border-spacing: 0px;
+    border-collapse: separate;
+    width: 100%;
+}
+
+.bills td{
+    border:.5pt solid #d0d0d0;
+    margin-left: 10px;
+    padding: 4px;
+}
+
+.bills td, .bills tr{
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+.total{
+    text-align: right;
+}

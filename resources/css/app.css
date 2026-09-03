@@ -1,0 +1,270 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../../app/Livewire/**/*.php';
+
+/*
+ * El tema se controla con la clase `dark` en <html>, que pone el layout antes de
+ * pintar (ver el script en <head>). No se usa `prefers-color-scheme` directo:
+ * el usuario puede forzar claro u oscuro por encima del sistema.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Rampa de grises neutros. El acento lo pone `config/marca.php` en caliente. */
+    --color-neutral-50: #f7f7f8;
+    --color-neutral-100: #ededf0;
+    --color-neutral-200: #d6d7dc;
+    --color-neutral-300: #b0b2bb;
+    --color-neutral-400: #83868f;
+    --color-neutral-500: #63656e;
+    --color-neutral-600: #4b4d55;
+    --color-neutral-700: #3a3b41;
+    --color-neutral-800: #26272b;
+    --color-neutral-900: #18191c;
+    --color-neutral-950: #0c0d0f;
+
+    --color-accent-400: #f04452;
+    --color-accent-500: #e11d2a;
+    --color-accent-600: #c11020;
+    --color-accent-700: #9e0c19;
+
+    --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+}
+
+/*
+ * Tokens semánticos. Se declaran `inline` para que las utilidades emitan
+ * `var(--surface)` y no un color fijo: así el mismo `bg-surface` cambia de valor
+ * al alternar el tema, sin duplicar clases `dark:` por toda la aplicación.
+ */
+@theme inline {
+    --color-surface: var(--surface);
+    --color-panel: var(--panel);
+    --color-raised: var(--raised);
+    --color-line: var(--line);
+    --color-line-soft: var(--line-soft);
+    --color-ink: var(--ink);
+    --color-ink-soft: var(--ink-soft);
+    --color-ink-muted: var(--ink-muted);
+    --color-ink-faint: var(--ink-faint);
+    --color-brand: var(--brand);
+}
+
+/* Tema claro (por omisión) */
+:root {
+    color-scheme: light;
+
+    --surface: #f4f4f6;
+    --panel: #ffffff;
+    --raised: #ededf0;
+    --line: #dcdde2;
+    --line-soft: #ededf0;
+    --ink: #18191c;
+    --ink-soft: #3a3b41;
+    --ink-muted: #63656e;
+    --ink-faint: #83868f;
+    --brand: #c11020;
+
+    --ok-bg: #dcfce7;
+    --ok-ink: #15803d;
+    --warn-bg: #fef3c7;
+    --warn-ink: #b45309;
+    --danger-bg: #fee2e2;
+    --danger-ink: #b91c1c;
+
+    /* Renglón marcado en los listados con casilla. */
+    --pick-bg: #dbeafe;
+    --pick-line: #93c5fd;
+
+    --ring-shadow: 0 1px 2px 0 rgb(16 17 20 / 0.06), 0 1px 3px 0 rgb(16 17 20 / 0.08);
+    --livewire-progress-bar-color: #e11d2a;
+}
+
+/* Tema oscuro */
+.dark {
+    color-scheme: dark;
+
+    --surface: #0c0d0f;
+    --panel: #18191c;
+    --raised: #26272b;
+    --line: #2e2f34;
+    --line-soft: #26272b;
+    --ink: #f7f7f8;
+    --ink-soft: #d6d7dc;
+    --ink-muted: #9b9ea7;
+    --ink-faint: #6f727a;
+    --brand: #f04452;
+
+    --ok-bg: rgb(6 78 59 / 0.45);
+    --ok-ink: #6ee7b7;
+    --warn-bg: rgb(120 53 15 / 0.45);
+    --warn-ink: #fcd34d;
+    --danger-bg: rgb(127 29 29 / 0.45);
+    --danger-ink: #fca5a5;
+
+    --pick-bg: rgb(30 58 138 / 0.45);
+    --pick-line: #3b82f6;
+
+    --ring-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.4), 0 1px 3px 0 rgb(0 0 0 / 0.5);
+}
+
+@layer base {
+    html {
+        /* Evita el salto horizontal al aparecer y desaparecer la barra de scroll. */
+        scrollbar-gutter: stable;
+    }
+
+    body {
+        background-color: var(--surface);
+        color: var(--ink);
+    }
+
+    /* Transición suave al alternar el tema, sin arrastrar las demás animaciones. */
+    .theme-transition * {
+        transition:
+            background-color 200ms ease,
+            border-color 200ms ease,
+            color 200ms ease;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .theme-transition * {
+            transition: none;
+        }
+    }
+}
+
+@layer components {
+    .btn-accent {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg bg-accent-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-60;
+    }
+
+    .btn-ghost {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg border border-line px-4 py-2.5 text-sm font-semibold text-ink-soft transition hover:bg-raised focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 disabled:cursor-not-allowed disabled:opacity-60;
+    }
+
+    .field-label {
+        @apply block text-sm font-medium text-ink-soft;
+    }
+
+    .field-input {
+        @apply block w-full rounded-lg border border-line bg-panel px-3.5 py-2.5 text-ink placeholder-ink-faint shadow-sm transition focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/40;
+        /* Un campo bloqueado tiene que notarse: el formulario de una transacción
+           timbrada se ve casi igual al de una editable si no se distinguen. */
+        @apply disabled:cursor-not-allowed disabled:border-line-soft disabled:bg-raised disabled:text-ink-muted disabled:shadow-none;
+    }
+
+    .card {
+        @apply rounded-2xl border border-line bg-panel shadow-sm;
+    }
+
+    .badge {
+        @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+    }
+
+    .badge-neutral {
+        @apply bg-raised text-ink-muted;
+    }
+
+    .badge-ok {
+        background-color: var(--ok-bg);
+        color: var(--ok-ink);
+    }
+
+    .badge-warn {
+        background-color: var(--warn-bg);
+        color: var(--warn-ink);
+    }
+
+    .badge-danger {
+        background-color: var(--danger-bg);
+        color: var(--danger-ink);
+    }
+
+    .alert-ok {
+        @apply rounded-lg px-4 py-3 text-sm;
+        background-color: var(--ok-bg);
+        color: var(--ok-ink);
+    }
+
+    .alert-warn {
+        @apply rounded-lg px-4 py-3 text-sm;
+        background-color: var(--warn-bg);
+        color: var(--warn-ink);
+    }
+
+    .alert-danger {
+        @apply rounded-lg px-4 py-3 text-sm;
+        background-color: var(--danger-bg);
+        color: var(--danger-ink);
+    }
+
+    /*
+     * Entrada de pantalla: un desvanecido corto al navegar con `wire:navigate`,
+     * para que el cambio no se sienta un corte seco.
+     *
+     * Solo anima `opacity` y `transform`, que el navegador resuelve en la GPU
+     * sin recalcular la maqueta: no retrasa nada de lo que se está pintando.
+     * A quien pidió menos movimiento en su sistema no se le anima.
+     */
+    .page-enter {
+        animation: page-enter 180ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    }
+
+    @keyframes page-enter {
+        from {
+            opacity: 0;
+            transform: translateY(6px);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .page-enter {
+            animation: none;
+        }
+    }
+
+    /* Renglón recién creado: verde, y solo mientras dura «el momento». */
+    .row-new {
+        background-color: var(--ok-bg);
+        box-shadow: inset 3px 0 0 0 var(--ok-ink);
+    }
+
+    /* Renglón marcado: azul claro y una guía a la izquierda. */
+    .row-picked {
+        background-color: var(--pick-bg);
+        box-shadow: inset 3px 0 0 0 var(--pick-line);
+    }
+
+    /* Bloque gris animado para los estados de carga. */
+    .skeleton {
+        @apply animate-shimmer rounded-md bg-raised;
+    }
+}
+
+@keyframes shimmer {
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.45;
+    }
+}
+
+/* Barra de progreso de wire:navigate, con el rojo de la marca. */
+#nprogress .bar {
+    background: var(--color-accent-500) !important;
+    height: 3px !important;
+}
+
+#nprogress .peg {
+    box-shadow:
+        0 0 10px var(--color-accent-500),
+        0 0 5px var(--color-accent-500) !important;
+}
