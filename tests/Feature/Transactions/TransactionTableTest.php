@@ -105,6 +105,17 @@ class TransactionTableTest extends LegacyDatabaseTestCase
             ->assertSee('<title>'.__('Transacciones del booking'), false);
     }
 
+    /** Desde las transacciones de un booking se vuelve a él con un clic. */
+    public function test_las_transacciones_de_un_booking_llevan_de_vuelta_a_el(): void
+    {
+        $this->actAsUser();
+
+        $booking = DB::table('transaction')->whereNotNull('booking')->value('booking');
+
+        $this->get(route('transactions.booking', $booking))
+            ->assertSee('href="'.route('operations.bookings.show', $booking).'"', false);
+    }
+
     public function test_el_listado_de_facturas_solo_trae_facturas(): void
     {
         $this->actAsUser();

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Providers\AppServiceProvider;
 use App\Support\Expediente;
 use App\Support\Workshop\Inventory;
 use App\Support\Workshop\Maintenance;
@@ -52,6 +53,43 @@ class DemoCamionesTest extends DemoDatabaseTestCase
             '/taller/mantenimiento', '/taller/almacen',
             '/transacciones', '/transacciones/costos', '/transacciones/reporte/booking',
         ]);
+    }
+
+    /**
+     * En una empresa de camiones el expediente es un VIAJE en todas partes. Un
+     * «Booking» suelto —una pestaña, una columna, un título— es lo primero que
+     * ve el transportista. Se revisa el texto visible, no las direcciones.
+     */
+    public function test_ninguna_pantalla_dice_booking(): void
+    {
+        $viaje = (int) DB::table('booking')->max('booking_id');
+        $factura = (int) DB::table('transaction')->where('booking', $viaje)->value('transc_id');
+
+        // El vocabulario se registra al arrancar, antes de que esta prueba
+        // apunte a la base de camiones: se vuelve a arrancar el proveedor.
+        $this->app->getProvider(AppServiceProvider::class)->boot();
+        $this->actingAs($this->admin());
+        $conBooking = [];
+
+        foreach ([
+            '/dashboard', '/avisos', '/ajustes', '/operacion/bookings', '/operacion/bookings/nuevo?tipo=1',
+            "/operacion/bookings/{$viaje}", "/operacion/bookings/{$viaje}/editar", "/operacion/bookings/{$viaje}/historial",
+            '/operacion/continuidad', '/pagos/liquidaciones', '/pagos/nomina', '/pagos/solicitudes', '/pagos/solicitudes/nueva',
+            '/pagos/reporte/clientes', '/pagos/reporte/proveedores', '/pagos/reporte/general',
+            '/terceros/clientes', '/terceros/clientes/nuevo', '/terceros/proveedores', '/terceros/servicios', '/terceros/servicios/nuevo',
+            '/transacciones', '/transacciones/costos', '/transacciones/todas', '/transacciones/nueva', '/transacciones/reporte/booking',
+            "/transacciones/booking/{$viaje}", "/transacciones/{$factura}", "/transacciones/{$factura}/editar",
+            '/catalogos/empleados', '/catalogos/operadores', '/tipos-de-cambio', '/usuarios',
+        ] as $ruta) {
+            $html = (string) $this->get($ruta)->getContent();
+            $texto = strip_tags((string) preg_replace('#<(script|style)\b.*?</\1>#si', '', $html));
+
+            if (preg_match_all('/[^\n]{0,40}\bbookings?\b[^\n]{0,40}/i', html_entity_decode($texto), $m)) {
+                $conBooking[$ruta] = array_values(array_unique(array_map('trim', $m[0])));
+            }
+        }
+
+        $this->assertSame([], $conBooking);
     }
 
     /** El flete va en pesos: una tarifa por kilómetro no se cotiza en dólares. */

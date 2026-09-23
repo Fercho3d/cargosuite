@@ -13,7 +13,7 @@
     // columnas extra siguen a los listados del original: Costos lleva PDF/XML,
     // Solicitud, Total natural y Saldo; Facturas, el pagado a TC de pago.
     $columns = [
-        ['booking', 'Booking', 'text-left', null],
+        ['booking', __('Booking'), 'text-left', null],
         ['tran_date', __('Fecha'), 'text-left', null],
         ['tran_number', __('Número'), 'text-left', null],
         ['tran_type', __('Tipo'), 'text-left', null],
@@ -66,8 +66,13 @@
         @endforeach
 
         @if ($booking)
+            <a href="{{ route('operations.bookings.show', $booking->booking_id) }}" wire:navigate
+               class="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-ink-muted transition hover:bg-raised hover:text-ink">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                {{ __('Volver al booking') }}
+            </a>
             <span class="rounded-lg bg-raised px-4 py-2 font-medium text-ink">
-                Booking {{ trim($booking->booking_number) }}
+                {{ __('Booking') }} {{ trim($booking->booking_number) }}
             </span>
 
             {{-- El alta necesita saber a qué booking pertenece; por eso solo se

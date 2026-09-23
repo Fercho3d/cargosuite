@@ -27,6 +27,7 @@
     "El booking está bloqueado.": "El embarque está bloqueado.",
     "El booking está cerrado: no se le pueden agregar transacciones.": "El embarque está cerrado: no se le pueden agregar transacciones.",
     "El booking lo propondrá cuando su ruta coincida con la de aquí abajo. Los campos que dejes vacíos solo empatan con bookings que tampoco los tengan.": "El embarque lo propondrá cuando su ruta coincida con la de aquí abajo. Los campos que dejes vacíos solo empatan con embarques que tampoco los tengan.",
+    "El siguiente correo contiene las facturas relacionadas del booking:": "El siguiente correo contiene las facturas relacionadas del embarque:",
     "El tipo decide en qué selector del booking aparece cada proveedor.": "El tipo decide en qué selector del embarque aparece cada proveedor.",
     "Este booking es un borrador.": "Este embarque es un borrador.",
     "Este booking está cerrado y no se puede editar.": "Este embarque está cerrado y no se puede editar.",

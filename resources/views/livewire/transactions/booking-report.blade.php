@@ -20,7 +20,7 @@
         </div>
         <span class="text-xs text-ink-faint">
             <span class="text-ink-muted">{{ $this->datesLabel() }}</span> ·
-            {{ number_format($rows->total()) }} bookings · consulta en {{ $queryMs }} ms
+            {{ trans_choice(__('{1}:count booking|[0,*]:count bookings'), $rows->total(), ['count' => number_format($rows->total())]) }} · {{ __('consulta en :ms ms', ['ms' => $queryMs]) }}
         </span>
     </header>
 

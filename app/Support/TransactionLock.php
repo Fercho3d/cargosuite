@@ -52,12 +52,12 @@ final class TransactionLock
 
         return new self($bloqueada, match (true) {
             ! $bloqueada => null,
-            $sinPermiso => 'Tu cuenta no tiene permiso para editar facturación.',
-            $bookingLocked => 'El booking está bloqueado.',
-            $saldada => 'La transacción ya está saldada.',
-            $timbrada => 'La transacción ya está timbrada.',
-            $conPagos => 'La transacción tiene pagos aplicados.',
-            default => 'La transacción está bloqueada.',
+            $sinPermiso => __('Tu cuenta no tiene permiso para editar facturación.'),
+            $bookingLocked => __('El booking está bloqueado.'),
+            $saldada => __('La transacción ya está saldada.'),
+            $timbrada => __('La transacción ya está timbrada.'),
+            $conPagos => __('La transacción tiene pagos aplicados.'),
+            default => __('La transacción está bloqueada.'),
         });
     }
 

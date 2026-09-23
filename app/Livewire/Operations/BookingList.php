@@ -165,7 +165,7 @@ class BookingList extends Component
             'puertosDescarga' => DB::table('dicharge_port')->where('deleted', 0)->orderBy('name')->pluck('name', 'dicharge_port_id')->all(),
             'lugares' => DB::table('pickup_place')->orderBy('name')->pluck('name', 'pick_id')->all(),
         ])->layout('components.app-layout', [
-            'title' => $this->mode === '9' ? 'Cotizaciones' : 'Bookings',
+            'title' => $this->mode === '9' ? __('Cotizaciones') : __('Bookings'),
         ]);
     }
 }

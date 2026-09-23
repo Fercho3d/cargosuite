@@ -99,7 +99,7 @@
     // (sin traducir: así los conoce la gente).
     $reportes = array_merge(
         $esAdmin ? [
-            ['Booking Profit Report', route('transactions.report.booking'), request()->routeIs('transactions.report.*'), 'reporte'],
+            [__('Reporte por booking'), route('transactions.report.booking'), request()->routeIs('transactions.report.*'), 'reporte'],
             ['Transaction Payments General', route('payments.report.general'), request()->routeIs('payments.report.general'), 'balance'],
             ['Transaction Payments by Customer', route('payments.report.customer'), request()->routeIs('payments.report.customer'), 'cobrar'],
             ['Transaction Payments by Vendor', route('payments.report.vendor'), request()->routeIs('payments.report.vendor'), 'pagar'],

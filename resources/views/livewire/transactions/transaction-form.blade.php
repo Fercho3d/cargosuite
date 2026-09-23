@@ -24,7 +24,7 @@
         <header>
             <h2 class="text-lg font-semibold text-ink">{{ $this->title() }}</h2>
             <p class="mt-0.5 text-sm text-ink-muted">
-                Booking {{ trim((string) ($booking?->booking_number ?? '—')) }}
+                {{ __('Booking') }} {{ trim((string) ($booking?->booking_number ?? '—')) }}
             </p>
         </header>
 

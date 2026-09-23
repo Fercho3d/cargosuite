@@ -1325,5 +1325,7 @@
     "Costo patronal": "Employer cost",
     "Reúne sueldos, viajes, bonos y descuentos de la plantilla, calcula ISR, IMSS e INFONAVIT según el régimen de cada empleado y saca el neto para dispersar. No timbra el CFDI de nómina: eso se hace con el archivo que se exporta. Apágalo si ya llevas la nómina en otro sistema.": "Gathers staff salaries, trips, bonuses and deductions, calculates income tax, IMSS and INFONAVIT according to each employee's regime and works out net pay. It does not stamp the payroll CFDI: that is done with the exported file. Turn it off if you already run payroll in another system.",
     "Ingresos": "Income",
-    "Gastos": "Expenses"
+    "Gastos": "Expenses",
+    "El siguiente correo contiene las facturas relacionadas del booking:": "This email contains the invoices related to booking:",
+    "¿De qué tipo?": "Which type?"
 }

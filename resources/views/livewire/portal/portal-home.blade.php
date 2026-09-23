@@ -143,7 +143,7 @@
                                 <a href="{{ route('portal.document', $documento->transc_id) }}" wire:navigate
                                    class="font-semibold text-brand hover:underline">{{ $documento->tran_number ?: __('Sin número') }}</a>
                                 <p class="text-xs text-ink-muted">
-                                    Booking {{ trim((string) $documento->booking_number) ?: '—' }} · {{ $fecha($documento->tran_date) }}
+                                    {{ __('Booking') }} {{ trim((string) $documento->booking_number) ?: '—' }} · {{ $fecha($documento->tran_date) }}
                                 </p>
                             </div>
                             </div>

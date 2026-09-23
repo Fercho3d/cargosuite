@@ -27,6 +27,7 @@
     "El booking está bloqueado.": "The booking is locked.",
     "El booking está cerrado: no se le pueden agregar transacciones.": "The booking is closed: no transactions can be added to it.",
     "El booking lo propondrá cuando su ruta coincida con la de aquí abajo. Los campos que dejes vacíos solo empatan con bookings que tampoco los tengan.": "A booking will propose it when its route matches the one below. Fields left empty only match bookings that leave them empty too.",
+    "El siguiente correo contiene las facturas relacionadas del booking:": "This email contains the invoices related to booking:",
     "El tipo decide en qué selector del booking aparece cada proveedor.": "The type decides which booking selector each vendor shows up in.",
     "Este booking es un borrador.": "This booking is a draft.",
     "Este booking está cerrado y no se puede editar.": "This booking is closed and cannot be edited.",

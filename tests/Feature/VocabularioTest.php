@@ -100,6 +100,39 @@ class VocabularioTest extends TestCase
      * tocar nada, y `refreshApplication()` vuelve a leer los archivos de
      * configuración —así que un `config([...])` puesto antes se pierde—.
      */
+    /**
+     * Un vocabulario que renombra el expediente tiene que renombrarlo en TODAS
+     * partes: un «Booking» suelto en una pantalla de camiones se nota más que
+     * cualquier otra cosa. Las llaves de la base con «booking» (y, donde el
+     * expediente deja de ser embarque, con «embarque») tienen que estar todas.
+     */
+    public function test_el_vocabulario_renombra_el_expediente_en_todas_partes(): void
+    {
+        $base = array_keys(json_decode((string) file_get_contents(lang_path('en.json')), true));
+        $ayuda = 'Que la pantalla diga «orden de servicio» donde otro dice «booking».';
+        $faltan = [];
+
+        foreach (['camiones' => '/booking|embarque/i', 'viajes' => '/booking|embarque/i', 'embarques' => '/booking/i'] as $vocabulario => $patron) {
+            $propias = json_decode((string) file_get_contents(lang_path("vocabulario/$vocabulario/es.json")), true);
+
+            foreach ($base as $llave) {
+                if ($llave !== $ayuda && preg_match($patron, $llave) && ! isset($propias[$llave])) {
+                    $faltan[] = "$vocabulario: $llave";
+                }
+            }
+        }
+
+        $this->assertSame([], $faltan);
+    }
+
+    /** El PDF que recibe el cliente también: sus títulos viven en `impresos.php`. */
+    public function test_el_vocabulario_llega_a_los_documentos_impresos(): void
+    {
+        $this->conVocabulario('camiones', function (): void {
+            $this->assertSame('Confirmación de viaje', __('impresos.confirmation_title', [], 'es'));
+        });
+    }
+
     public function test_embarques_dice_viaje_si_la_empresa_mueve_por_carretera(): void
     {
         $_ENV['MARCA_MODALIDADES'] = $_SERVER['MARCA_MODALIDADES'] = 'maritimo,terrestre';

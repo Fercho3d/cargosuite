@@ -31,7 +31,7 @@
 <table class="bills">
     <tr>
         <th>{{ __('impresos.number') }}</th>
-        <th>Booking</th>
+        <th>{{ __('Booking') }}</th>
         <th>{{ __('impresos.amount') }}</th>
         <th>Subtotal %0</th>
         <th>Subtotal %16</th>

@@ -73,6 +73,15 @@ class BookingListFiltrosTest extends TestCase
         return collect($listado->viewData('filas')->items())->pluck('booking_number')->sort()->values()->all();
     }
 
+    /** Un solo botón de alta: el tipo se escoge al darle clic, no con dos botones. */
+    public function test_el_alta_es_un_solo_boton_que_pregunta_el_tipo(): void
+    {
+        $this->listado()
+            ->assertDontSee(__('Nueva importación'))
+            ->assertSeeHtml('href="'.route('operations.bookings.create', ['tipo' => 1]).'"')
+            ->assertSeeHtml('href="'.route('operations.bookings.create', ['tipo' => 2]).'"');
+    }
+
     public function test_por_omision_no_salen_los_borradores(): void
     {
         $this->assertSame(['EXP-1', 'IMP-1'], $this->numeros($this->listado()));
@@ -165,8 +174,7 @@ class BookingListFiltrosTest extends TestCase
     {
         $this->listado()
             ->assertSeeInOrder(['Importación', 'Exportación'])
-            ->assertSee('Nueva importación')
-            ->assertSee('Nueva exportación');
+            ->assertSee('Nuevo booking');
     }
 
     public function test_en_cotizaciones_el_boton_es_de_cotizacion(): void

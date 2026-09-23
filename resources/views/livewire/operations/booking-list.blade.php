@@ -45,18 +45,30 @@
             </span>
             {{-- Dar de alta es de cualquier usuario interno, como en el original.
                  Con el tipo encendido, el alta ya llega con importación o
-                 exportación elegida; la cotización, con su modo. --}}
+                 exportación elegida (se pregunta en el menú del botón); la
+                 cotización, con su modo. --}}
             @if ($mode === '9')
                 <a href="{{ route('operations.bookings.create', ['modo' => 'cotizacion']) }}" wire:navigate class="btn-accent !px-3 !py-1.5 text-xs">
                     {{ __('Nueva cotización') }}
                 </a>
             @elseif ($verTipo)
-                <a href="{{ route('operations.bookings.create', ['tipo' => \App\Models\Core\Booking::TYPE_IMPORT]) }}" wire:navigate class="btn-accent !px-3 !py-1.5 text-xs">
-                    {{ __('Nueva importación') }}
-                </a>
-                <a href="{{ route('operations.bookings.create', ['tipo' => \App\Models\Core\Booking::TYPE_EXPORT]) }}" wire:navigate class="btn-accent !px-3 !py-1.5 text-xs">
-                    {{ __('Nueva exportación') }}
-                </a>
+                {{-- Un solo alta, que pregunta el tipo: dos botones «Nueva
+                     importación / Nueva exportación» no dicen que es un viaje. --}}
+                <div x-data="{ abierto: false }" class="relative" @click.outside="abierto = false" @keydown.escape="abierto = false">
+                    <button type="button" @click="abierto = ! abierto" :aria-expanded="abierto" aria-haspopup="menu"
+                            class="btn-accent inline-flex items-center gap-1 !px-3 !py-1.5 text-xs">
+                        {{ __('Nuevo booking') }}
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <div x-show="abierto" x-cloak x-transition.opacity.duration.100ms role="menu"
+                         class="absolute right-0 z-20 mt-1 w-44 rounded-xl border border-line bg-panel p-1 shadow-lg">
+                        <p class="px-3 pb-1 pt-2 text-xs text-ink-faint">{{ __('¿De qué tipo?') }}</p>
+                        @foreach ([\App\Models\Core\Booking::TYPE_IMPORT => __('Importación'), \App\Models\Core\Booking::TYPE_EXPORT => __('Exportación')] as $tipo => $etiqueta)
+                            <a href="{{ route('operations.bookings.create', ['tipo' => $tipo]) }}" wire:navigate role="menuitem"
+                               class="block rounded-lg px-3 py-2 text-sm text-ink transition hover:bg-raised">{{ $etiqueta }}</a>
+                        @endforeach
+                    </div>
+                </div>
             @else
                 <a href="{{ route('operations.bookings.create') }}" wire:navigate class="btn-accent !px-3 !py-1.5 text-xs">
                     {{ __('Nuevo booking') }}

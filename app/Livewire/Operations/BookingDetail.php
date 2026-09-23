@@ -998,7 +998,7 @@ class BookingDetail extends Component
                 DB::table('booking')->where('booking_id', $this->bookingId)->value('client'),
             ),
         ])->layout('components.app-layout', [
-            'title' => trim((string) $fila->booking_number) ?: 'Booking '.$this->bookingId,
+            'title' => trim((string) $fila->booking_number) ?: __('Booking').' '.$this->bookingId,
         ]);
     }
 }
