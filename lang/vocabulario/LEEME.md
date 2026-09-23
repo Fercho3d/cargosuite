@@ -9,6 +9,8 @@ base**, así que cambiar el vocabulario no toca ni una vista.
 - `camiones/` — autotransporte: booking → viaje, contenedor → carga, naviera →
   proveedor de combustible.
 - `embarques/` — carga marítima en español: booking → embarque; lo demás igual.
+- `viajes/` — igual que `embarques` pero con «viaje». No hace falta elegirlo:
+  con `embarques` puesto y la modalidad terrestre activa se usa solo.
 
 Sin `MARCA_VOCABULARIO` se usa el de origen: agentes de carga (booking, buque,
 contenedor, naviera).

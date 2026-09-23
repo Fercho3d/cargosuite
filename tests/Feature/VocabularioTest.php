@@ -100,6 +100,19 @@ class VocabularioTest extends TestCase
      * tocar nada, y `refreshApplication()` vuelve a leer los archivos de
      * configuración —así que un `config([...])` puesto antes se pierde—.
      */
+    public function test_embarques_dice_viaje_si_la_empresa_mueve_por_carretera(): void
+    {
+        $_ENV['MARCA_MODALIDADES'] = $_SERVER['MARCA_MODALIDADES'] = 'maritimo,terrestre';
+
+        try {
+            $this->conVocabulario('embarques', function (): void {
+                $this->assertSame('Nuevo viaje', __('Nuevo booking'));
+            });
+        } finally {
+            unset($_ENV['MARCA_MODALIDADES'], $_SERVER['MARCA_MODALIDADES']);
+        }
+    }
+
     private function conVocabulario(string $vocabulario, callable $prueba): void
     {
         $_ENV['MARCA_VOCABULARIO'] = $_SERVER['MARCA_VOCABULARIO'] = $vocabulario;

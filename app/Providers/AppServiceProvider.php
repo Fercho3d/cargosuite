@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Support\Ajustes;
 use App\Support\Cfdi\FacturacionModernaClient;
 use App\Support\Cfdi\PacClient;
+use App\Support\Expediente;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\ServiceProvider;
@@ -51,6 +52,12 @@ class AppServiceProvider extends ServiceProvider
 
         if ($vocabulario === '') {
             return;
+        }
+
+        // «Embarque» es palabra de mar: si la empresa también mueve por
+        // carretera, el mismo expediente se lee como viaje.
+        if ($vocabulario === 'embarques' && Expediente::usa('terrestre')) {
+            $vocabulario = 'viajes';
         }
 
         $carpeta = lang_path('vocabulario/'.$vocabulario);
