@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Models\Core\Service;
 use App\Models\User;
 use App\Support\Dashboard\DashboardMetrics;
 use Illuminate\Support\Facades\Config;
@@ -61,6 +62,24 @@ abstract class DemoDatabaseTestCase extends TestCase
         $this->assertGreaterThan(0, $panel['embarques'], 'El mes en curso no tiene un solo expediente.');
         $this->assertGreaterThan(0, $panel['facturado'], 'El panel abre con «facturado $0.00».');
         $this->assertGreaterThan(0, $panel['utilidad'], 'El panel abre sin utilidad.');
+    }
+
+    /**
+     * Los conceptos de una factura o un costo se escogen de los servicios
+     * contratados con esa contraparte. Un cliente o proveedor sin servicios
+     * deja la captura en «No hay servicios contratados…» delante del prospecto.
+     */
+    public function test_cada_cliente_y_proveedor_tiene_servicios_que_ofrecer(): void
+    {
+        $sinServicio = fn (string $tabla, string $llave, int $tipo) => DB::table($tabla)
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('service')
+                ->whereColumn("service.$llave", "$tabla.$llave")->where('service.type', $tipo))
+            ->pluck('fullName')->all();
+
+        $this->assertSame([], [
+            ...$sinServicio('client', 'client_id', Service::TYPE_CLIENT),
+            ...$sinServicio('provider', 'provider_id', Service::TYPE_PROVIDER),
+        ]);
     }
 
     protected function admin(): User

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Core\Service;
 use App\Support\Workshop\Inventory;
 use Database\Seeders\Perfiles\PerfilDemo;
 use Illuminate\Database\Seeder;
@@ -382,29 +383,36 @@ class DemoSeeder extends Seeder
 
         $c = $this->perfil->conceptos();
 
+        // Lo que se vende es de CADA cliente (`type` 1 + `client_id`) y lo que
+        // se compra, de un proveedor (`type` 2 + `provider_id`), como en la base
+        // real. Sin el cliente, ni la factura automática del expediente ni la
+        // captura de conceptos encuentran qué ofrecer.
+        $clientes = range(1, count($this->perfil->clientes()));
+        $venta = fn (int $cliente) => ['type' => Service::TYPE_CLIENT, 'client_id' => $cliente];
+        $compra = fn (int $proveedor) => ['type' => Service::TYPE_PROVIDER, 'provider_id' => $proveedor];
+
         foreach (range(1, 4) as $puerto) {
             foreach (range(1, 6) as $destino) {
-                // Lo que se le cobra al cliente por esa ruta.
-                $inserta([
-                    'name' => $c['venta_principal']['nombre'],
-                    'description' => $c['venta_principal']['descripcion'],
-                    'price' => 1800 + ($puerto * 40) + ($destino * 65),
-                    'account_id' => 2,
-                    'charge_type_id' => $c['venta_principal']['cargo'],
-                    'type' => 0,
-                    'loading_port_id' => $puerto,
-                    'dicharge_port_id' => $destino,
-                ]);
+                // Lo que se le cobra a cada cliente por esa ruta.
+                foreach ($clientes as $cliente) {
+                    $inserta($venta($cliente) + [
+                        'name' => $c['venta_principal']['nombre'],
+                        'description' => $c['venta_principal']['descripcion'],
+                        'price' => 1800 + ($puerto * 40) + ($destino * 65),
+                        'account_id' => 2,
+                        'charge_type_id' => $c['venta_principal']['cargo'],
+                        'loading_port_id' => $puerto,
+                        'dicharge_port_id' => $destino,
+                    ]);
+                }
 
                 // Lo que cuesta: lo que cobra el proveedor principal.
-                $inserta([
+                $inserta($compra(1 + (($puerto + $destino) % 3)) + [
                     'name' => $c['costo_principal']['nombre'],
                     'description' => $c['costo_principal']['descripcion'],
                     'price' => 1450 + ($puerto * 35) + ($destino * 50),
                     'account_id' => 2,
                     'charge_type_id' => $c['costo_principal']['cargo'],
-                    'type' => 1,
-                    'provider_id' => 1 + (($puerto + $destino) % 3),
                     'loading_port_id' => $puerto,
                     'dicharge_port_id' => $destino,
                 ]);
@@ -412,50 +420,63 @@ class DemoSeeder extends Seeder
 
             // El acarreo, por el proveedor del segundo tipo.
             foreach (range(1, 4) as $recoleccion) {
-                $inserta([
+                $inserta($compra(4 + (($puerto + $recoleccion) % 4)) + [
                     'name' => $c['acarreo']['nombre'],
                     'description' => $c['acarreo']['descripcion'],
                     'price' => 12000 + ($puerto * 500) + ($recoleccion * 350),
                     'account_id' => 1,
                     'charge_type_id' => $c['acarreo']['cargo'],
-                    'type' => 1,
-                    'provider_id' => 4 + (($puerto + $recoleccion) % 4),
                     'loading_port_id' => $puerto,
                     'pickup_place_id' => $recoleccion,
                 ]);
             }
 
-            $inserta([
+            $inserta($compra(8 + ($puerto % 3)) + [
                 'name' => $c['tramite']['nombre'],
                 'description' => $c['tramite']['descripcion'],
                 'price' => 6500 + ($puerto * 250),
                 'account_id' => 1,
                 'charge_type_id' => $c['tramite']['cargo'],
-                'type' => 1,
-                'provider_id' => 8 + ($puerto % 3),
                 'loading_port_id' => $puerto,
             ]);
 
-            $inserta([
-                'name' => $c['maniobras']['nombre'],
-                'description' => $c['maniobras']['descripcion'],
-                'price' => 4200 + ($puerto * 180),
-                'account_id' => 1,
-                'charge_type_id' => $c['maniobras']['cargo'],
-                'type' => 0,
-                'loading_port_id' => $puerto,
-            ]);
+            foreach ($clientes as $cliente) {
+                $inserta($venta($cliente) + [
+                    'name' => $c['maniobras']['nombre'],
+                    'description' => $c['maniobras']['descripcion'],
+                    'price' => 4200 + ($puerto * 180),
+                    'account_id' => 1,
+                    'charge_type_id' => $c['maniobras']['cargo'],
+                    'loading_port_id' => $puerto,
+                ]);
+            }
         }
 
-        // Servicios sueltos, sin ruta: se ofrecen en cualquier documento.
-        foreach ($c['sueltos'] as ['nombre' => $nombre, 'cargo' => $tipoCargo, 'tipo' => $tipo, 'precio' => $precio, 'divisa' => $divisa]) {
-            $inserta([
-                'name' => $nombre,
-                'description' => $nombre,
-                'price' => $precio,
-                'account_id' => $divisa,
-                'charge_type_id' => $tipoCargo,
-                'type' => $tipo,
+        // Servicios sueltos, sin ruta: se ofrecen en cualquier documento del
+        // cliente.
+        foreach ($c['sueltos'] as ['nombre' => $nombre, 'cargo' => $tipoCargo, 'precio' => $precio, 'divisa' => $divisa]) {
+            foreach ($clientes as $cliente) {
+                $inserta($venta($cliente) + [
+                    'name' => $nombre,
+                    'description' => $nombre,
+                    'price' => $precio,
+                    'account_id' => $divisa,
+                    'charge_type_id' => $tipoCargo,
+                    'auto_include' => 0,
+                ]);
+            }
+        }
+
+        // Y cada proveedor, aunque no esté en ninguna ruta (taller, seguros,
+        // grúas…), trae su servicio para poder capturarle un costo a mano.
+        $concepto = [1 => 'costo_principal', 2 => 'acarreo', 3 => 'tramite'];
+        foreach ($this->perfil->proveedores() as $i => ['nombre' => $nombre, 'tipo' => $tipo]) {
+            $inserta($compra($i + 1) + [
+                'name' => $c[$concepto[$tipo] ?? 'tramite']['nombre'],
+                'description' => $c[$concepto[$tipo] ?? 'tramite']['descripcion'].' · '.$nombre,
+                'price' => 0,
+                'account_id' => 1,
+                'charge_type_id' => $c[$concepto[$tipo] ?? 'tramite']['cargo'],
                 'auto_include' => 0,
             ]);
         }
