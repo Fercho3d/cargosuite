@@ -403,6 +403,10 @@ class CoreSchema
             $table->unsignedInteger('liquidacion_id')->nullable();
         });
 
+        // Impuestos de la nómina: la migración misma, con sus tablas de 2026,
+        // para que las pruebas calculen con lo que se instala.
+        (require database_path('migrations/2026_09_23_000001_agrega_impuestos_a_la_nomina.php'))->up();
+
         // Bitácora de cancelaciones de CFDI (migración `create_cfdi_cancelacion`).
         Schema::create('cfdi_cancelacion', function ($table) {
             $table->increments('id');

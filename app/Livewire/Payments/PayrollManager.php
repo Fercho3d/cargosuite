@@ -11,9 +11,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * Nómina interna.
  *
- * ⚠️ Reúne lo que se paga —sueldos, viajes, bonos, descuentos— y saca el neto.
- * **No calcula IMSS ni ISR ni timbra el CFDI de nómina**: eso está regulado y se
- * hace en el sistema fiscal de la empresa, con el archivo que se exporta aquí.
+ * Reúne lo que se paga —sueldos, viajes, bonos, descuentos—, calcula impuestos
+ * y cuotas según el régimen de cada empleado y saca el neto. **No timbra el
+ * CFDI de nómina**: eso se hace en el sistema fiscal de la empresa, con el
+ * archivo que se exporta aquí.
  */
 class PayrollManager extends Component
 {
@@ -76,7 +77,7 @@ class PayrollManager extends Component
         $this->validate([
             'desde' => ['required', 'date'],
             'hasta' => ['required', 'date', 'after_or_equal:desde'],
-            'periodicidad' => ['required', 'in:semanal,quincenal,mensual'],
+            'periodicidad' => ['required', 'in:semanal,catorcenal,quincenal,mensual'],
         ], attributes: ['desde' => mb_strtolower(__('Desde')), 'hasta' => mb_strtolower(__('Hasta'))]);
 
         $id = DB::table('nomina')->insertGetId([
@@ -91,7 +92,7 @@ class PayrollManager extends Component
 
         // La propuesta: sueldo por los días del periodo y, para quien sea
         // operador, sus liquidaciones de viaje todavía no cobradas en nómina.
-        foreach (Payroll::empleadosActivos() as $empleado) {
+        foreach (Payroll::empleadosActivos($this->periodicidad) as $empleado) {
             foreach (Payroll::propuesta($empleado, $this->desde, $this->hasta) as $renglon) {
                 DB::table('nomina_renglon')->insert($renglon + [
                     'nomina_id' => $id,
@@ -99,6 +100,8 @@ class PayrollManager extends Component
                 ]);
             }
         }
+
+        Payroll::recalcula($id);
 
         $this->creando = false;
         $this->abierta = $id;
@@ -129,6 +132,7 @@ class PayrollManager extends Component
             'tipo' => $this->tipo,
             'importe' => (float) $this->importe,
         ]);
+        Payroll::recalcula($this->abierta);
 
         $this->reset(['concepto', 'importe']);
         $this->tipo = 'percepcion';
@@ -143,6 +147,7 @@ class PayrollManager extends Component
         $this->assertAbierta((int) $fila->nomina_id);
 
         DB::table('nomina_renglon')->where('renglon_id', $renglon)->delete();
+        Payroll::recalcula((int) $fila->nomina_id);
     }
 
     public function pagar(int $id): void
@@ -197,7 +202,7 @@ class PayrollManager extends Component
 
             // BOM: sin él, Excel se come los acentos del nombre del empleado.
             fwrite($salida, "\xEF\xBB\xBF");
-            fputcsv($salida, ['Numero', 'Empleado', 'Puesto', 'CLABE', 'Percepciones', 'Deducciones', 'Neto']);
+            fputcsv($salida, ['Numero', 'Empleado', 'Puesto', 'CLABE', 'Percepciones', 'Deducciones', 'Neto', 'Costo patronal']);
 
             foreach ($filas as $f) {
                 fputcsv($salida, [$f->numero, $f->nombre, $f->puesto, $f->clabe,
@@ -205,7 +210,8 @@ class PayrollManager extends Component
                     // toma como texto y no se pueden sumar.
                     number_format($f->percepciones, 2, '.', ''),
                     number_format($f->deducciones, 2, '.', ''),
-                    number_format($f->neto, 2, '.', '')]);
+                    number_format($f->neto, 2, '.', ''),
+                    number_format($f->patronal, 2, '.', '')]);
             }
 
             fclose($salida);

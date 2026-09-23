@@ -129,7 +129,7 @@
                 <span class="min-w-0">
                     <span class="block text-sm font-medium text-ink">{{ __('Llevar la nómina aquí') }}</span>
                     <span class="mt-1 block text-xs leading-relaxed text-ink-muted">
-                        {{ __('Reúne sueldos, viajes, bonos y descuentos de la plantilla y saca el neto para dispersar. No calcula IMSS ni ISR ni timbra el CFDI de nómina: eso se hace con el archivo que se exporta. Apágalo si ya llevas la nómina en otro sistema.') }}
+                        {{ __('Reúne sueldos, viajes, bonos y descuentos de la plantilla, calcula ISR, IMSS e INFONAVIT según el régimen de cada empleado y saca el neto para dispersar. No timbra el CFDI de nómina: eso se hace con el archivo que se exporta. Apágalo si ya llevas la nómina en otro sistema.') }}
                     </span>
                 </span>
             </label>

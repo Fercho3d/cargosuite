@@ -76,6 +76,10 @@ class NominaDemoSeeder extends Seeder
             DB::table('empleado')->insert($empleado + [
                 'numero' => 'E-'.str_pad((string) ($i + 1), 3, '0', STR_PAD_LEFT),
                 'banco' => 'BBVA',
+                // Asalariados de verdad: la demostración enseña ISR, IMSS y
+                // el costo patronal, no solo el sueldo.
+                'regimen' => 'sueldos',
+                'periodicidad' => 'quincenal',
                 'activo' => 1,
             ]);
         }
@@ -92,7 +96,7 @@ class NominaDemoSeeder extends Seeder
             'created_at' => Carbon::now()->toDateTimeString(),
         ], 'nomina_id');
 
-        foreach (Payroll::empleadosActivos() as $empleado) {
+        foreach (Payroll::empleadosActivos('quincenal') as $empleado) {
             foreach (Payroll::propuesta($empleado, $desde->toDateString(), $hasta->toDateString()) as $renglon) {
                 DB::table('nomina_renglon')->insert($renglon + [
                     'nomina_id' => $nomina,
@@ -100,6 +104,8 @@ class NominaDemoSeeder extends Seeder
                 ]);
             }
         }
+
+        Payroll::recalcula($nomina);
 
         $this->command?->info(count($empleados).' empleados y una nómina abierta del periodo en curso.');
     }

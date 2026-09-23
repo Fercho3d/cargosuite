@@ -9,9 +9,10 @@ use Illuminate\Support\Facades\DB;
  * La liquidación de un operador: lo que ganó por sus viajes, menos lo que se le
  * descuenta.
  *
- * ⚠️ **No es nómina fiscal.** No calcula IMSS ni ISR ni timbra nada; eso se
- * exporta al sistema de nómina de la empresa. Aquí vive lo operativo, que es lo
- * que el dueño de camiones pide cuando dice «la nómina de los operadores».
+ * ⚠️ **No es nómina fiscal.** No calcula IMSS ni ISR: la liquidación entra a la
+ * nómina del periodo y los impuestos se calculan allá. Aquí vive lo operativo,
+ * que es lo que el dueño de camiones pide cuando dice «la nómina de los
+ * operadores».
  */
 class DriverSettlement
 {

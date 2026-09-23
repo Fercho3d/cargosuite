@@ -5,7 +5,12 @@
         <div>
             <h1 class="text-lg font-semibold text-ink">{{ __('Nómina') }}</h1>
             <p class="mt-0.5 text-sm text-ink-muted">
-                {{ __('Lo que se le paga a la plantilla en el periodo. No calcula impuestos ni timbra: se exporta.') }}
+                {{ __('Lo que se le paga a la plantilla en el periodo, con impuestos y cuotas según el régimen de cada empleado. No timbra: se exporta.') }}
+            </p>
+            <p class="mt-1 flex flex-wrap gap-x-4 text-xs">
+                <a href="{{ route('catalogs.show', 'empleados') }}" wire:navigate class="text-brand hover:underline">{{ __('Empleados') }}</a>
+                <a href="{{ route('catalogs.show', 'tablas-fiscales') }}" wire:navigate class="text-brand hover:underline">{{ __('Tablas fiscales') }}</a>
+                <a href="{{ route('catalogs.show', 'parametros-fiscales') }}" wire:navigate class="text-brand hover:underline">{{ __('Parámetros fiscales') }}</a>
             </p>
         </div>
 
@@ -25,7 +30,7 @@
         <div class="rounded-2xl border border-line bg-panel p-4">
             <p class="text-sm font-medium text-ink">{{ __('Nueva nómina') }}</p>
             <p class="mt-1 text-xs text-ink-muted">
-                {{ __('Se propone el sueldo de cada empleado por los días del periodo, más las liquidaciones de viaje que aún no se han pagado en otra nómina.') }}
+                {{ __('Se propone el sueldo de cada empleado por los días del periodo, más las liquidaciones de viaje que aún no se han pagado en otra nómina. Entran los empleados de esta periodicidad y los que no tienen una.') }}
             </p>
 
             <div class="mt-3 grid gap-3 sm:grid-cols-4">
@@ -41,6 +46,7 @@
                     <span class="field-label">{{ __('Periodicidad') }}</span>
                     <select wire:model="periodicidad" class="field-input mt-1.5">
                         <option value="semanal" @selected($periodicidad === 'semanal')>{{ __('Semanal') }}</option>
+                        <option value="catorcenal" @selected($periodicidad === 'catorcenal')>{{ __('Catorcenal') }}</option>
                         <option value="quincenal" @selected($periodicidad === 'quincenal')>{{ __('Quincenal') }}</option>
                         <option value="mensual" @selected($periodicidad === 'mensual')>{{ __('Mensual') }}</option>
                     </select>
@@ -115,6 +121,7 @@
                                             <th class="py-1.5 pr-3 text-right font-semibold">{{ __('Percepciones') }}</th>
                                             <th class="py-1.5 pr-3 text-right font-semibold">{{ __('Deducciones') }}</th>
                                             <th class="py-1.5 pr-3 text-right font-semibold">{{ __('Neto') }}</th>
+                                            <th class="py-1.5 pr-3 text-right font-semibold" title="{{ __('IMSS, retiro, cesantía e INFONAVIT que paga la empresa. No baja el neto.') }}">{{ __('Costo patronal') }}</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-line">
@@ -130,12 +137,13 @@
                                                          cuando el neto no cuadra, y así se ve sin otro clic. --}}
                                                     <span class="mt-0.5 block text-xs text-ink-faint">
                                                         @foreach ($renglones[$e->empleado_id] ?? [] as $r)
-                                                            <span class="mr-3 inline-block whitespace-nowrap">
+                                                            <span class="mr-3 inline-block whitespace-nowrap {{ $r->tipo === 'patronal' ? 'italic' : '' }}">
                                                                 {{ $r->concepto }}
-                                                                <span class="{{ $r->tipo === 'deduccion' ? 'text-brand' : 'text-ink-soft' }}">
-                                                                    {{ $r->tipo === 'deduccion' ? '−' : '+' }}{{ $dinero($r->importe) }}
+                                                                <span class="{{ $r->tipo === 'deduccion' ? 'text-(--danger-ink)' : 'text-ink-soft' }}">
+                                                                    {{ ['deduccion' => '−', 'percepcion' => '+'][$r->tipo] ?? '' }}{{ $dinero($r->importe) }}
                                                                 </span>
-                                                                @if ($n->estado === 'abierta')
+                                                                {{-- Lo automático se rehace solo: quitarlo no serviría. --}}
+                                                                @if ($n->estado === 'abierta' && ! $r->automatico)
                                                                     <button wire:click="quitarRenglon({{ $r->renglon_id }})"
                                                                             title="{{ __('Quitar') }}"
                                                                             class="ml-0.5 px-0.5 hover:text-brand">×</button>
@@ -145,8 +153,9 @@
                                                     </span>
                                                 </td>
                                                 <td class="py-1.5 pr-3 text-right tabular-nums text-ink">{{ $dinero($e->percepciones) }}</td>
-                                                <td class="py-1.5 pr-3 text-right tabular-nums {{ $e->deducciones > 0 ? 'text-brand' : 'text-ink-faint' }}">{{ $dinero($e->deducciones) }}</td>
+                                                <td class="py-1.5 pr-3 text-right tabular-nums {{ $e->deducciones > 0 ? 'text-(--danger-ink)' : 'text-ink-faint' }}">{{ $dinero($e->deducciones) }}</td>
                                                 <td class="py-1.5 pr-3 text-right font-semibold tabular-nums text-ink">{{ $dinero($e->neto) }}</td>
+                                                <td class="py-1.5 pr-3 text-right tabular-nums text-ink-faint">{{ $dinero($e->patronal) }}</td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -158,6 +167,7 @@
                                             <td class="pt-2 text-right tabular-nums text-ink-soft">{{ $dinero($totales['percepciones']) }}</td>
                                             <td class="pt-2 text-right tabular-nums text-ink-soft">{{ $dinero($totales['deducciones']) }}</td>
                                             <td class="pt-2 text-right text-base font-semibold tabular-nums text-ink">{{ $dinero($totales['neto']) }}</td>
+                                            <td class="pt-2 text-right tabular-nums text-ink-soft">{{ $dinero($totales['patronal']) }}</td>
                                         </tr>
                                     </tfoot>
                                 </table>

@@ -18,8 +18,8 @@ use Tests\TestCase;
  *
  * ⚠️ Lo que se comprueba aquí es que **lo que se paga** salga bien: sueldo por
  * los días del periodo, los viajes ya liquidados y los movimientos capturados a
- * mano. No hay IMSS, ni ISR, ni timbrado, y por eso no se prueban: el módulo no
- * los calcula a propósito.
+ * mano. Estos empleados no tienen régimen, así que no llevan impuestos; esos se
+ * prueban en `NominaImpuestosTest`.
  */
 class NominaTest extends TestCase
 {

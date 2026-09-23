@@ -230,6 +230,33 @@ class CatalogRegistry
                             : [],
                     ),
                     new CatalogField('salario_diario', __('Salario diario'), type: 'number', rules: ['nullable', 'numeric', 'min:0']),
+                    new CatalogField(
+                        'regimen',
+                        __('Régimen'),
+                        type: 'select',
+                        rules: ['required', 'in:ninguno,sueldos,asimilados,honorarios'],
+                        options: fn () => [
+                            'ninguno' => __('Sin cálculo de impuestos'),
+                            'sueldos' => __('Sueldos y salarios'),
+                            'asimilados' => __('Asimilados a salarios'),
+                            'honorarios' => __('Honorarios'),
+                        ],
+                        default: 'ninguno',
+                    ),
+                    new CatalogField(
+                        'periodicidad',
+                        __('Periodicidad'),
+                        type: 'select',
+                        rules: ['nullable', 'in:semanal,catorcenal,quincenal,mensual'],
+                        inList: false,
+                        options: fn () => [
+                            'semanal' => __('Semanal'),
+                            'catorcenal' => __('Catorcenal'),
+                            'quincenal' => __('Quincenal'),
+                            'mensual' => __('Mensual'),
+                        ],
+                    ),
+                    new CatalogField('infonavit_descuento', __('Descuento de crédito INFONAVIT por periodo'), type: 'number', rules: ['nullable', 'numeric', 'min:0'], inList: false),
                     new CatalogField('ingreso', __('Ingreso'), type: 'date', rules: ['nullable', 'date'], inList: false),
                     new CatalogField('rfc', __('RFC'), rules: ['nullable', 'string', 'max:20'], inList: false),
                     new CatalogField('curp', __('CURP'), rules: ['nullable', 'string', 'max:20'], inList: false),
@@ -239,6 +266,52 @@ class CatalogRegistry
                     new CatalogField('notas', __('Notas'), rules: ['nullable', 'string', 'max:255'], inList: false),
                     new CatalogField('activo', __('Activo'), type: 'boolean', rules: ['boolean']),
                 ],
+            ),
+            /*
+             * Tarifas de la nómina: ISR mensual del art. 96 y cesantía y vejez
+             * patronal. Cambian cada año; las edita quien sabe (el contador)
+             * sin esperar a un programador. Ver `App\Support\Payroll\Impuestos`.
+             */
+            new CatalogDefinition(
+                slug: 'tablas-fiscales',
+                table: 'tabla_fiscal',
+                key: 'tabla_fiscal_id',
+                singular: __('Renglón de tarifa'),
+                plural: __('Tablas fiscales'),
+                fields: [
+                    new CatalogField('anio', __('Año'), type: 'number', rules: ['required', 'integer', 'min:2000', 'max:2100']),
+                    new CatalogField(
+                        'tabla',
+                        __('Tabla'),
+                        type: 'select',
+                        rules: ['required', 'in:isr_mensual,cesantia_patronal'],
+                        options: fn () => [
+                            'isr_mensual' => __('ISR mensual (art. 96)'),
+                            'cesantia_patronal' => __('Cesantía y vejez patronal (límite en UMAs)'),
+                        ],
+                    ),
+                    new CatalogField('limite_inferior', __('Límite inferior'), type: 'number', rules: ['required', 'numeric', 'min:0']),
+                    new CatalogField('cuota_fija', __('Cuota fija'), type: 'number', rules: ['nullable', 'numeric', 'min:0']),
+                    new CatalogField('porcentaje', __('Porcentaje'), type: 'number', rules: ['required', 'numeric', 'min:0', 'max:100']),
+                ],
+                orderBy: 'tabla_fiscal_id',
+                note: __('Verifique cada año con su contador. Para un año nuevo, capture sus renglones: la nómina usa el año más reciente que no pase del periodo.'),
+            ),
+            new CatalogDefinition(
+                slug: 'parametros-fiscales',
+                table: 'parametro_fiscal',
+                key: 'parametro_fiscal_id',
+                singular: __('Parámetro fiscal'),
+                plural: __('Parámetros fiscales'),
+                fields: [
+                    new CatalogField('anio', __('Año'), type: 'number', rules: ['required', 'integer', 'min:2000', 'max:2100']),
+                    new CatalogField('clave', __('Clave'), rules: ['required', 'string', 'max:40']),
+                    new CatalogField('valor', __('Valor'), type: 'number', rules: ['required', 'numeric']),
+                    new CatalogField('descripcion', __('Descripción'), rules: ['nullable', 'string', 'max:160']),
+                ],
+                orderBy: 'clave',
+                searchable: ['clave', 'descripcion'],
+                note: __('UMA, salario mínimo, subsidio al empleo y porcentajes del IMSS. Verifique cada año con su contador; para un año nuevo, copie las claves con el año nuevo.'),
             ),
             /*
              * Los hitos del expediente. Antes eran catorce columnas de
@@ -518,7 +591,7 @@ class CatalogRegistry
         // La plantilla solo sirve para la nómina: sin ella es una lista de
         // personas que nadie mira.
         if (! config('marca.nomina')) {
-            unset($catalogos['empleados']);
+            unset($catalogos['empleados'], $catalogos['tablas-fiscales'], $catalogos['parametros-fiscales']);
         }
 
         // Y las refacciones, para el taller.

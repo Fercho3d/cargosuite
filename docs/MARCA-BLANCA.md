@@ -213,10 +213,30 @@ Enciende el catálogo de **empleados** y la pantalla de **Nómina**: sueldo por 
 días del periodo, las liquidaciones de viaje del operador que todavía no se han
 pagado, bonos y descuentos, y el neto por persona con su CLABE para exportar.
 
-⚠️ **Lo que no hace, y conviene decirlo antes de venderlo:** no calcula IMSS, ni
-INFONAVIT, ni tablas de ISR, ni timbra el CFDI de nómina. Eso está regulado,
-cambia cada año y es un producto en sí mismo. Lo que sale de aquí es el archivo
-con el que se dispersa y con el que se timbra **del otro lado**.
+**Impuestos y cuotas por empleado.** Cada empleado lleva su **régimen** (sin
+cálculo, sueldos y salarios, asimilados u honorarios) y su **periodicidad**
+(semanal, catorcenal, quincenal o mensual; vacío = entra a todas). Al crear la
+nómina, y cada vez que se agrega o quita un renglón, `App\Support\Payroll\Impuestos`
+rehace:
+
+- **Sueldos**: ISR con la tarifa mensual del art. 96 proporcional por días y
+  subsidio al empleo; cuotas obreras del IMSS (con salario mínimo las paga el
+  patrón, art. 36 LSS); crédito INFONAVIT (descuento fijo por periodo). Y,
+  aparte, lo **patronal**: IMSS, retiro + cesantía y vejez, INFONAVIT 5 %.
+- **Asimilados**: ISR sin subsidio, sin IMSS.
+- **Honorarios**: IVA trasladado, retención de ISR y de IVA.
+
+Lo patronal se guarda con tipo `patronal`: sale como **costo patronal** y no toca
+el neto. Las tarifas y los porcentajes viven en los catálogos **Tablas
+fiscales** y **Parámetros fiscales**, por año; la migración precarga 2026 y la
+nómina usa el año más reciente que no pase del periodo.
+
+⚠️ **Lo que no hace, y conviene decirlo antes de venderlo:** toma **toda**
+percepción como gravada (no separa exentos de horas extra, aguinaldo, PTU,
+etc.), no calcula finiquitos ni el ajuste anual, y no timbra el CFDI de nómina:
+eso sale en el archivo que se exporta. **Los valores precargados los tiene que
+verificar el contador del cliente** (en particular el subsidio al empleo, que se
+fija por decreto cada año).
 
 Se apaga entera —menú y catálogo— en las instalaciones que ya llevan la nómina en
 otro sistema, que son muchas: una pantalla de nómina a medio usar es peor que no
