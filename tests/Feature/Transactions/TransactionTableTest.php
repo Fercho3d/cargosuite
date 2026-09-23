@@ -97,8 +97,8 @@ class TransactionTableTest extends LegacyDatabaseTestCase
 
         // El `screen` viaja como valor por omisión de la ruta hasta el mount()
         // del componente; si eso se rompiera, las tres rutas mostrarían lo mismo.
-        $this->get(route('transactions.invoice'))->assertOk()->assertSee(__('Facturas'));
-        $this->get(route('transactions.bill'))->assertOk()->assertSee('<title>'.__('Costos'), false);
+        $this->get(route('transactions.invoice'))->assertOk()->assertSee(__('Ingresos'));
+        $this->get(route('transactions.bill'))->assertOk()->assertSee('<title>'.__('Gastos'), false);
         $this->get(route('transactions.all'))->assertOk()->assertSee('<title>'.__('Todas las transacciones'), false);
         $this->get(route('transactions.booking', $booking))
             ->assertOk()

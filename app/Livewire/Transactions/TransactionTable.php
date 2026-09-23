@@ -830,8 +830,8 @@ class TransactionTable extends Component
     public function title(): string
     {
         return match ($this->screen) {
-            'invoice' => __('Facturas'),
-            'bill' => __('Costos'),
+            'invoice' => __('Ingresos'),
+            'bill' => __('Gastos'),
             'booking' => __('Transacciones del booking'),
             default => __('Todas las transacciones'),
         };

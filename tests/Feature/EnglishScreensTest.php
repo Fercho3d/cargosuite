@@ -30,7 +30,7 @@ class EnglishScreensTest extends LegacyDatabaseTestCase
      * @var string[]
      */
     private const DELATORAS = [
-        'Todas', 'Todos', 'Facturas', 'Costos', 'Pagadas', 'Parciales', 'Vigentes',
+        'Todas', 'Todos', 'Facturas', 'Costos', 'Ingresos', 'Gastos', 'Pagadas', 'Parciales', 'Vigentes',
         'Canceladas', 'Fecha', 'Número', 'Importe', 'Pagado',
         'Proveedor', 'Proveedores', 'Clientes', 'Buscar', 'Guardar', 'Cancelar',
         'Borrar', 'Nombre', 'Correo', 'Teléfono', 'Dirección', 'Moneda',

@@ -38,8 +38,8 @@
     $nav = array_merge(
         [[__('Panel'), route('dashboard'), request()->routeIs('dashboard'), 'panel']],
         $esAdmin ? [
-            [__('Facturas'), route('transactions.invoice'), request()->routeIs('transactions.invoice'), 'factura'],
-            [__('Costos'), route('transactions.bill'), request()->routeIs('transactions.bill'), 'costo'],
+            [__('Ingresos'), route('transactions.invoice'), request()->routeIs('transactions.invoice'), 'factura'],
+            [__('Gastos'), route('transactions.bill'), request()->routeIs('transactions.bill'), 'costo'],
             [__('Transacciones'), route('transactions.all'), request()->routeIs('transactions.all', 'transactions.booking'), 'transaccion'],
             [__('Solicitudes de pago'), route('payments.requests'), request()->routeIs('payments.requests'), 'dolar'],
             // Solo con flota propia: quien subcontrata no liquida operadores.

@@ -55,8 +55,8 @@
     {{-- Pestañas: navegación sin recarga completa --}}
     <nav class="flex flex-wrap items-center gap-1 rounded-xl border border-line bg-panel p-1 text-sm">
         @foreach ([
-            ['invoice', __('Facturas'), route('transactions.invoice')],
-            ['bill', __('Costos'), route('transactions.bill')],
+            ['invoice', __('Ingresos'), route('transactions.invoice')],
+            ['bill', __('Gastos'), route('transactions.bill')],
             ['all', __('Todas'), route('transactions.all')],
         ] as [$key, $label, $href])
             <a href="{{ $href }}" wire:navigate
