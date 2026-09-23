@@ -6,6 +6,9 @@ base**, así que cambiar el vocabulario no toca ni una vista.
 
 - `servicios/` — órdenes de servicio (taller, mantenimiento, servicio técnico):
   booking → orden, contenedor → equipo, buque → máquina, naviera → fabricante.
+- `camiones/` — autotransporte: booking → viaje, contenedor → carga, naviera →
+  proveedor de combustible.
+- `embarques/` — carga marítima en español: booking → embarque; lo demás igual.
 
 Sin `MARCA_VOCABULARIO` se usa el de origen: agentes de carga (booking, buque,
 contenedor, naviera).

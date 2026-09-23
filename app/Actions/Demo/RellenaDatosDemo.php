@@ -28,7 +28,7 @@ class RellenaDatosDemo
      * @var array<string, array{perfil: string, modalidades: list<string>, vocabulario: string}>
      */
     public const VERTICALES = [
-        'maritimo' => ['perfil' => 'carga', 'modalidades' => ['maritimo'], 'vocabulario' => ''],
+        'maritimo' => ['perfil' => 'carga', 'modalidades' => ['maritimo'], 'vocabulario' => 'embarques'],
         'terrestre' => ['perfil' => 'camiones', 'modalidades' => ['terrestre'], 'vocabulario' => 'camiones'],
     ];
 
