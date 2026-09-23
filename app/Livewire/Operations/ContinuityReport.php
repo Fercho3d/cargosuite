@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Operations;
 
+use App\Queries\BookingQuery;
 use App\Queries\TransactionFilters;
 use App\Support\Milestones\BookingMilestones;
+use App\Support\Milestones\Checklist;
 use App\Support\Milestones\MilestoneCatalog;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
@@ -45,6 +47,14 @@ class ContinuityReport extends Component
     #[Url(as: 'f', except: '')]
     public string $dates = '';
 
+    /**
+     * Ver las fechas de cumplimiento (`check_list`) en vez de las planeadas.
+     * En ese modo la rejilla es de solo lectura: el cumplimiento se marca en
+     * el detalle del booking, donde aplican sus reglas de orden.
+     */
+    #[Url(as: 'cumplidas', except: false)]
+    public bool $verCumplidas = false;
+
     /** Renglón y columna en captura: "cont_id|hito". */
     public ?string $editing = null;
 
@@ -68,21 +78,25 @@ class ContinuityReport extends Component
         $this->resetPage();
     }
 
-    /** Abre la captura de un hito concreto de un booking. */
+    /**
+     * Abre la captura de un hito concreto de un booking.
+     *
+     * Para cualquier usuario interno, como el `setdate` del original. La fecha
+     * va con hora (`datetime-local`), que es como la guardaba el sistema viejo;
+     * quien no la sepa deja las 00:00 que vienen puestas.
+     */
     public function editMilestone(int $bookingId, string $hito, ?string $actual = null): void
     {
-        $this->assertAdmin();
+        abort_if($this->verCumplidas, 422, __('Las fechas de cumplimiento se marcan desde el detalle del booking.'));
         abort_unless(MilestoneCatalog::porClave($hito)?->activo ?? false, 404);
 
         $this->editing = $bookingId.'|'.$hito;
-        $this->value = $actual ? substr($actual, 0, 10) : now()->toDateString();
+        $this->value = BookingMilestones::paraCaptura($actual);
         $this->resetErrorBag();
     }
 
     public function saveMilestone(): void
     {
-        $this->assertAdmin();
-
         [$bookingId, $hito] = explode('|', (string) $this->editing);
 
         abort_unless(MilestoneCatalog::porClave($hito)?->activo ?? false, 404);
@@ -103,15 +117,10 @@ class ContinuityReport extends Component
         $this->resetErrorBag();
     }
 
-    private function assertAdmin(): void
-    {
-        abort_unless(auth()->user()?->isAdmin() ?? false, 403);
-    }
-
     public function render()
     {
         $filas = DB::table('booking as b')
-            ->leftJoin('booking_continuity as bc', 'bc.booking', '=', 'b.booking_id')
+            ->leftJoin('booking_continuity as bc', BookingQuery::ultimaContinuidad(...))
             ->leftJoin('client as c', 'c.client_id', '=', 'b.client')
             ->leftJoin('vessel as v', 'v.vessel_id', '=', 'b.vessel')
             ->where('b.is_draft', 0)
@@ -129,7 +138,10 @@ class ContinuityReport extends Component
 
         // Las fechas de los 25 renglones en UNA consulta: la rejilla no puede
         // preguntar expediente por expediente.
-        $fechas = BookingMilestones::deVarios($filas->pluck('booking_id')->map(intval(...))->all());
+        $ids = $filas->pluck('booking_id')->map(intval(...))->all();
+        $fechas = $this->verCumplidas
+            ? array_map(fn (array $hitos) => array_map(fn (array $marca) => $marca['fecha'], $hitos), Checklist::deVarios($ids))
+            : BookingMilestones::deVarios($ids);
 
         return view('livewire.operations.continuity-report', [
             'filas' => $filas,

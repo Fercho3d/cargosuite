@@ -25,11 +25,13 @@ use Throwable;
 class SendBookingConfirmation
 {
     /**
+     * @param  list<string>|null  $destinatarios  A quién mandarla en vez de al cliente
+     *                                            («Enviarme una copia»).
      * @return array<int, string> A quién se le mandó.
      */
-    public function handle(Booking $booking): array
+    public function handle(Booking $booking, ?array $destinatarios = null): array
     {
-        $destinatarios = Client::find($booking->client)?->notificationEmails() ?? [];
+        $destinatarios ??= Client::find($booking->client)?->notificationEmails() ?? [];
 
         if ($destinatarios === []) {
             return [];

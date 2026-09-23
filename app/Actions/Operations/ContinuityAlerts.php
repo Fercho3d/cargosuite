@@ -28,8 +28,8 @@ class ContinuityAlerts
     /**
      * Los hitos que se vigilan, tal como los lista `BookingContinuity::getTaksFields()`.
      *
-     * ⚠️ «Gated Out» aparece **dos veces** en el original, así que ese hito
-     * manda dos correos iguales. Se conserva la lista tal cual.
+     * En el original «Gated Out» aparece **dos veces**, así que ese hito
+     * mandaba dos correos iguales; aquí va una sola vez.
      *
      * @var list<array{label: string, field: string}>
      */
@@ -37,7 +37,6 @@ class ContinuityAlerts
         ['label' => 'Empty Pass', 'field' => 'vacuum_maneuver'],
         ['label' => 'Gated Out', 'field' => 'gated_out'],
         ['label' => 'Port Closing Day', 'field' => 'doc_cut_of'],
-        ['label' => 'Gated Out', 'field' => 'gated_out'],
         ['label' => 'SI', 'field' => 'SI_date'],
         ['label' => 'Draft Customer', 'field' => 'draf_client'],
         ['label' => 'Gated In', 'field' => 'gated_IN'],

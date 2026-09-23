@@ -34,7 +34,7 @@ class AjustesTest extends TestCase
 
     private function usuario(int $rol = User::ROLE_SUPER_ADMIN): User
     {
-        return User::create([
+        return User::forceCreate([
             'username' => 'jefa'.$rol, 'password' => 'secreto-de-prueba',
             'role' => $rol, 'access' => User::ACCESS_INTERNAL, 'status' => 1,
         ]);
@@ -48,6 +48,13 @@ class AjustesTest extends TestCase
     public function test_solo_el_super_administrador_entra(): void
     {
         $this->pantalla(User::ROLE_ADMIN)->assertForbidden();
+    }
+
+    public function test_apagados_no_entra_ni_el_super_administrador(): void
+    {
+        config(['marca.ajustes' => false]);
+
+        $this->pantalla()->assertNotFound();
     }
 
     public function test_la_pantalla_ofrece_las_dos_formas_de_transporte(): void

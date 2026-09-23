@@ -2,12 +2,10 @@
 
 namespace App\Livewire\Services;
 
-use App\Models\Core\Account;
 use App\Models\Core\Client;
 use App\Models\Core\Provider;
 use App\Models\Core\Service;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -22,11 +20,8 @@ use Livewire\WithPagination;
  * Un servicio con **precio 0 es un precio abierto**: al capturar el concepto se
  * escribe a mano. Cualquier otro precio queda fijo.
  *
- * Los servicios marcados como **auto-incluibles** son además los que el booking
- * usa para proponer solo su factura y sus costos: por eso el formulario pide la
- * ruta (puerto de carga, de descarga, lugar de recolección, destino final y tipo
- * de contenedor), cómo se cobra el precio y hasta cuándo está vigente. Sin esos
- * datos el servicio existe, pero la generación automática no lo puede encontrar.
+ * Aquí solo va la lista; el alta y la edición abren su propio formulario
+ * (`ServiceForm`), que regresa a esta lista tal como se dejó.
  */
 class ServiceManager extends Component
 {
@@ -35,21 +30,30 @@ class ServiceManager extends Component
     #[Url(as: 'q', except: '')]
     public string $search = '';
 
-    /** 1 = de venta (cliente), 2 = de compra (proveedor). */
+    /** 1 = de venta (cliente), 2 = de compra (proveedor); cualquier otro valor, sin filtro. */
     #[Url(as: 'tipo', except: '1')]
     public string $type = '1';
 
     #[Url(as: 'tercero', except: '')]
     public string $partyId = '';
 
-    public ?int $editing = null;
-
-    /** @var array<string, mixed> */
-    public array $form = [];
+    /** Ficha del cliente o proveedor de la que se llegó, para regresar a ella. */
+    #[Url(as: 'volver', except: '')]
+    public string $volver = '';
 
     public function paginationView(): string
     {
         return 'vendor.pagination.app';
+    }
+
+    public function mount(): void
+    {
+        $this->assertAdmin();
+
+        // Solo se regresa a direcciones propias del sistema.
+        if (! str_starts_with($this->volver, '/') || str_starts_with($this->volver, '//')) {
+            $this->volver = '';
+        }
     }
 
     public function updated(string $property): void
@@ -63,6 +67,12 @@ class ServiceManager extends Component
         }
     }
 
+    /** ¿Se filtra por venta o compra? Un `tipo` desconocido en la URL no filtra. */
+    public function filtersByType(): bool
+    {
+        return in_array($this->type, ['1', '2'], true);
+    }
+
     public function isSale(): bool
     {
         return (int) $this->type === Service::TYPE_CLIENT;
@@ -74,192 +84,16 @@ class ServiceManager extends Component
         return $this->isSale() ? Client::options() : Provider::options();
     }
 
-    // ------------------------------------------------------------ Edición
-
-    public function create(): void
+    /** Esta lista con su filtro: a dónde regresa el formulario de un servicio. */
+    public function currentUrl(): string
     {
-        $this->assertAdmin();
-
-        $this->editing = 0;
-        $this->form = $this->blankForm();
-        $this->resetErrorBag();
-    }
-
-    public function edit(int $id): void
-    {
-        $this->assertAdmin();
-
-        $servicio = Service::findOrFail($id);
-
-        $this->editing = $id;
-        $this->form = array_merge($this->blankForm(), [
-            'description' => (string) $servicio->description,
-            'price' => (string) ($servicio->price ?? 0),
-            'charge_type_id' => (string) $servicio->charge_type_id,
-            'party_id' => (string) ($servicio->client_id ?: $servicio->provider_id),
-            'active' => (bool) $servicio->active,
-            'account_id' => (string) $servicio->account_id,
-            'price_type' => (string) $servicio->price_type,
-            'auto_include' => (bool) $servicio->auto_include,
-            'loading_port_id' => (string) $servicio->loading_port_id,
-            'dicharge_port_id' => (string) $servicio->dicharge_port_id,
-            'pickup_place_id' => (string) $servicio->pickup_place_id,
-            'final_destination_id' => (string) $servicio->final_destination_id,
-            'container_type_id' => (string) $servicio->container_type_id,
-            'start_date' => $this->asDate($servicio->start_date),
-            'end_date' => $this->asDate($servicio->end_date),
-            'min' => (string) $servicio->min,
-            'max' => (string) $servicio->max,
-        ]);
-        $this->type = (string) $servicio->type;
-        $this->resetErrorBag();
-    }
-
-    public function cancel(): void
-    {
-        $this->reset(['editing', 'form']);
-        $this->resetErrorBag();
-    }
-
-    /** @return array<string, mixed> */
-    private function blankForm(): array
-    {
-        return [
-            'description' => '',
-            'price' => '0',
-            'charge_type_id' => '',
-            'party_id' => $this->partyId,
-            'active' => true,
-            'account_id' => '',
-            'price_type' => '',
-            'auto_include' => false,
-            'loading_port_id' => '',
-            'dicharge_port_id' => '',
-            'pickup_place_id' => '',
-            'final_destination_id' => '',
-            'container_type_id' => '',
-            'start_date' => '',
-            'end_date' => '',
-            'min' => '',
-            'max' => '',
-        ];
-    }
-
-    /** El esquema heredado guarda «sin fecha» como `0000-00-00` en algunas filas. */
-    private function asDate(?string $valor): string
-    {
-        return $valor === null || str_starts_with($valor, '0000-00-00') ? '' : substr($valor, 0, 10);
-    }
-
-    /**
-     * Cómo se cobra el precio. Los dos tipos de aduana solo existen del lado de
-     * la venta: son lo que se le cobra al cliente por el despacho.
-     *
-     * @return array<int, string>
-     */
-    public function priceTypes(): array
-    {
-        $tipos = [
-            Service::PRICE_BY_CONTAINER => __('Por contenedor'),
-            Service::PRICE_BY_BL => __('Por BL'),
-        ];
-
-        return $this->isSale()
-            ? $tipos + [
-                Service::PRICE_BY_BROKER_CONTAINER => __('Aduana, por contenedor'),
-                Service::PRICE_BY_BROKER_BL => __('Aduana, por BL'),
-            ]
-            : $tipos;
-    }
-
-    public function save(): void
-    {
-        $this->assertAdmin();
-
-        $datos = $this->validate($this->rules(), attributes: [
-            'form.description' => __('descripción'),
-            'form.price' => 'precio',
-            'form.charge_type_id' => __('tipo de cargo'),
-            'form.account_id' => 'divisa',
-            'form.price_type' => __('tipo de precio'),
-            'form.start_date' => __('inicio de vigencia'),
-            'form.end_date' => __('fin de vigencia'),
-            'form.min' => __('precio mínimo'),
-            'form.max' => __('precio máximo'),
-            'form.party_id' => $this->isSale() ? 'cliente' : 'proveedor',
-        ])['form'];
-
-        $entero = fn (string $campo) => ($datos[$campo] ?? '') === '' ? null : (int) $datos[$campo];
-        $numero = fn (string $campo) => ($datos[$campo] ?? '') === '' ? null : (float) $datos[$campo];
-
-        $valores = [
-            'description' => $datos['description'],
-            'price' => (float) $datos['price'],
-            'charge_type_id' => (int) $datos['charge_type_id'],
-            'account_id' => (int) $datos['account_id'],
-            'type' => (int) $this->type,
-            'client_id' => $this->isSale() ? (int) $datos['party_id'] : null,
-            'provider_id' => $this->isSale() ? null : (int) $datos['party_id'],
-            'active' => ($this->form['active'] ?? false) ? 1 : 0,
-            'auto_include' => ($this->form['auto_include'] ?? false) ? 1 : 0,
-            'price_type' => $entero('price_type'),
-            'loading_port_id' => $entero('loading_port_id'),
-            'dicharge_port_id' => $entero('dicharge_port_id'),
-            'pickup_place_id' => $entero('pickup_place_id'),
-            'final_destination_id' => $entero('final_destination_id'),
-            'container_type_id' => $entero('container_type_id'),
-            'start_date' => ($datos['start_date'] ?? '') ?: null,
-            'end_date' => ($datos['end_date'] ?? '') ?: null,
-            'min' => $numero('min'),
-            'max' => $numero('max'),
-            'modified_by' => auth()->id(),
-        ];
-
-        $this->editing === 0
-            ? DB::table('service')->insert($valores + ['created_by' => auth()->id(), 'created_at' => now()])
-            : DB::table('service')->where('service_id', $this->editing)->update($valores);
-
-        session()->flash('status', $this->editing === 0 ? 'Servicio creado.' : 'Servicio actualizado.');
-        $this->cancel();
-    }
-
-    /**
-     * El tipo de precio es obligatorio en cuanto el servicio es auto-incluible:
-     * sin él la generación automática no sabe por cuánto multiplicar y escribiría
-     * el concepto con cantidad 0. El original lo dejaba pasar y en la base hay 21
-     * servicios así.
-     *
-     * @return array<string, array<int, mixed>>
-     */
-    private function rules(): array
-    {
-        $catalogo = fn (string $tabla, string $llave) => ['nullable', Rule::exists($tabla, $llave)];
-
-        return [
-            'form.description' => ['required', 'string', 'max:255'],
-            'form.price' => ['required', 'numeric', 'min:0'],
-            'form.charge_type_id' => ['required', Rule::exists('charge_type', 'charge_type_id')],
-            'form.account_id' => ['required', Rule::exists('account', 'account_id')],
-            'form.party_id' => [
-                'required',
-                $this->isSale()
-                    ? Rule::exists('client', 'client_id')
-                    : Rule::exists('provider', 'provider_id'),
-            ],
-            'form.price_type' => [
-                ($this->form['auto_include'] ?? false) ? 'required' : 'nullable',
-                Rule::in(array_keys($this->priceTypes())),
-            ],
-            'form.loading_port_id' => $catalogo('loading_ports', 'port_id'),
-            'form.dicharge_port_id' => $catalogo('dicharge_port', 'dicharge_port_id'),
-            'form.pickup_place_id' => $catalogo('pickup_place', 'pick_id'),
-            'form.final_destination_id' => $catalogo('final_destination', 'final_destination_id'),
-            'form.container_type_id' => $catalogo('container_types', 'contType_id'),
-            'form.start_date' => ['nullable', 'date'],
-            'form.end_date' => ['nullable', 'date', 'after_or_equal:form.start_date'],
-            'form.min' => ['nullable', 'numeric', 'min:0'],
-            'form.max' => ['nullable', 'numeric', 'min:0', 'gte:form.min'],
-        ];
+        return route('parties.services', array_filter([
+            'tipo' => $this->type === '1' ? null : $this->type,
+            'tercero' => $this->partyId,
+            'q' => $this->search,
+            'volver' => $this->volver,
+            'page' => $this->getPage() > 1 ? $this->getPage() : null,
+        ]), absolute: false);
     }
 
     /** Se desactiva, no se borra: hay conceptos históricos que lo referencian. */
@@ -271,9 +105,10 @@ class ServiceManager extends Component
         $servicio->forceFill(['active' => $servicio->active ? 0 : 1])->save();
     }
 
+    /** Solo el super administrador, como el `ServiceController` de Yii2. */
     private function assertAdmin(): void
     {
-        abort_unless(auth()->user()?->isAdmin() ?? false, 403);
+        abort_unless(auth()->user()?->isSuperAdmin() ?? false, 403);
     }
 
     public function render()
@@ -282,30 +117,33 @@ class ServiceManager extends Component
             ->leftJoin('charge_type as ct', 'ct.charge_type_id', '=', 's.charge_type_id')
             ->leftJoin('client as c', 'c.client_id', '=', 's.client_id')
             ->leftJoin('provider as p', 'p.provider_id', '=', 's.provider_id')
-            ->where('s.type', (int) $this->type)
-            ->when($this->partyId !== '', fn ($q) => $this->isSale()
+            ->when($this->filtersByType(), fn ($q) => $q->where('s.type', (int) $this->type))
+            ->when($this->filtersByType() && $this->partyId !== '', fn ($q) => $this->isSale()
                 ? $q->where('s.client_id', (int) $this->partyId)
                 : $q->where('s.provider_id', (int) $this->partyId))
             ->when($this->search !== '', fn ($q) => $q->where('s.description', 'like', '%'.$this->search.'%'))
             ->orderBy('s.description')
             ->leftJoin('account as a', 'a.account_id', '=', 's.account_id')
+            // La ruta, el contenedor y quién lo tocó, como en el grid de Yii2.
+            ->leftJoin('loading_ports as pol', 'pol.port_id', '=', 's.loading_port_id')
+            ->leftJoin('dicharge_port as pod', 'pod.dicharge_port_id', '=', 's.dicharge_port_id')
+            ->leftJoin('pickup_place as pp', 'pp.pick_id', '=', 's.pickup_place_id')
+            ->leftJoin('final_destination as fd', 'fd.final_destination_id', '=', 's.final_destination_id')
+            ->leftJoin('container_types as cty', 'cty.contType_id', '=', 's.container_type_id')
+            ->leftJoin('users as u', 'u.usr_id', '=', 's.modified_by')
             ->paginate(25, [
-                's.service_id', 's.description', 's.price', 's.active',
+                's.service_id', 's.description', 's.price', 's.active', 's.contract',
                 's.auto_include', 's.start_date', 's.end_date', 'a.prefix as currency',
                 'ct.charge_type_name', 'c.fullName as client_name', 'p.fullName as provider_name',
+                's.price_type', 'pol.port_name as pol', 'pod.name as pod', 'pp.name as pickup',
+                'fd.name as destination', 'cty.container_name as container',
+                's.modified_at', 'u.username as modified_by_name',
             ], 'page', $this->getPage());
 
         return view('livewire.services.service-manager', [
             'servicios' => $servicios,
             'terceros' => $this->parties(),
-            'tiposDeCargo' => DB::table('charge_type')->where('deleted', 0)
-                ->orderBy('charge_type_name')->pluck('charge_type_name', 'charge_type_id')->all(),
-            'divisas' => Account::options(),
-            'puertosCarga' => DB::table('loading_ports')->where('deleted', 0)->orderBy('port_name')->pluck('port_name', 'port_id')->all(),
-            'puertosDescarga' => DB::table('dicharge_port')->where('deleted', 0)->orderBy('name')->pluck('name', 'dicharge_port_id')->all(),
-            'lugares' => DB::table('pickup_place')->orderBy('name')->pluck('name', 'pick_id')->all(),
-            'destinos' => DB::table('final_destination')->where('deleted', 0)->orderBy('name')->pluck('name', 'final_destination_id')->all(),
-            'tiposContenedor' => DB::table('container_types')->orderBy('container_name')->pluck('container_name', 'contType_id')->all(),
+            'tiposDePrecio' => Service::priceTypeLabels(),
         ])->layout('components.app-layout', ['title' => __('Servicios y precios')]);
     }
 }

@@ -23,7 +23,7 @@
 <div class="mx-auto max-w-6xl space-y-5">
 
     {{-- Portada --}}
-    <section class="relative overflow-hidden rounded-2xl border border-line bg-panel p-6 sm:p-8">
+    <section class="relative overflow-hidden rounded-2xl border border-line bg-panel p-4 sm:p-5">
         {{-- Un resplandor del color de la marca, muy tenue, detrás del saludo --}}
         <div class="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent-500/10 blur-3xl" aria-hidden="true"></div>
         <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent-500/40 to-transparent" aria-hidden="true"></div>
@@ -33,7 +33,7 @@
                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-ink-faint">
                     {{ now()->isoFormat(__('dddd, D [de] MMMM')) }}
                 </p>
-                <h2 class="mt-1 text-2xl font-semibold text-ink sm:text-3xl">
+                <h2 class="mt-0.5 text-xl font-semibold text-ink sm:text-2xl">
                     {{ __('Hola, :nombre', ['nombre' => $usuario->name ?: $usuario->username]) }}
                 </h2>
                 <p class="mt-1 text-sm text-ink-muted">
@@ -42,12 +42,12 @@
             </div>
 
             <a href="{{ route('operations.bookings') }}" wire:navigate class="btn-accent px-4 py-2 text-sm">
-                {{ __('Ir a operación') }}
+                {{ __('Bookings') }}
             </a>
         </div>
 
         @unless ($usuario->two_factor_secret)
-            <div class="relative mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-accent-700/50 bg-accent-700/10 px-4 py-3 text-sm">
+            <div class="relative mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-accent-700/50 bg-accent-700/10 px-4 py-2 text-sm">
                 <span class="text-brand">{{ __('Refuerza tu cuenta activando la verificación en dos pasos.') }}</span>
                 <a href="{{ route('security.show') }}" wire:navigate class="btn-accent !px-3 !py-1.5 text-xs">{{ __('Activar 2FA') }}</a>
             </div>
@@ -70,6 +70,9 @@
             </div>
         @endforeach
     </section>
+
+    {{-- Mapa de rutas en curso: arriba, tras las cifras del mes. --}}
+    @include('partials.mapa-rutas')
 
     <div class="grid gap-4 lg:grid-cols-3">
         {{-- Facturas emitidas por mes --}}
@@ -182,7 +185,5 @@
             </table>
         </div>
     </section>
-
-    @include('partials.mapa-rutas')
 
 </div>

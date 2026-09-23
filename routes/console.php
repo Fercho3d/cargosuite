@@ -28,6 +28,33 @@ Artisan::command('inspire', function () {
  * En el servidor hace falta la línea de cron que despierta al planificador:
  *   * * * * * cd /ruta/de/la/aplicacion && php8.4 artisan schedule:run >> /dev/null 2>&1
  */
+/*
+ * El dólar del día, de lunes a viernes a primera hora. Antes lo traía el primer
+ * usuario que guardaba una transacción; así ya está cuando llega. Sábado y
+ * domingo Banxico no publica, y si un día falla, la siguiente transacción lo
+ * vuelve a intentar sola (`ExchangeRates::ensureFor()`).
+ */
+Schedule::command('exchange:diario')
+    ->weekdays()
+    ->dailyAt('07:30')
+    ->timezone('America/Mexico_City')
+    ->withoutOverlapping()
+    ->description('Tipo de cambio del dólar (Banxico)');
+
+/*
+ * Cancelaciones de CFDI que quedaron esperando respuesta.
+ *
+ * El PAC avisa una sola vez, al recibir la solicitud; que el receptor la
+ * autorice, la rechace o deje vencer el plazo de 72 horas solo lo sabe el SAT.
+ * A diario, ya empezada la jornada, se le pregunta por cada solicitud pendiente
+ * y las que ya se consumaron se marcan solas.
+ */
+Schedule::command('cfdi:revisar-cancelaciones')
+    ->dailyAt('08:00')
+    ->timezone('America/Mexico_City')
+    ->withoutOverlapping()
+    ->description('Estado ante el SAT de las cancelaciones solicitadas');
+
 if (config('marca.correo.avisos_por_correo')) {
     Schedule::command('operacion:avisos-continuidad aviso')
         ->dailyAt('07:00')

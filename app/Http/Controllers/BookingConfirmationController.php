@@ -16,8 +16,8 @@ class BookingConfirmationController extends Controller
 {
     public function __invoke(BookingConfirmation $documento, int $booking): Response
     {
-        abort_unless(auth()->user()?->isAdmin() ?? false, 403);
-
+        // Para cualquier usuario interno, como el `pdf` del original: la ruta
+        // ya va detrás de `EnsureUserIsInternal`, y el portal tiene la suya.
         $modelo = Booking::findOrFail($booking);
 
         return response($documento->pdf($modelo), 200, [

@@ -168,6 +168,33 @@ vendor/bin/phpunit --group parity
 vendor/bin/phpunit --group performance
 ```
 
+### Decisiones de la revisión de paridad (etapa 2)
+
+- **Rango por omisión.** Los listados y el reporte por booking arrancan en el
+  año en curso por rendimiento, pero llevan un enlace «Ver todos los años» que
+  quita el rango de un clic, «Limpiar filtros» deja la pantalla sin rango y la
+  cabecera dice el rango vigente.
+- **Columnas recuperadas del original.** «Non Dec» en todos los listados y en
+  el pie; en Costos, PDF/XML, Solicitud (la solicitud de pago que lo pidió),
+  Total natural y Saldo; en Facturas, «Pagado (TC de pago)». El CSV lleva las
+  mismas columnas que la pantalla que se descarga.
+- **Profit del booking.** El original tenía dos cálculos distintos
+  (`buildProfitSummary()` y `views/transaction/index.php`). Se unificó en el de
+  la pantalla del booking: magnitud por renglón, las notas de crédito al
+  cliente fuera del ingreso y las de proveedor restando del costo.
+- **Pantalla del booking.** En un booking real se marcan renglones para
+  timbrar o solicitar pago (facturas y costos no se mezclan en una solicitud);
+  un booking cerrado no ofrece altas ni timbrado y rechaza el alta con 422.
+- **Reenviar documentos** exige solo el PDF, como el original: las facturas
+  históricas con PDF cargado a mano también se reenvían, con aviso de sin sello.
+- **Contraparte bloqueada.** Con el documento en una solicitud de pago, el
+  cliente o proveedor ya no se cambia.
+- **Solicitudes que pagan una transacción.** El detalle lista las solicitudes
+  donde aparece el documento (`PaymentRequestQuery` con `transc_id`), y la
+  etiqueta de estado del listado lleva ahí.
+- **Reporte por booking.** Su descarga trae sus propias columnas y el renglón
+  con pérdida va en rojo, como el original.
+
 ---
 
 ## 6. Riesgos y decisiones abiertas

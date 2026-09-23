@@ -3,11 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Group;
-use Tests\TestCase;
-use Throwable;
+use Tests\DemoDatabaseTestCase;
 
 /**
  * La base de demostración está sana: todas las pantallas abren con sus datos.
@@ -23,36 +21,15 @@ use Throwable;
  * la base sembrada; sin ella se salta.
  */
 #[Group('demo')]
-class DemoDataTest extends TestCase
+class DemoDataTest extends DemoDatabaseTestCase
 {
-    private const BASE = 'cargosuite_demo';
-
-    protected function setUp(): void
+    protected function base(): string
     {
-        parent::setUp();
-
-        Config::set('database.connections.demo', array_merge(
-            config('database.connections.frego_legacy'),
-            ['database' => self::BASE],
-        ));
-        Config::set('database.default', 'demo');
-
-        try {
-            $sembrada = DB::connection('demo')->table('transaction')->exists();
-        } catch (Throwable $e) {
-            $this->markTestSkipped('No hay conexión a `'.self::BASE.'`: '.$e->getMessage());
-        }
-
-        if (! $sembrada) {
-            $this->markTestSkipped('La base `'.self::BASE.'` está vacía: corre `php artisan db:seed --class=DemoSeeder`.');
-        }
+        return 'cargosuite_demo';
     }
 
     public function test_todas_las_pantallas_abren_con_los_datos_de_ejemplo(): void
     {
-        $admin = User::query()->where('username', 'demo.admin')->first();
-        $this->assertNotNull($admin, 'Falta la cuenta demo.admin.');
-
         // El booking 1 es de los viejos (cerrado) y el último sigue abierto:
         // hacen falta los dos, porque la generación de facturación se niega a
         // trabajar sobre un booking cerrado y esa negativa también hay que verla.
@@ -69,19 +46,7 @@ class DemoDataTest extends TestCase
             '/avisos', '/usuarios', '/seguridad',
         ];
 
-        foreach ($rutas as $ruta) {
-            try {
-                $this->assertSame(200, $this->actingAs($admin)->get($ruta)->status(), "Falló {$ruta}");
-            } catch (Throwable $e) {
-                $causa = $e;
-
-                while ($causa->getPrevious()) {
-                    $causa = $causa->getPrevious();
-                }
-
-                $this->fail("Falló {$ruta}: ".$causa::class.' — '.$causa->getMessage());
-            }
-        }
+        $this->abre($rutas);
 
         $cliente = User::query()->where('username', 'demo.cliente')->first();
         $this->assertSame(200, $this->actingAs($cliente)->get('/portal')->status());
@@ -96,16 +61,20 @@ class DemoDataTest extends TestCase
      */
     public function test_la_rejilla_de_continuidad_trae_fechas(): void
     {
-        $admin = User::query()->where('username', 'demo.admin')->first();
-
-        $respuesta = $this->actingAs($admin)->get('/operacion/continuidad');
+        $respuesta = $this->actingAs($this->admin())->get('/operacion/continuidad');
 
         $respuesta->assertOk();
-        $respuesta->assertSee('Zarpe');
+        // El rótulo sale en el idioma que eligió demo.admin (su preferencia
+        // vive en la base sembrada): se acepta en los dos.
+        $this->assertMatchesRegularExpression('/Zarpe|Departure/', (string) $respuesta->getContent());
 
-        // Al menos un renglón con fecha capturada, no solo el punto de «vacío».
+        // Al menos una celda con fecha capturada, no solo el punto de «vacío».
+        // La rejilla pinta «dd/mm» (o «dd/mm/aa» fuera del año en curso) como
+        // contenido de la celda; el marcador de posición del filtro trae una
+        // fecha completa dentro de un atributo y por eso se exige que vaya
+        // entre etiquetas.
         $this->assertMatchesRegularExpression(
-            '/\d{2}\/\d{2}\/\d{4}/',
+            '~>\s*\d{2}/\d{2}(/\d{2})?\s*<~',
             (string) $respuesta->getContent(),
             'La rejilla de continuidad salió sin una sola fecha.',
         );

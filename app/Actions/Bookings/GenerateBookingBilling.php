@@ -25,9 +25,10 @@ use Illuminate\Validation\ValidationException;
  * alta manual: así el folio consecutivo, el tipo de cambio del día y las marcas
  * de auditoría salen de un solo lugar.
  *
- * ⚠️ En producción las tablas son MyISAM y **no honran la transacción de base de
- * datos**: si algo falla a la mitad, lo ya escrito se queda. Por eso el plan se
- * arma y se valida completo antes de escribir el primer renglón.
+ * `transaction` y `charge` son InnoDB, pero `client` es MyISAM y el sistema
+ * original escribe sobre las mismas tablas sin transacciones propias, así que
+ * el plan se arma y se valida completo antes de escribir el primer renglón en
+ * vez de confiar solo en deshacer al fallar.
  */
 class GenerateBookingBilling
 {
@@ -74,7 +75,7 @@ class GenerateBookingBilling
             'account' => $documento->accountId,
             'customer' => $documento->customerId,
             'vendor' => $documento->vendorId,
-            'invoice_type' => $esFactura ? Transaction::INVOICE_TYPE_NORMAL : null,
+            'invoice_type' => Transaction::INVOICE_TYPE_NORMAL,
         ], $usuario);
 
         foreach ($documento->lines as $renglon) {

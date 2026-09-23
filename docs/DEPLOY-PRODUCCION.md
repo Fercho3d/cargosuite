@@ -142,11 +142,13 @@ Se detectó de paso que `mysqld` escucha en `0.0.0.0:3306` y existe el usuario
 de producción es alcanzable desde fuera. No se tocó nada de esto porque queda fuera
 del encargo, pero conviene revisarlo.
 
-## El planificador (correos automáticos)
+## El planificador (tipo de cambio y correos automáticos)
 
-Los avisos de tareas atrasadas salen de `routes/console.php` una vez al día. Para
-que corran, el servidor necesita **una** línea de cron que despierte a Laravel
-cada minuto:
+De `routes/console.php` salen dos cosas: el **tipo de cambio del dólar**
+(`exchange:diario`, lunes a viernes a las 07:30 hora de México, desde Banxico
+con `BANXICO_TOKEN`) y los avisos de tareas atrasadas, una vez al día. Para que
+corran, el servidor necesita **una** línea de cron que despierte a Laravel cada
+minuto:
 
 ```cron
 * * * * * cd /var/www/html/frego-laravel && php8.4 artisan schedule:run >> /dev/null 2>&1
@@ -163,4 +165,11 @@ servidor corra en UTC. Para probar sin mandar correo:
 
 ```bash
 php8.4 artisan operacion:avisos-continuidad vencido --simular
+```
+
+Si un día el dólar no se registró (Banxico caído o token vencido, el menú lo
+avisa), se puede pedir a mano; si ya está, no consulta nada:
+
+```bash
+php8.4 artisan exchange:diario
 ```

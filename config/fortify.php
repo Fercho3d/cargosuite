@@ -166,7 +166,10 @@ return [
         // Features::registration(),
         Features::resetPasswords(),
         // Features::emailVerification(),
-        Features::updateProfileInformation(),
+        // Sin pantalla de perfil: el nombre y el correo los cambia el super
+        // administrador desde /usuarios. Dejar la ruta `PUT
+        // /user/profile-information` abierta sin vista era un hueco.
+        // Features::updateProfileInformation(),
         Features::updatePasswords(),
         Features::twoFactorAuthentication([
             'confirm' => true,

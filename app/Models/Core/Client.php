@@ -32,18 +32,19 @@ class Client extends CoreModel
 
     /**
      * Correos a los que se le avisa al cliente (confirmación del booking y
-     * factura timbrada). `email_notification` guarda una lista separada por
-     * comas o punto y coma.
+     * factura timbrada). Une `email` con la lista `email_notification`
+     * (separada por comas o punto y coma), sin repetidos ni inválidos, como
+     * `Client::getNotificationEmails()` en Yii2.
      *
      * @return array<int, string>
      */
     public function notificationEmails(): array
     {
-        $raw = trim((string) ($this->email_notification ?: $this->email));
+        $raw = $this->email.','.$this->email_notification;
 
-        return array_values(array_filter(
+        return array_values(array_unique(array_filter(
             array_map('trim', preg_split('/[,;]+/', $raw) ?: []),
             fn ($mail) => filter_var($mail, FILTER_VALIDATE_EMAIL) !== false
-        ));
+        )));
     }
 }

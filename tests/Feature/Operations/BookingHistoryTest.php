@@ -33,7 +33,7 @@ class BookingHistoryTest extends TestCase
 
     private function pantalla(int $rol = User::ROLE_ADMIN)
     {
-        $usuario = User::create([
+        $usuario = User::forceCreate([
             'username' => 'operador'.$rol, 'name' => 'Ana Ruiz',
             'password' => 'secreto-de-prueba', 'role' => $rol, 'status' => 1,
         ]);
@@ -134,8 +134,43 @@ class BookingHistoryTest extends TestCase
         $this->pantalla()->assertSee('no tiene movimientos registrados');
     }
 
-    public function test_quien_no_es_administrador_no_entra(): void
+    /** Como el `history` del original: para cualquier usuario interno. */
+    public function test_cualquier_usuario_interno_entra(): void
     {
-        $this->pantalla(User::ROLE_USER)->assertForbidden();
+        $this->pantalla(User::ROLE_USER)->assertOk();
+    }
+
+    public function test_la_casilla_marcada_dice_quien_la_marco(): void
+    {
+        $this->pantalla();
+        $marco = User::forceCreate([
+            'username' => 'luis', 'name' => 'Luis Pérez',
+            'password' => 'secreto-de-prueba', 'role' => User::ROLE_USER, 'status' => 1,
+        ]);
+        DB::table('check_list_history')->insert([
+            [
+                'change_type' => 'CREATE', 'change_date' => '2026-01-01 09:00:00', 'check_id' => 1, 'booking' => 1,
+                'modified_by' => 1, 'departure_chk_date' => null, 'departure_chk_by' => null,
+            ],
+            [
+                'change_type' => 'UPDATE', 'change_date' => '2026-01-02 09:00:00', 'check_id' => 1, 'booking' => 1,
+                'modified_by' => 1, 'departure_chk_date' => '2026-01-02 08:55:00', 'departure_chk_by' => $marco->usr_id,
+            ],
+        ]);
+
+        Livewire::test(BookingHistory::class, ['booking' => 1])->assertSee('Marcado por: Luis Pérez');
+    }
+
+    /** Como las rejillas del original: 100 movimientos por página. */
+    public function test_pagina_de_cien_en_cien(): void
+    {
+        DB::table('booking_history')->insert(collect(range(1, 101))->map(fn (int $i) => [
+            'change_type' => 'UPDATE', 'change_date' => now()->subMinutes($i)->toDateTimeString(),
+            'booking_id' => 1, 'booking_number' => 'BK-'.$i, 'modified_by' => 1,
+        ])->all());
+
+        $eventos = $this->pantalla()->viewData('eventos');
+
+        $this->assertSame([100, 101], [count($eventos->items()), $eventos->total()]);
     }
 }

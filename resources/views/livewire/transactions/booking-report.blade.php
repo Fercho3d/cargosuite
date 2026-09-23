@@ -19,6 +19,7 @@
             <p class="text-sm text-ink-muted">{{ __('Ingreso, egreso y utilidad de cada embarque, sin IVA y en pesos.') }}</p>
         </div>
         <span class="text-xs text-ink-faint">
+            <span class="text-ink-muted">{{ $this->datesLabel() }}</span> ·
             {{ number_format($rows->total()) }} bookings · consulta en {{ $queryMs }} ms
         </span>
     </header>
@@ -39,11 +40,15 @@
             </label>
 
             <label class="block">
-                <span class="field-label text-xs">
-                    Carga del booking <span class="text-ink-faint">{{ __('(dd/mm/aaaa - dd/mm/aaaa)') }}</span>
+                <span class="field-label flex items-center justify-between text-xs">
+                    <span>{{ __('Carga del booking') }} <span class="text-ink-faint">{{ __('(dd/mm/aaaa - dd/mm/aaaa)') }}</span></span>
+                    @if ($dates !== '')
+                        <button type="button" wire:click="showAllYears"
+                                class="font-normal text-brand hover:underline">{{ __('Ver todos los años') }}</button>
+                    @endif
                 </span>
                 <input type="text" wire:model.live.debounce.600ms="dates" value="{{ $dates }}"
-                       class="field-input mt-1 py-1.5 text-sm" placeholder="01/01/2025 - 31/12/2025">
+                       class="field-input mt-1 py-1.5 text-sm" placeholder="{{ __('Todos los años') }}">
             </label>
 
             <label class="block">
@@ -58,10 +63,19 @@
 
         <div class="mt-3 flex flex-wrap items-end gap-2">
             <button type="button" wire:click="clearFilters" class="btn-ghost !px-3 !py-1.5 text-xs">{{ __('Limpiar filtros') }}</button>
-            <button type="button" wire:click="calculateTotals" wire:loading.attr="disabled" wire:target="calculateTotals"
-                    class="btn-ghost !px-3 !py-1.5 text-xs">
-                <x-spinner wire:loading wire:target="calculateTotals" class="h-3.5 w-3.5" />
-                {{ __('Sumar todo el filtro') }}
+
+            {{-- Switch «mostrar sumatoria»: enciende el pie de totales y se recuerda
+                 en cookie (la misma que el listado de transacciones). --}}
+            <button type="button" role="switch" x-data
+                    x-on:click="$wire.showTotals = ! $wire.showTotals"
+                    :aria-checked="$wire.showTotals ? 'true' : 'false'"
+                    class="group inline-flex cursor-pointer select-none items-center gap-2 text-xs text-ink-soft focus:outline-none">
+                <span class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition group-focus-visible:ring-2 group-focus-visible:ring-accent-500/50"
+                      :class="$wire.showTotals ? 'bg-accent-500' : 'bg-ink-faint'">
+                    <span class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition"
+                          :class="$wire.showTotals ? 'translate-x-4' : 'translate-x-0.5'"></span>
+                </span>
+                {{ __('Mostrar sumatoria') }}
             </button>
 
             <a href="{{ $this->exportUrl() }}"
@@ -114,7 +128,7 @@
         {{-- Tarjetas en móvil --}}
         <ul class="divide-y divide-line md:hidden">
             @forelse ($rows as $fila)
-                <li class="space-y-2 p-4">
+                <li class="space-y-2 p-4 {{ $utilidad($fila) < 0 ? 'row-loss' : '' }}">
                     <div class="flex items-start justify-between gap-3">
                         <a href="{{ route('transactions.booking', $fila->booking_id) }}" wire:navigate
                            class="min-w-0 truncate font-semibold text-brand hover:underline">
@@ -158,7 +172,9 @@
                 <tbody class="divide-y divide-line">
                     @forelse ($rows as $fila)
                         @php $estado = PaymentStatus::for($fila); @endphp
-                        <tr class="transition hover:bg-raised">
+                        {{-- Con pérdida el renglón va marcado en rojo, como la fila
+                             `danger` del original. --}}
+                        <tr class="transition hover:bg-raised {{ $utilidad($fila) < 0 ? 'row-loss' : '' }}">
                             <td class="whitespace-nowrap px-3 py-2">
                                 <a href="{{ route('transactions.booking', $fila->booking_id) }}" wire:navigate
                                    class="text-brand hover:underline">{{ trim((string) $fila->booking_number) ?: '—' }}</a>

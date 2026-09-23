@@ -49,16 +49,30 @@
                 {{ $editing === 0 ? __('Nuevo :cosa', ['cosa' => mb_strtolower($definicion->singular)]) : __('Editar :cosa', ['cosa' => mb_strtolower($definicion->singular)]) }}
             </p>
 
+            @error('form')
+                <p class="alert-danger">{{ $message }}</p>
+            @enderror
+
             <div class="grid gap-4 sm:grid-cols-2">
                 @foreach ($definicion->fields as $campo)
+                    @continue(! $campo->visible($form))
                     <label class="block {{ $campo->isBoolean() ? 'sm:col-span-2' : '' }}">
                         @if ($campo->isBoolean())
+                            {{-- En vivo: una casilla puede ocultar otros campos («no deducible» quita los impuestos) --}}
                             <span class="flex items-center gap-2 text-sm text-ink-soft">
-                                <input type="checkbox" wire:model="form.{{ $campo->name }}"
+                                <input type="checkbox" wire:model.live="form.{{ $campo->name }}"
                                        @checked($form[$campo->name] ?? false)
                                        class="h-4 w-4 rounded border-line bg-panel text-accent-500 focus:ring-accent-500">
                                 {{ $campo->label }}
                             </span>
+                        @elseif ($campo->type === 'select')
+                            <span class="field-label">{{ $campo->label }}</span>
+                            <select wire:model="form.{{ $campo->name }}" class="field-input mt-1.5">
+                                <option value="">{{ __('Ninguno') }}</option>
+                                @foreach ($campo->opciones() as $valor => $etiqueta)
+                                    <option value="{{ $valor }}" @selected((string) ($form[$campo->name] ?? '') === (string) $valor)>{{ $etiqueta }}</option>
+                                @endforeach
+                            </select>
                         @else
                             <span class="field-label">{{ $campo->label }}</span>
                             <input type="{{ $campo->type === 'date' ? 'date' : ($campo->type === 'number' ? 'number' : 'text') }}"
@@ -103,7 +117,7 @@
                             <span class="{{ $i === 0 ? '' : 'text-ink-muted' }}">
                                 @if ($campo->isBoolean())
                                     <span class="badge {{ $fila->{$campo->name} ? 'badge-ok' : 'badge-neutral' }}">
-                                        {{ $fila->{$campo->name} ? 'Sí' : 'No' }}
+                                        {{ $fila->{$campo->name} ? __('Sí') : __('No') }}
                                     </span>
                                 @else
                                     {{ $fila->{$campo->name} ?: '—' }}
@@ -111,12 +125,19 @@
                             </span>
                         </div>
                     @endforeach
+                    @foreach ($definicion->badges as $etiqueta => $calcular)
+                        @php [$texto, $bien] = $calcular($fila); @endphp
+                        <div class="flex justify-between gap-3 text-xs">
+                            <span class="text-ink-faint">{{ $etiqueta }}</span>
+                            <span class="badge {{ $bien ? 'badge-ok' : 'badge-warn' }}">{{ $texto }}</span>
+                        </div>
+                    @endforeach
 
                     @if (auth()->user()?->isAdmin())
                         <div class="flex gap-3 pt-1 text-xs">
-                            <button type="button" wire:click="edit({{ $fila->{$definicion->key} }})" class="text-brand hover:underline">Editar</button>
+                            <button type="button" wire:click="edit({{ $fila->{$definicion->key} }})" class="text-brand hover:underline">{{ __('Editar') }}</button>
                             <button type="button" wire:click="delete({{ $fila->{$definicion->key} }})"
-                                    wire:confirm="¿Dar de baja este registro?" class="text-ink-muted hover:text-brand">{{ __('Baja') }}</button>
+                                    wire:confirm="{{ __('¿Dar de baja este registro?') }}" class="text-ink-muted hover:text-brand">{{ __('Baja') }}</button>
                         </div>
                     @endif
                 </li>
@@ -135,6 +156,9 @@
                         @foreach ($definicion->listFields() as $campo)
                             <th class="px-4 py-2.5 text-left font-semibold">{{ $campo->label }}</th>
                         @endforeach
+                        @foreach ($definicion->badges as $etiqueta => $calcular)
+                            <th class="px-4 py-2.5 text-left font-semibold">{{ $etiqueta }}</th>
+                        @endforeach
                         @if (auth()->user()?->isAdmin())
                             <th class="px-4 py-2.5 text-right font-semibold"><span class="sr-only">{{ __('Acciones') }}</span></th>
                         @endif
@@ -148,27 +172,33 @@
                                 <td class="px-4 py-2 {{ $campo->type === 'number' ? 'text-right tabular-nums' : '' }} text-ink-soft">
                                     @if ($campo->isBoolean())
                                         <span class="badge {{ $fila->{$campo->name} ? 'badge-ok' : 'badge-neutral' }}">
-                                            {{ $fila->{$campo->name} ? 'Sí' : 'No' }}
+                                            {{ $fila->{$campo->name} ? __('Sí') : __('No') }}
                                         </span>
                                     @else
                                         {{ $fila->{$campo->name} === null || $fila->{$campo->name} === '' ? '—' : $fila->{$campo->name} }}
                                     @endif
                                 </td>
                             @endforeach
+                            @foreach ($definicion->badges as $calcular)
+                                @php [$texto, $bien] = $calcular($fila); @endphp
+                                <td class="px-4 py-2">
+                                    <span class="badge {{ $bien ? 'badge-ok' : 'badge-warn' }}">{{ $texto }}</span>
+                                </td>
+                            @endforeach
 
                             @if (auth()->user()?->isAdmin())
                                 <td class="whitespace-nowrap px-4 py-2 text-right">
                                     <div class="flex justify-end gap-3 text-xs">
-                                        <button type="button" wire:click="edit({{ $fila->{$definicion->key} }})" class="text-brand hover:underline">Editar</button>
+                                        <button type="button" wire:click="edit({{ $fila->{$definicion->key} }})" class="text-brand hover:underline">{{ __('Editar') }}</button>
                                         <button type="button" wire:click="delete({{ $fila->{$definicion->key} }})"
-                                                wire:confirm="¿Dar de baja este registro?" class="text-ink-muted transition hover:text-brand">{{ __('Baja') }}</button>
+                                                wire:confirm="{{ __('¿Dar de baja este registro?') }}" class="text-ink-muted transition hover:text-brand">{{ __('Baja') }}</button>
                                     </div>
                                 </td>
                             @endif
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ count($definicion->listFields()) + 1 }}" class="px-4 py-12 text-center text-ink-faint">
+                            <td colspan="{{ count($definicion->listFields()) + count($definicion->badges) + 1 }}" class="px-4 py-12 text-center text-ink-faint">
                                 {{ $search === '' ? __('Este catálogo está vacío.') : __('Nada coincide con la búsqueda.') }}
                             </td>
                         </tr>

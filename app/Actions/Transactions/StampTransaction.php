@@ -90,6 +90,14 @@ class StampTransaction
             throw new CfdiException('Las facturas históricas no se timbran: su sello se captura a mano.');
         }
 
+        // Multiemisor: sin compañía, o con una sin datos fiscales completos, el
+        // CFDI saldría a nombre equivocado. El original abortaba igual aquí.
+        $emisorError = $transaccion->emisorError();
+
+        if ($emisorError !== null) {
+            throw new CfdiException($emisorError);
+        }
+
         if ($transaccion->client === null) {
             throw new CfdiException('La factura no tiene cliente al cual emitirla.');
         }
@@ -111,19 +119,21 @@ class StampTransaction
             throw new CfdiException('No se pudo calcular la factura para timbrarla.');
         }
 
+        // `assertStampable` ya garantizó compañía con datos fiscales completos.
+        $emisor = $transaccion->company;
+
+        if ($emisor === null) {
+            throw new CfdiException('La factura no tiene compañía emisora.');
+        }
+
         return (new CfdiLayout(
             transaccion: $transaccion,
-            emisor: $transaccion->company,
+            emisor: $emisor,
             receptor: $transaccion->client,
             conceptos: Charge::with('chargeType')
                 ->where('transaction', $transaccion->transc_id)
                 ->orderBy('charge_id')
                 ->get(),
-            nombrePorOmision: (string) config('timbrado.emisor_nombre'),
-            rfcPorOmision: (string) (config('timbrado.produccion')
-                ? config('timbrado.rfc_cuenta')
-                : config('timbrado.demo.rfc_cuenta')),
-            lugarPorOmision: (string) config('timbrado.lugar_expedicion_por_omision'),
             tipoCambio: $fila->exchange_value === null ? null : (float) $fila->exchange_value,
             numeroBooking: $fila->booking_number,
         ))->build();

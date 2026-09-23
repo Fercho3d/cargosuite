@@ -9,7 +9,17 @@
     quien la quiera por compañía tiene que pedirlo.
 --}}
 @php
-    $fecha = fn ($valor) => empty($valor) ? 'no set' : \Illuminate\Support\Carbon::parse($valor)->format('d/m/Y h:i:s A');
+    // Con hora como el original, salvo a medianoche: una fecha capturada sin
+    // hora salía como «12:00:00 AM», que no es ninguna hora.
+    $fecha = function ($valor) {
+        if (empty($valor)) {
+            return 'no set';
+        }
+
+        $momento = \Illuminate\Support\Carbon::parse($valor);
+
+        return $momento->format($momento->format('H:i:s') === '00:00:00' ? 'd/m/Y' : 'd/m/Y h:i:s A');
+    };
     $texto = fn ($valor) => e((string) ($valor ?? ''));
 @endphp
 <div class="row">

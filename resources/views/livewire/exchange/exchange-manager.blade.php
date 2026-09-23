@@ -20,10 +20,19 @@
                 @endforeach
             </select>
 
+            <label class="flex items-center gap-1.5 text-xs text-ink-muted">
+                {{ __('Desde') }}
+                <input type="date" wire:model.live="from" value="{{ $from }}" class="field-input !w-auto py-1.5 text-sm">
+            </label>
+            <label class="flex items-center gap-1.5 text-xs text-ink-muted">
+                {{ __('Hasta') }}
+                <input type="date" wire:model.live="to" value="{{ $to }}" class="field-input !w-auto py-1.5 text-sm">
+            </label>
+
             <button type="button" wire:click="fetchToday" wire:loading.attr="disabled" wire:target="fetchToday"
                     class="btn-ghost !px-3 !py-1.5 text-xs">
                 <x-spinner wire:loading wire:target="fetchToday" class="h-3.5 w-3.5" />
-                {{ __('Traer el del día (DOF)') }}
+                {{ __('Traer el del día (Banxico)') }}
             </button>
 
             <button type="button" wire:click="create" class="btn-accent !px-3 !py-1.5 text-xs">{{ __('Capturar') }}</button>
@@ -34,7 +43,7 @@
 
     <p class="rounded-lg border border-line bg-raised px-4 py-3 text-xs text-ink-muted">
         <strong class="text-ink-soft">{{ __('Cómo se lee esta tabla.') }}</strong>
-        {!! __('La fila que «aplica el día X» contiene el tipo de cambio publicado el día hábil <em>anterior</em>: es la convención del sistema desde siempre y no se cambió. El alta automática trae solo el <strong>dólar</strong> (indicador 158 del DOF); el euro se captura a mano.') !!}
+        {!! __('La fila que «aplica el día X» contiene el tipo de cambio publicado el día hábil <em>anterior</em>: es la convención del sistema desde siempre y no se cambió. El alta automática trae solo el <strong>dólar</strong> (FIX de Banxico, cada día hábil a las 07:30); el euro se captura a mano.') !!}
     </p>
 
     {{-- Formulario --}}
@@ -79,7 +88,7 @@
     <div class="relative rounded-xl border border-line bg-panel">
         <div wire:loading.delay class="absolute inset-0 z-20 rounded-xl bg-panel/75 text-center backdrop-blur-[1px]">
             <span class="mt-14 inline-flex items-center gap-2 rounded-full border border-line bg-panel px-4 py-2 text-sm text-ink-muted shadow-lg">
-                <x-spinner class="h-4 w-4 text-brand" /> Actualizando…
+                <x-spinner class="h-4 w-4 text-brand" /> {{ __('Actualizando…') }}
             </span>
         </div>
 
@@ -103,7 +112,8 @@
                             <td class="whitespace-nowrap px-4 py-2 text-right font-semibold tabular-nums text-ink">
                                 {{ number_format((float) $tipo->exchange_value, 4) }}
                             </td>
-                            <td class="whitespace-nowrap px-4 py-2 text-ink-faint">{{ $fecha($tipo->taken_date) }}</td>
+                            {{-- Solo lo que vino de Banxico tiene fecha de publicación; lo capturado a mano no --}}
+                            <td class="whitespace-nowrap px-4 py-2 text-ink-faint">{{ $tipo->url ? $fecha($tipo->taken_date) : '—' }}</td>
                             <td class="whitespace-nowrap px-4 py-2 text-right">
                                 <button type="button" wire:click="edit({{ $tipo->exchange_id }})"
                                         class="text-xs text-brand hover:underline">{{ __('Editar') }}</button>

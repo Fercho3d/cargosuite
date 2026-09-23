@@ -5,6 +5,7 @@ namespace Tests\Feature\Transactions;
 use App\Livewire\Transactions\TransactionForm;
 use App\Models\Core\Transaction;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Livewire\Features\SupportTesting\Testable;
@@ -30,7 +31,7 @@ class TransactionFormTest extends TestCase
 
         // Guardar consulta el tipo de cambio del DOF; en pruebas no se sale a red.
         Http::preventStrayRequests();
-        Http::fake(['sidofqa.segob.gob.mx/*' => Http::response(['ListaIndicadores' => []])]);
+        Http::fake(['www.banxico.org.mx/*' => Http::response(['bmx' => ['series' => [['datos' => []]]]])]);
     }
 
     private function seedFixture(): void
@@ -122,6 +123,32 @@ class TransactionFormTest extends TestCase
         $this->assertSame(1, (int) $creada->open, 'Toda transacción nueva nace abierta.');
     }
 
+    public function test_editar_una_factura_no_le_borra_el_folio(): void
+    {
+        $this->actingAs($this->usuario());
+
+        DB::table('transaction')->insert([
+            'transc_id' => 1, 'booking' => 1, 'tran_type' => 0, 'invoice' => 41, 'tran_number' => 'F-41',
+            'tran_date' => '2026-01-10', 'account' => 1, 'customer' => 1, 'invoice_type' => 1,
+        ]);
+
+        $this->formulario(['transaction' => 1], ['tranDate' => '2026-01-15'])
+            ->call('save')->assertHasNoErrors();
+
+        $this->assertSame('F-41', Transaction::find(1)->tran_number);
+    }
+
+    public function test_la_fecha_propuesta_es_la_de_hoy_en_mexico(): void
+    {
+        $this->actingAs($this->usuario());
+
+        // 18 de septiembre, 6 de la tarde en México: en UTC ya es día 19.
+        $this->travelTo(Carbon::parse('2026-09-19 00:05:00', 'UTC'));
+
+        $this->formulario(['booking' => 1, 'tipo' => 'factura'])
+            ->assertSet('tranDate', '2026-09-18');
+    }
+
     public function test_una_factura_historica_conserva_el_numero_capturado(): void
     {
         $this->actingAs($this->usuario());
@@ -140,6 +167,19 @@ class TransactionFormTest extends TestCase
         $this->assertNull($creada->invoice, 'Las históricas no consumen folio.');
     }
 
+    public function test_el_tipo_de_factura_solo_admite_los_del_catalogo(): void
+    {
+        $this->actingAs($this->usuario());
+
+        $this->formulario(['booking' => 1, 'tipo' => 'factura'], [
+            'tranDate' => '2026-01-15',
+            'accountId' => '1',
+            'customerId' => '1',
+            'companyId' => '1',
+            'invoiceType' => '7',
+        ])->call('save')->assertHasErrors(['invoiceType' => 'in']);
+    }
+
     public function test_un_costo_exige_proveedor(): void
     {
         $this->actingAs($this->usuario());
@@ -150,6 +190,67 @@ class TransactionFormTest extends TestCase
         ])->call('save')->assertHasErrors('vendorId');
 
         $this->assertSame(0, Transaction::count());
+    }
+
+    /**
+     * Con `invoice_type` NULL la condición de signo del motor da NULL y el costo
+     * sale en negativo en Costos y en la solicitud de pago (Yii2 siempre guarda 1).
+     */
+    public function test_un_costo_se_guarda_con_tipo_de_factura_normal(): void
+    {
+        $this->actingAs($this->usuario());
+
+        $this->formulario(['booking' => 1, 'tipo' => 'costo'], [
+            'tranDate' => '2026-01-15',
+            'accountId' => '1',
+            'vendorId' => '1',
+            'tranNumber' => 'FMZ 1',
+        ])->call('save')->assertHasNoErrors();
+
+        $this->assertSame(Transaction::INVOICE_TYPE_NORMAL, (int) Transaction::first()->invoice_type);
+    }
+
+    /** El «Credit Bill» del original: nota de crédito de proveedor, `tran_type` 2. */
+    public function test_una_nota_de_credito_de_proveedor_se_crea_con_su_tipo(): void
+    {
+        $this->actingAs($this->usuario());
+
+        $this->formulario(['booking' => 1, 'tipo' => 'nota-credito'], [
+            'tranDate' => '2026-01-15',
+            'accountId' => '1',
+            'vendorId' => '1',
+            'tranNumber' => 'NC-77',
+        ])->call('save')->assertHasNoErrors();
+
+        $creada = Transaction::first();
+
+        $this->assertSame(Transaction::TYPE_CREDIT_BILL, (int) $creada->tran_type);
+        $this->assertSame(1, (int) $creada->vendor);
+        $this->assertNull($creada->customer);
+        $this->assertSame('NC-77', $creada->tran_number, 'El número se captura a mano, como en los costos.');
+    }
+
+    public function test_una_nota_de_credito_de_proveedor_exige_proveedor(): void
+    {
+        $this->actingAs($this->usuario());
+
+        $this->formulario(['booking' => 1, 'tipo' => 'nota-credito'], [
+            'tranDate' => '2026-01-15',
+            'accountId' => '1',
+        ])->call('save')->assertHasErrors('vendorId');
+
+        $this->assertSame(0, Transaction::count());
+    }
+
+    public function test_la_pantalla_de_alta_de_la_nota_de_credito_se_presenta_como_tal(): void
+    {
+        $this->actingAs($this->usuario());
+
+        Livewire::withQueryParams(['booking' => 1, 'tipo' => 'nota-credito'])
+            ->test(TransactionForm::class)
+            ->assertSee(__('Nueva nota de crédito de proveedor'))
+            ->assertSee(__('Proveedor'))
+            ->assertSee('se capturan en positivo');
     }
 
     public function test_un_proveedor_no_puede_repetirse_en_el_mismo_booking(): void
@@ -283,7 +384,8 @@ class TransactionFormTest extends TestCase
         $this->assertSame('2026-02-01', Transaction::find(1)->tran_date->toDateString());
     }
 
-    public function test_un_administrador_normal_no_corrige_la_fecha_de_una_timbrada(): void
+    /** Ahora también un administrador normal corrige la fecha (lo pidió el cliente). */
+    public function test_un_administrador_normal_corrige_la_fecha_de_una_timbrada(): void
     {
         $this->actingAs($this->usuario());
 
@@ -293,7 +395,7 @@ class TransactionFormTest extends TestCase
             ->call('save')
             ->assertHasNoErrors();
 
-        $this->assertSame('2026-01-15', Transaction::find(1)->tran_date->toDateString());
+        $this->assertSame('2026-02-01', Transaction::find(1)->tran_date->toDateString());
     }
 
     /** Factura con sello y con cargos: bloqueada para todo menos la compañía. */
@@ -328,5 +430,54 @@ class TransactionFormTest extends TestCase
         $this->actingAs($this->usuario())
             ->get(route('transactions.create'))
             ->assertNotFound();
+    }
+
+    /** El original escondía los botones de alta en un booking cerrado; aquí además se rechaza la dirección. */
+    public function test_un_booking_cerrado_rechaza_el_alta(): void
+    {
+        DB::table('booking')->insert(['booking_id' => 3, 'booking_number' => 'BK-3', 'client' => 1, 'mode' => 10, 'locked' => 1]);
+
+        $this->actingAs($this->usuario())
+            ->get(route('transactions.create', ['booking' => 3, 'tipo' => 'factura']))
+            ->assertStatus(422);
+    }
+
+    /**
+     * `_form.php` del original deshabilitaba el cliente o proveedor en cuanto el
+     * documento entraba en una solicitud de pago: la solicitud se armó a su nombre.
+     */
+    public function test_la_contraparte_no_cambia_si_ya_esta_en_una_solicitud(): void
+    {
+        $this->actingAs($this->usuario());
+
+        DB::table('transaction')->insert([
+            'transc_id' => 1, 'booking' => 1, 'tran_type' => 1, 'vendor' => 1, 'company_id' => 1,
+            'tran_number' => 'C-1', 'tran_date' => '2026-01-15', 'account' => 1, 'payment_request' => 1,
+        ]);
+
+        $formulario = $this->formulario(['transaction' => 1], ['vendorId' => '2']);
+
+        $this->assertTrue($formulario->get('partyIsLocked'));
+        $formulario->assertSee(__('(ya está en una solicitud de pago)'))
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame(1, (int) Transaction::find(1)->vendor, 'El proveedor guardado se conserva.');
+    }
+
+    /**
+     * Como el `beforeSave` del original: al mover la fecha de un documento
+     * bloqueado se registra el tipo de cambio de la fecha nueva, para que
+     * existan sus importes en pesos.
+     */
+    public function test_corregir_la_fecha_de_una_bloqueada_pide_su_tipo_de_cambio(): void
+    {
+        $this->actingAs($this->usuario());
+
+        $this->transaccionTimbrada();
+
+        $this->formulario(['transaction' => 1], ['tranDate' => '2026-02-01'])->call('save')->assertHasNoErrors();
+
+        Http::assertSent(fn ($peticion) => str_contains($peticion->url(), 'banxico.org.mx') && str_contains($peticion->url(), '2026-02-01'));
     }
 }

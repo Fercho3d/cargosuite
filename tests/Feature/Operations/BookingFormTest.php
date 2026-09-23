@@ -44,7 +44,7 @@ class BookingFormTest extends TestCase
 
     private function usuario(int $rol = User::ROLE_ADMIN): User
     {
-        return User::create([
+        return User::forceCreate([
             'username' => 'operador'.$rol, 'password' => 'secreto-de-prueba', 'role' => $rol, 'status' => 1,
         ]);
     }
@@ -87,7 +87,7 @@ class BookingFormTest extends TestCase
         $booking = Booking::first();
 
         $this->assertSame('MEX-001', $booking->booking_number);
-        $this->assertSame(0, (int) $booking->is_draft, 'Nace como booking real, no como borrador.');
+        $this->assertSame(1, (int) $booking->is_draft, 'Nace como borrador: se confirma en el detalle, ya con contenedores.');
         $this->assertSame(Booking::MODE_BOOKING, (int) $booking->mode);
         $this->assertSame(0, (int) $booking->locked);
     }
@@ -101,12 +101,24 @@ class BookingFormTest extends TestCase
         $this->assertSame(0, Booking::count());
     }
 
-    /** Un arribo anterior a la carga es un error de dedo, no un embarque. */
-    public function test_el_arribo_no_puede_ser_anterior_a_la_carga(): void
+    /** Como el original: acepta un arribo anterior a la carga, y hay bookings históricos así. */
+    public function test_el_arribo_puede_ser_anterior_a_la_carga(): void
     {
         $this->formulario(['arrivalDate' => '2026-01-01'])
             ->call('save')
-            ->assertHasErrors('arrivalDate');
+            ->assertHasNoErrors();
+
+        $this->assertSame('2026-01-01', Booking::first()->dicharge_ETA->toDateString());
+    }
+
+    /** El arribo por omisión es la misma fecha de carga, no tres semanas después. */
+    public function test_el_arribo_por_omision_es_igual_a_la_carga(): void
+    {
+        $this->actingAs($this->usuario());
+
+        Livewire::test(BookingForm::class)
+            ->assertSet('loadingDate', now()->toDateString())
+            ->assertSet('arrivalDate', now()->toDateString());
     }
 
     /** Los buques cambian de nombre seguido; capturar uno nuevo no debe frenar el alta. */
@@ -156,10 +168,92 @@ class BookingFormTest extends TestCase
         $this->assertNull(Booking::find($id)->commodity);
     }
 
-    public function test_quien_no_es_administrador_no_entra(): void
+    /** Como en el original: `create` era de cualquier usuario interno y `update`, de administradores. */
+    public function test_cualquier_usuario_interno_crea_pero_no_edita(): void
     {
         $this->actingAs($this->usuario(User::ROLE_USER));
 
-        Livewire::test(BookingForm::class)->assertForbidden();
+        $componente = Livewire::test(BookingForm::class)->assertOk();
+
+        foreach ($this->datosBase() as $campo => $valor) {
+            $componente->set($campo, $valor);
+        }
+
+        $componente->call('save')->assertHasNoErrors();
+
+        $this->assertSame(1, Booking::count());
+
+        Livewire::test(BookingForm::class, ['booking' => (int) Booking::first()->booking_id])->assertForbidden();
+    }
+
+    // ------------------------------------------------------------ Tipo
+
+    /** `booking_type` es entero: 1 = importación, 2 = exportación, como en el original. */
+    public function test_el_tipo_se_guarda_como_entero(): void
+    {
+        $this->formulario(['bookingType' => '2'])->call('save')->assertHasNoErrors();
+
+        $this->assertSame(Booking::TYPE_EXPORT, (int) Booking::first()->booking_type);
+        $this->assertSame('Exportación', Booking::first()->typeLabel());
+    }
+
+    public function test_un_tipo_que_no_existe_se_rechaza(): void
+    {
+        $this->formulario(['bookingType' => '3'])->call('save')->assertHasErrors('bookingType');
+    }
+
+    /** «Nueva importación» / «Nueva exportación» llegan con el tipo elegido. */
+    public function test_el_tipo_se_preselecciona_por_la_direccion(): void
+    {
+        $this->actingAs($this->usuario());
+
+        Livewire::withQueryParams(['tipo' => Booking::TYPE_IMPORT])
+            ->test(BookingForm::class)
+            ->assertSet('bookingType', '1');
+    }
+
+    // ------------------------------------------------------- Cotización
+
+    public function test_se_puede_crear_una_cotizacion(): void
+    {
+        $this->actingAs($this->usuario());
+
+        $componente = Livewire::withQueryParams(['modo' => 'cotizacion'])->test(BookingForm::class)->assertSet('esCotizacion', true);
+
+        foreach ($this->datosBase() as $campo => $valor) {
+            $componente->set($campo, $valor);
+        }
+
+        $componente->call('save')->assertHasNoErrors();
+
+        $this->assertTrue(Booking::first()->isQuotation());
+    }
+
+    // ----------------------------------------------------------- Copiar
+
+    /** Como el `copy_id` del original: todo menos número, buque y candado. */
+    public function test_copiar_llena_el_formulario_salvo_numero_y_buque(): void
+    {
+        $this->formulario(['commodity' => 'Aguacate', 'bookingType' => '1'])->call('save');
+        $origen = Booking::first();
+        DB::table('booking')->where('booking_id', $origen->booking_id)->update(['locked' => 1]);
+
+        $this->actingAs($this->usuario());
+
+        Livewire::withQueryParams(['copiar' => $origen->booking_id])
+            ->test(BookingForm::class)
+            ->assertSet('bookingId', null)
+            ->assertSet('locked', false)
+            ->assertSet('bookingNumber', '')
+            ->assertSet('vesselId', '')
+            ->assertSet('clientId', '1')
+            ->assertSet('commodity', 'Aguacate')
+            ->assertSet('bookingType', '1');
+    }
+
+    /** La columna `booking.HB` es `varchar(50)`. */
+    public function test_el_hb_no_pasa_de_50_caracteres(): void
+    {
+        $this->formulario(['hb' => str_repeat('H', 51)])->call('save')->assertHasErrors(['hb' => 'max']);
     }
 }

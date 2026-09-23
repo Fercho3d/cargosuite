@@ -28,7 +28,7 @@ class CatalogVisibilityTest extends TestCase
 
     private function admin(): User
     {
-        return User::create([
+        return User::forceCreate([
             'username' => 'jefa', 'password' => 'secreto-de-prueba',
             'role' => User::ROLE_SUPER_ADMIN, 'status' => 1,
         ]);
@@ -36,7 +36,9 @@ class CatalogVisibilityTest extends TestCase
 
     public function test_sin_configurar_se_ven_todos_los_de_la_modalidad(): void
     {
-        config(['marca.catalogos' => '', 'marca.modalidades' => 'maritimo,terrestre']);
+        // Nómina y taller encendidos: si no, sus catálogos se quedan fuera y la
+        // prueba dependería del `.env` de cada máquina.
+        config(['marca.catalogos' => '', 'marca.modalidades' => 'maritimo,terrestre', 'marca.nomina' => true, 'marca.taller' => true]);
 
         $this->assertSame(array_keys(CatalogRegistry::all()), array_keys(CatalogRegistry::visibles()));
     }

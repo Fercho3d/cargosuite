@@ -26,11 +26,15 @@ class PaginaPublicaTest extends TestCase
         CoreSchema::create();
         CoreSchema::createUsers();
         RateLimiter::clear('demo:127.0.0.1');
+
+        // La portada pública se prueba encendida, sin depender del .env local
+        // (que en esta máquina puede estar apagado para replicar a un cliente).
+        config(['marca.landing' => true]);
     }
 
     private function admin(int $rol = User::ROLE_SUPER_ADMIN): User
     {
-        return User::create([
+        return User::forceCreate([
             'username' => 'jefa'.$rol, 'password' => 'secreto-de-prueba',
             'role' => $rol, 'access' => User::ACCESS_INTERNAL, 'status' => 1,
         ]);
@@ -42,6 +46,22 @@ class PaginaPublicaTest extends TestCase
             ->assertOk()
             ->assertSee(__('Solicitar una demostración'))
             ->assertSee(__('Qué incluye'));
+    }
+
+    /** Sin portada (instalación de cliente): la raíz va directo al login. */
+    public function test_sin_portada_la_raiz_va_al_login(): void
+    {
+        config(['marca.landing' => false]);
+
+        $this->get('/')->assertRedirect(route('login'));
+    }
+
+    /** Sin portada tampoco existe la pantalla de solicitudes de demo. */
+    public function test_sin_portada_no_hay_solicitudes_de_demo(): void
+    {
+        config(['marca.landing' => false]);
+
+        $this->actingAs($this->admin())->get(route('demo-requests'))->assertNotFound();
     }
 
     /** Quien ya entró no ve la página de venta: se va a lo suyo. */

@@ -38,13 +38,17 @@ class BookingReportTest extends LegacyDatabaseTestCase
 
     public function test_el_reporte_es_solo_para_administradores(): void
     {
+        // Interno y activo: a los dados de baja y a los del portal los saca
+        // una redirección, no un 403.
         $noAdmin = User::query()
             ->whereNotIn('role', [User::ROLE_ADMIN, User::ROLE_SUPER_ADMIN])
+            ->where(fn ($q) => $q->whereNull('status')->orWhere('status', 1))
+            ->where(fn ($q) => $q->whereNull('access')->orWhere('access', User::ACCESS_INTERNAL))
             ->orderBy('usr_id')
             ->first();
 
         if (! $noAdmin) {
-            $this->markTestSkipped('La base local no tiene un usuario sin rol administrativo.');
+            $this->markTestSkipped('La base local no tiene un usuario interno activo sin rol administrativo.');
         }
 
         $this->actingAs($noAdmin)->get(route('transactions.report.booking'))->assertForbidden();
@@ -56,6 +60,18 @@ class BookingReportTest extends LegacyDatabaseTestCase
             ->get(route('transactions.report.booking'))
             ->assertOk()
             ->assertSee(__('Reporte por booking'));
+    }
+
+    public function test_ver_todos_los_anios_y_limpiar_dejan_el_reporte_sin_rango(): void
+    {
+        $this->actingAs($this->admin());
+
+        $reporte = Livewire::test(BookingReport::class);
+
+        $this->assertNotSame('', $reporte->get('dates'), 'El reporte arranca acotado al año en curso.');
+
+        $reporte->call('showAllYears')->assertSet('dates', '')->assertSee(__('todos los años'));
+        $reporte->set('dates', self::RANGO)->call('clearFilters')->assertSet('dates', '');
     }
 
     public function test_hay_una_sola_fila_por_booking(): void

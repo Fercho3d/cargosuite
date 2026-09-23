@@ -56,6 +56,11 @@ del límite del entero**. Con lada internacional no caben.
 **Arreglo:** `varchar(30)`. Los que ya se truncaron no se recuperan; hay que
 volver a capturarlos.
 
+Mientras tanto, la ficha de clientes y proveedores acepta el teléfono como se
+lee («(55) 1234-5678»), lo deja solo con dígitos y rechaza con aviso lo que no
+quepa en el entero (más de 10 dígitos o mayor que 2 147 483 647): antes la
+conexión estricta reventaba al guardar.
+
 ## Medias
 
 ### 6. ⬜ 37 tablas en `utf8mb3`
@@ -97,6 +102,25 @@ En `transaction` es un `decimal(10,4)` (un valor); en `payment_request`, un
 ### 10. ⬜ Banderas que no son `tinyint(1)`
 
 `account.default` y `charge.prepaid` son `int(11)`.
+
+### 11. ⬜ `tax_code.tax_retention` es `varchar(255)`
+
+Guarda una tasa (`0.04`) pero la columna es texto. La pantalla ya la captura y
+valida como número; cuando se migre, `decimal(6,4)` como `tax_rate`.
+
+## Bajas
+
+### 12. ✅ Tablas de roles y permisos de Spatie sin uso
+
+`permissions`, `roles`, `model_has_permissions`, `model_has_roles` y
+`role_has_permissions` las creó `laravel-permission` al arrancar la reescritura,
+pero nada las consultaba: el permiso lo deciden `users.role` y `users.access`,
+como en Yii2. El trait `HasRoles` salió de `User` y `DatabaseSeeder` ya no
+siembra roles ahí.
+
+Las tablas **se quedan**: son aditivas, ya existen en producción y no estorban
+al sistema anterior. El paquete también se queda instalado porque su migración
+lee `config/permission.php`; quitarlo pide antes una migración que las borre.
 
 ---
 

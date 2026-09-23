@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Support\Workshop\Inventory;
 use Database\Seeders\Perfiles\PerfilDemo;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -36,6 +37,29 @@ class DemoSeeder extends Seeder
 
     private PerfilDemo $perfil;
 
+    private ?string $perfilPedido = null;
+
+    private bool $sobrescribir = false;
+
+    /** Qué vertical sembrar, cuando no se elige con `DEMO_PERFIL`. */
+    public function conPerfil(string $nombre): static
+    {
+        // Se valida aquí y no al sembrar: más vale reventar antes de vaciar la
+        // base que a la mitad, con las tablas ya truncadas.
+        PerfilDemo::porNombre($nombre);
+        $this->perfilPedido = $nombre;
+
+        return $this;
+    }
+
+    /** Sí, bórralo y vuélvelo a llenar. Lo pide la pantalla de ajustes. */
+    public function sobrescribiendo(): static
+    {
+        $this->sobrescribir = true;
+
+        return $this;
+    }
+
     private string $hoy;
 
     private string $ahora;
@@ -43,12 +67,17 @@ class DemoSeeder extends Seeder
     /** @var array<int, array<string, mixed>> */
     private array $bookings = [];
 
+    /** Kilometraje corrido de cada unidad, para que el rendimiento cuadre. */
+    private array $odometro = [];
+
     public function run(): void
     {
         $this->guarda();
 
         mt_srand(self::SEMILLA);
-        $this->perfil = PerfilDemo::elegido();
+        $this->perfil = $this->perfilPedido === null
+            ? PerfilDemo::elegido()
+            : PerfilDemo::porNombre($this->perfilPedido);
         $this->hoy = Carbon::now()->toDateString();
         $this->ahora = Carbon::now()->toDateTimeString();
 
@@ -57,6 +86,9 @@ class DemoSeeder extends Seeder
         $this->terceros();
         $this->servicios();
         $this->flota();
+        $this->hitos();
+        $this->taller();
+        $this->nomina();
         $this->usuarios();
         $this->tiposDeCambio();
         $this->embarques();
@@ -91,7 +123,7 @@ class DemoSeeder extends Seeder
 
         $transacciones = DB::table('transaction')->count();
 
-        if ($transacciones > 0 && ! env('DEMO_SEED_FORCE', false)) {
+        if ($transacciones > 0 && ! $this->sobrescribir && ! config('demo.forzar')) {
             throw new RuntimeException(
                 "La base `{$actual}` ya tiene {$transacciones} transacciones. ".
                 'Si de verdad quieres borrarlas y volver a llenarla, corre con DEMO_SEED_FORCE=true.'
@@ -99,10 +131,16 @@ class DemoSeeder extends Seeder
         }
     }
 
-    /** Contraseña de todas las cuentas de ejemplo. */
+    /**
+     * Contraseña de todas las cuentas de ejemplo.
+     *
+     * ⚠️ De `config()` y NUNCA de `env()`: con la configuración cacheada Laravel
+     * no abre el `.env`, y sembrar dejaría las cuentas con la clave de fábrica
+     * en vez de la de la instalación. Ya dejó a todo el mundo fuera una vez.
+     */
     private function claveVisible(): string
     {
-        return (string) env('DEMO_PASSWORD', 'demo1234');
+        return (string) config('demo.password');
     }
 
     /**
@@ -114,7 +152,11 @@ class DemoSeeder extends Seeder
         $tablas = [
             'payments_by_transaction', 'payment_request', 'charge', 'transaction',
             'check_list', 'booking_continuity', 'hito_por_expediente', 'containers', 'gasto_viaje', 'files_by_booking', 'booking',
-            'operador', 'unidad',
+            'movimiento_refaccion', 'mantenimiento_refaccion', 'mantenimiento', 'refaccion',
+            'nomina_renglon', 'nomina', 'empleado', 'liquidacion_renglon', 'liquidacion', 'operador', 'unidad',
+            // El catálogo de hitos cambia con la vertical: un camión no pasa por
+            // el corte documental de un embarque marítimo.
+            'hito',
             'service', 'fields_by_client', 'client', 'provider', 'vessel', 'exchange',
             'users', 'user_preferences', 'account', 'bank', 'carrier', 'charge_type',
             'container_types', 'dicharge_port', 'final_destination', 'loading_ports',
@@ -460,6 +502,156 @@ class DemoSeeder extends Seeder
         }
     }
 
+    /**
+     * Los hitos de esta vertical. Van antes que los expedientes: de este
+     * catálogo cuelgan sus capturas.
+     */
+    private function hitos(): void
+    {
+        $hitos = (new HitosSeeder)->conPerfil($this->perfil)->reemplazando();
+
+        if ($this->command !== null) {
+            $hitos->setCommand($this->command);
+        }
+
+        $hitos->run();
+    }
+
+    /**
+     * El almacén y el historial de mantenimiento de la flota.
+     *
+     * Cada unidad entra al taller cada cierto kilometraje, y una queda con el
+     * servicio vencido a propósito: el aviso de «unidades por servicio» es lo
+     * que se enseña, y con todo al día no enseñaría nada.
+     */
+    private function taller(): void
+    {
+        $refacciones = $this->perfil->refacciones();
+
+        if ($refacciones === [] || $this->perfil->unidadesFlota() === []) {
+            return;
+        }
+
+        foreach ($refacciones as $i => $pieza) {
+            DB::table('refaccion')->insert([
+                'refaccion_id' => $i + 1,
+                'codigo' => $pieza['codigo'],
+                'nombre' => $pieza['nombre'],
+                'categoria' => $pieza['categoria'],
+                'medida' => $pieza['medida'],
+                'ubicacion' => 'Rack '.chr(65 + intdiv($i, 4)).'-'.(($i % 4) + 1),
+                'existencia' => 0,
+                'minimo' => $pieza['minimo'],
+                'costo' => $pieza['costo'],
+                'activo' => 1,
+            ]);
+
+            // La existencia entra por una COMPRA y no escribiendo la columna: así
+            // el kárdex cuadra desde el primer día. Se compra de sobra a
+            // propósito —las que van a las órdenes gastan— y al final se baja a
+            // dos por debajo del mínimo con una salida, no comprando de menos:
+            // una demostración con existencias en NEGATIVO se lee como un error
+            // aunque el módulo lo permita.
+            Inventory::mueve($i + 1, 'entrada', round($pieza['minimo'] * 4, 2), $pieza['costo'],
+                Carbon::now()->subMonths(6)->toDateString(),
+                ['folio' => 'FC-'.str_pad((string) (2200 + $i), 5, '0', STR_PAD_LEFT)], 1);
+        }
+
+        $tractores = DB::table('unidad')->where('tipo', 'tractor')->orderBy('unidad_id')->get();
+        $orden = 0;
+
+        foreach ($tractores as $t => $unidad) {
+            // Servicio cada 20 000 km, y la última unidad se queda sin servicio
+            // reciente para que salga como vencida.
+            DB::table('unidad')->where('unidad_id', $unidad->unidad_id)->update([
+                'servicio_cada_km' => 20000,
+                'ultimo_servicio_km' => $t === count($tractores) - 1
+                    ? max(0, (int) $unidad->kilometraje - 27000)
+                    : max(0, (int) $unidad->kilometraje - 6000 - $t * 3000),
+                'ultimo_servicio' => Carbon::now()->subMonths(2 + $t)->toDateString(),
+            ]);
+
+            foreach ([['preventivo', 'Servicio de 20 000 km: aceite, filtros y revisión general', 4200],
+                ['correctivo', 'Cambio de balatas y ajuste de frenos', 2800]] as $n => [$tipo, $texto, $manoObra]) {
+                $orden++;
+                $entrada = Carbon::now()->subMonths(2 + $t)->subDays($n * 40);
+
+                DB::table('mantenimiento')->insert([
+                    'mantenimiento_id' => $orden,
+                    'folio' => 'OT-'.str_pad((string) $orden, 5, '0', STR_PAD_LEFT),
+                    'unidad_id' => $unidad->unidad_id,
+                    'tipo' => $tipo,
+                    'estado' => 'cerrado',
+                    'entrada' => $entrada->toDateString(),
+                    'salida' => $entrada->copy()->addDay()->toDateString(),
+                    'odometro' => max(0, (int) $unidad->kilometraje - 6000 - $n * 9000),
+                    'taller' => $n === 1 ? 'externo' : 'interno',
+                    'provider_id' => $n === 1 ? 11 : null,
+                    'descripcion' => $texto,
+                    'mano_obra' => $manoObra,
+                    'created_by' => 1,
+                    'created_at' => $entrada->toDateTimeString(),
+                ]);
+
+                // Y las refacciones que se le pusieron, descontadas del almacén
+                // como lo haría la pantalla.
+                $piezas = $tipo === 'preventivo'
+                    ? [[3, 1], [5, 1], [6, 38]]     // filtro de aceite, de combustible y aceite
+                    : [[8, 1], [10, 2]];            // balatas y cámaras de freno
+
+                foreach ($piezas as [$refaccion, $cantidad]) {
+                    $costo = (float) DB::table('refaccion')->where('refaccion_id', $refaccion)->value('costo');
+
+                    DB::table('mantenimiento_refaccion')->insert([
+                        'mantenimiento_id' => $orden,
+                        'refaccion_id' => $refaccion,
+                        'cantidad' => $cantidad,
+                        'costo' => $costo,
+                    ]);
+
+                    Inventory::mueve($refaccion, 'salida', $cantidad, $costo,
+                        $entrada->toDateString(), ['mantenimiento_id' => $orden], 1);
+                }
+            }
+        }
+
+        // Y lo que hace útil la pantalla del almacén: un par de refacciones por
+        // debajo del mínimo. Se bajan con una salida de taller, que es como
+        // ocurre de verdad, y nunca por debajo de cero.
+        foreach ([1, 8, count($refacciones)] as $refaccion) {
+            $pieza = DB::table('refaccion')->where('refaccion_id', $refaccion)->first();
+
+            if ($pieza === null) {
+                continue;
+            }
+
+            $hasta = max(0, (float) $pieza->minimo - 2);
+            $salida = round((float) $pieza->existencia - $hasta, 2);
+
+            if ($salida > 0) {
+                Inventory::mueve($refaccion, 'salida', $salida, (float) $pieza->costo,
+                    Carbon::now()->subMonth()->toDateString(),
+                    ['notas' => 'Consumo del taller'], 1);
+            }
+        }
+    }
+
+    /**
+     * La plantilla, con el mismo perfil que el resto. Se instancia a mano en vez
+     * de con `call()` porque `call()` no sabe pasarle el perfil elegido, y
+     * sembrado con otro la nómina traería gente de otro negocio.
+     */
+    private function nomina(): void
+    {
+        $nomina = (new NominaDemoSeeder)->conPerfil($this->perfil);
+
+        if ($this->command !== null) {
+            $nomina->setCommand($this->command);
+        }
+
+        $nomina->run();
+    }
+
     private function usuarios(): void
     {
         $clave = Hash::make($this->claveVisible());
@@ -506,6 +698,29 @@ class DemoSeeder extends Seeder
         $euro = 18.90;
         $id = 0;
 
+        /*
+         * 🐛 El renglón de la MONEDA BASE, valor 1, y va primero.
+         *
+         * No es adorno: `TransactionQuery::defaultExchangeRate()` busca el TC de
+         * la cuenta marcada como `default` y, si no lo encuentra, el tipo de
+         * cambio de TODO documento en moneda base sale NULL y sus importes se
+         * suman como cero. Con el flete en dólares no se notaba; en una
+         * instalación que factura en pesos —autotransporte— el panel abría con
+         * «facturado $0.00» teniendo cuarenta y cinco facturas.
+         *
+         * La base real de Frego tiene exactamente esta fila, una sola.
+         */
+        $id++;
+        DB::table('exchange')->insert([
+            'exchange_id' => $id,
+            'account' => 1,
+            'exchange_value' => 1,
+            'date_exchange' => $fecha->toDateString(),
+            'taken_date' => $fecha->toDateString(),
+            'created_at' => $fecha->toDateString(),
+            'created_by' => 1,
+        ]);
+
         while ($fecha->lte($fin)) {
             if (! $fecha->isWeekend()) {
                 // Camina despacio y sin rumbo, como una cotización de verdad.
@@ -538,14 +753,34 @@ class DemoSeeder extends Seeder
         $cajas = count($this->perfil->unidadesFlota()) - $tractores;
 
         for ($n = 1; $n <= self::BOOKINGS; $n++) {
-            // Repartidos a lo largo de diez meses, los más nuevos al final.
-            $carga = Carbon::now()->subDays((int) round((self::BOOKINGS - $n) * 6.6) + mt_rand(0, 4));
+            /*
+             * Repartidos hacia atrás a lo largo de diez meses, pero **más
+             * apretados cerca de hoy**: el panel enseña el MES EN CURSO, y con
+             * un reparto parejo, el día 2 de cualquier mes la demostración
+             * abría con «facturado $0.00, utilidad $0.00, 0 viajes».
+             *
+             * La curva se encarga sola de que siempre haya operación reciente,
+             * caiga el día que caiga la demostración.
+             */
+            $antiguedad = (self::BOOKINGS - $n) / self::BOOKINGS;
+            $carga = Carbon::now()->subDays((int) round($antiguedad ** 1.6 * 300));
             $creado = $carga->copy()->subDays(mt_rand(10, 25));
-            $arribo = $carga->copy()->addDays(mt_rand(18, 34));
 
-            $puerto = 1 + ($n % 4);
-            $destino = 1 + ($n % 6);
-            $recoleccion = 1 + ($n % 4);
+            // Con rutas declaradas se toma una entera; sin ellas se combinan
+            // libremente, que es lo que hace un agente de carga.
+            $rutas = $this->perfil->rutas();
+            $ruta = $rutas === [] ? null : $rutas[$n % count($rutas)];
+
+            $puerto = $ruta['origen'] ?? 1 + ($n % 4);
+            $destino = $ruta['destino'] ?? 1 + ($n % 6);
+            $recoleccion = $ruta['recoleccion'] ?? 1 + ($n % 4);
+
+            $viaje = ['puerto' => $puerto, 'destino' => $destino, 'recoleccion' => $recoleccion,
+                'km' => $ruta['km'] ?? 0, 'n' => $n];
+
+            $arribo = $carga->copy()->addDays($this->perfil->diasDeTransito($viaje));
+
+            $propio = $this->perfil->conFlotaPropia($n);
             $cliente = 1 + ($n % 8);
             $naviera = 1 + (($puerto + $destino) % 3);
             $transportista = 4 + (($puerto + $recoleccion) % 4);
@@ -561,7 +796,9 @@ class DemoSeeder extends Seeder
                 'customer_reference' => 'REF-'.str_pad((string) ($n * 37 % 9999), 4, '0', STR_PAD_LEFT),
                 'HB' => 'HBL'.str_pad((string) (5000 + $n), 6, '0', STR_PAD_LEFT),
                 'client' => $cliente,
-                'vessel' => 1 + ($n % 24),
+                // Sin medios en el catálogo no hay a qué apuntar: en
+                // autotransporte el medio es el tractor y vive en `unidad`.
+                'vessel' => $this->perfil->medios() === [] ? null : 1 + ($n % 24),
                 'carrier_id' => $naviera,
                 'transport_id' => $transportista,
                 'custom_brocker_id' => $agente,
@@ -580,9 +817,9 @@ class DemoSeeder extends Seeder
                 // existe pero no sale en ninguna pantalla.
                 'is_draft' => 0,
                 // Flota propia: solo el perfil de autotransporte la trae.
-                'operador_id' => $operadores === 0 ? null : (($n % $operadores) + 1),
-                'unidad_id' => $tractores === 0 ? null : (($n % $tractores) + 1),
-                'caja_id' => $cajas === 0 ? null : $tractores + (($n % $cajas) + 1),
+                'operador_id' => $operadores === 0 || ! $propio ? null : (($n % $operadores) + 1),
+                'unidad_id' => $tractores === 0 || ! $propio ? null : (($n % $tractores) + 1),
+                'caja_id' => $cajas === 0 || ! $propio ? null : $tractores + (($n % $cajas) + 1),
                 'locked' => $cerrado ? 1 : 0,
                 'created_at' => $creado->toDateTimeString(),
                 'modified_at' => $creado->toDateTimeString(),
@@ -591,10 +828,15 @@ class DemoSeeder extends Seeder
             ]);
 
             $this->contenedores($n, $tipoContenedor, $carga);
-            $this->gastosDeCarretera($n, $carga);
+
+            if ($propio) {
+                $this->gastosDeCarretera($n, $carga, $viaje);
+            }
+
             $this->continuidad($n, $carga, $arribo, $cerrado);
 
             $this->bookings[$n] = [
+                'viaje' => $viaje,
                 'cliente' => $cliente,
                 'naviera' => $naviera,
                 'transportista' => $transportista,
@@ -615,7 +857,7 @@ class DemoSeeder extends Seeder
      * El odómetro avanza viaje a viaje para que el rendimiento se pueda calcular
      * de verdad; con cargas sueltas la columna saldría siempre vacía.
      */
-    private function gastosDeCarretera(int $booking, Carbon $carga): void
+    private function gastosDeCarretera(int $booking, Carbon $carga, array $viaje): void
     {
         if ($this->perfil->unidadesFlota() === []) {
             return;
@@ -623,7 +865,11 @@ class DemoSeeder extends Seeder
 
         $tractores = max(1, count(array_filter($this->perfil->unidadesFlota(), fn ($u) => $u['tipo'] === 'tractor')));
         $unidad = ($booking % $tractores) + 1;
-        $litros = 180 + ($booking % 5) * 20;
+
+        // Los mismos litros que se le cobran al diésel del viaje: si el gasto y
+        // la factura del combustible no cuadran, lo primero que se nota en una
+        // demostración es que los números están inventados.
+        $litros = $viaje['km'] > 0 ? round($viaje['km'] / 2.2, 1) : 180 + ($booking % 5) * 20;
 
         DB::table('gasto_viaje')->insert([
             'booking' => $booking,
@@ -632,7 +878,12 @@ class DemoSeeder extends Seeder
             'unidad_id' => $unidad,
             'litros' => $litros,
             'precio_litro' => 25.4,
-            'odometro' => 150000 + $booking * 780 + $unidad * 9000,
+            // El odómetro avanza los KILÓMETROS DE LA RUTA, no un número
+            // inventado: de la diferencia entre dos cargas sale el rendimiento
+            // en km/L, y con un avance cualquiera salía a 6 km/L —el doble de lo
+            // que rinde un tractor cargado, y lo primero que mira un
+            // transportista—.
+            'odometro' => $this->odometro[$unidad] = ($this->odometro[$unidad] ?? 150000 + $unidad * 9000) + max(1, $viaje['km']),
             'importe' => round($litros * 25.4, 2),
             'created_at' => $carga->toDateTimeString(),
         ]);
@@ -643,7 +894,7 @@ class DemoSeeder extends Seeder
             'fecha' => $carga->copy()->addDay()->toDateString(),
             'unidad_id' => $unidad,
             'descripcion' => 'Casetas de la ruta',
-            'importe' => 900 + ($booking % 7) * 110,
+            'importe' => $viaje['km'] > 0 ? round($viaje['km'] * 2.9, 2) : 900 + ($booking % 7) * 110,
             'created_at' => $carga->toDateTimeString(),
         ]);
     }
@@ -676,54 +927,50 @@ class DemoSeeder extends Seeder
      */
     private function continuidad(int $booking, Carbon $carga, Carbon $arribo, bool $cerrado): void
     {
-        $hitos = [
-            'pickup_date' => $carga->copy()->subDays(4),
-            'doc_cut_of' => $carga->copy()->subDays(3),
-            'SI_date' => $carga->copy()->subDays(2),
-            'draf_client' => $carga->copy()->subDay(),
-            'gated_IN' => $carga->copy()->subDay(),
-            'cleared' => $carga->copy(),
-            'departure' => $carga->copy()->addDay(),
-            'bl_payment' => $carga->copy()->addDays(3),
-            'swb' => $carga->copy()->addDays(5),
-            'corrected_draft' => $carga->copy()->addDays(6),
-            'vgm' => $carga->copy()->subDays(2),
-            'insurance' => $carga->copy()->subDays(5),
-            'delivered' => $arribo->copy(),
-            'gated_out' => $arribo->copy()->addDays(2),
-        ];
+        $hitos = [];
 
-        // En el embarque vivo se dejan sin capturar los últimos hitos.
-        $capturados = $cerrado ? count($hitos) : mt_rand(4, 9);
+        foreach ($this->perfil->hitos() as $hito) {
+            $base = ($hito['desde'] ?? 'carga') === 'arribo' ? $arribo : $carga;
+            $hitos[$hito['clave']] = [
+                'fecha' => $base->copy()->addDays($hito['dias']),
+                'columna' => $hito['columna'],
+            ];
+        }
+
+        // En el expediente vivo se dejan sin capturar los últimos hitos: es lo
+        // que hace que la bandeja de avisos y el reporte de continuidad tengan
+        // algo que enseñar.
+        $capturados = $cerrado ? count($hitos) : mt_rand(3, max(3, count($hitos) - 2));
 
         $fila = ['booking' => $booking, 'modality' => 1 + ($booking % 4), 'modified_at' => $carga->toDateTimeString(), 'modified_by' => 3];
         $verificacion = ['booking' => $booking, 'modified_by' => 3, 'trash' => 0];
+        $catalogo = DB::table('hito')->pluck('hito_id', 'clave');
 
-        foreach (array_slice($hitos, 0, $capturados, true) as $columna => $fecha) {
-            $fila[$columna] = $fecha->toDateTimeString();
-            $verificacion[$columna.'_chk_date'] = $fecha->toDateTimeString();
-            $verificacion[$columna.'_chk_by'] = 3;
-        }
+        foreach (array_slice($hitos, 0, $capturados, true) as $clave => $hito) {
+            $fecha = $hito['fecha']->toDateTimeString();
 
-        DB::table('booking_continuity')->insert($fila);
-        DB::table('check_list')->insert($verificacion);
-
-        // Y los mismos hitos como filas, que es de donde los lee la rejilla
-        // desde que dejaron de ser columnas. La tabla `hito` no se toca: es un
-        // catálogo y lo siembra la migración.
-        $catalogo = DB::table('hito')->pluck('hito_id', 'columna_legado');
-
-        foreach (array_slice($hitos, 0, $capturados, true) as $columna => $fecha) {
-            if (isset($catalogo[$columna])) {
+            // La fila del catálogo es la buena; la columna heredada se escribe
+            // además, cuando el hito tiene una, porque de ahí siguen saliendo el
+            // porcentaje de avance del listado y los avisos de tareas atrasadas.
+            if (isset($catalogo[$clave])) {
                 DB::table('hito_por_expediente')->insert([
                     'booking' => $booking,
-                    'hito_id' => $catalogo[$columna],
-                    'fecha' => $fecha->toDateTimeString(),
+                    'hito_id' => $catalogo[$clave],
+                    'fecha' => $fecha,
                     'modified_by' => 3,
                     'modified_at' => $carga->toDateTimeString(),
                 ]);
             }
+
+            if ($hito['columna'] !== null) {
+                $fila[$hito['columna']] = $fecha;
+                $verificacion[$hito['columna'].'_chk_date'] = $fecha;
+                $verificacion[$hito['columna'].'_chk_by'] = 3;
+            }
         }
+
+        DB::table('booking_continuity')->insert($fila);
+        DB::table('check_list')->insert($verificacion);
     }
 
     /**
@@ -741,8 +988,12 @@ class DemoSeeder extends Seeder
         foreach ($this->bookings as $booking => $datos) {
             $fecha = $datos['carga']->copy()->addDays(mt_rand(1, 6));
 
+            // Los viajes de esta semana todavía no tendrían una factura de
+            // dentro de cinco días: se factura el mismo día de la carga. Si se
+            // recortaran todas a hoy, las últimas caerían juntas en la misma
+            // fecha y el mes en curso se vería como un solo día de trabajo.
             if ($fecha->gt(Carbon::now())) {
-                $fecha = Carbon::now();
+                $fecha = $datos['carga']->copy();
             }
 
             // Nunca en fin de semana: no hay tipo de cambio publicado ese día y
@@ -751,7 +1002,10 @@ class DemoSeeder extends Seeder
                 $fecha->subDay();
             }
 
-            // --- Factura al cliente (tran_type 0). Va en dólares, como el flete.
+            // --- Factura al cliente (tran_type 0). La divisa la pone el perfil:
+            // un flete marítimo se cotiza en dólares y uno terrestre en pesos.
+            $factura = $this->perfil->facturaCliente($datos['viaje']);
+
             $folio++;
             $transaccion++;
             $cobrada = $datos['cerrado'] && mt_rand(1, 10) <= 8;
@@ -760,7 +1014,7 @@ class DemoSeeder extends Seeder
                 'transc_id' => $transaccion,
                 'tran_date' => $fecha->toDateString(),
                 'tran_number' => 'F-'.str_pad((string) $folio, 5, '0', STR_PAD_LEFT),
-                'account' => 2,
+                'account' => $factura['divisa'],
                 'company_id' => 1,
                 'booking' => $booking,
                 'customer' => $datos['cliente'],
@@ -778,20 +1032,16 @@ class DemoSeeder extends Seeder
                 'modified_by' => 2,
             ]);
 
-            $c = $this->perfil->conceptos();
+            $this->conceptos($transaccion, $factura['lineas']);
 
-            $this->conceptos($transaccion, [
-                [$c['venta_principal']['descripcion'], $c['venta_principal']['cargo'], 1, 1800 + $datos['puerto'] * 40 + $datos['destino'] * 65],
-                [$c['maniobras']['descripcion'], $c['maniobras']['cargo'], 1, 260 + $datos['puerto'] * 12],
-                [$c['sueltos'][0]['nombre'], $c['sueltos'][0]['cargo'], 1, 95],
-            ]);
+            // --- Costos, un documento por proveedor. Cuáles y en qué divisa
+            // también lo pone el perfil: quien tiene flota propia le compra
+            // diésel y casetas, no flete marítimo.
+            $costos = [];
 
-            // --- Costos: naviera (USD), transportista (MXN) y agente (MXN).
-            $costos = [
-                [$datos['naviera'], 2, [[$c['costo_principal']['descripcion'], $c['costo_principal']['cargo'], 1, 1450 + $datos['puerto'] * 35 + $datos['destino'] * 50]]],
-                [$datos['transportista'], 1, [[$c['acarreo']['descripcion'], $c['acarreo']['cargo'], 1, 12000 + $datos['puerto'] * 500 + $datos['recoleccion'] * 350]]],
-                [$datos['agente'], 1, [[$c['tramite']['descripcion'], $c['tramite']['cargo'], 1, 6500 + $datos['puerto'] * 250], [$c['terceros'], 6, 1, 1800]]],
-            ];
+            foreach ($this->perfil->costosDelViaje($datos['viaje']) as $costo) {
+                $costos[] = [$datos[$costo['proveedor']], $costo['divisa'], $costo['lineas']];
+            }
 
             foreach ($costos as [$proveedor, $divisa, $lineas]) {
                 $transaccion++;
@@ -811,7 +1061,7 @@ class DemoSeeder extends Seeder
                     'booking' => $booking,
                     'vendor' => $proveedor,
                     'tran_type' => 1,
-                    'invoice_type' => null,
+                    'invoice_type' => 1,
                     'open' => 1,
                     'active' => 1,
                     'paid' => $pagado ? 1 : 0,

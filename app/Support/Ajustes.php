@@ -26,6 +26,8 @@ class Ajustes
      */
     public const PERMITIDOS = [
         'marca.modalidades' => ['tipo' => 'lista', 'opciones' => ['maritimo', 'terrestre']],
+        'marca.nomina' => ['tipo' => 'booleano'],
+        'marca.taller' => ['tipo' => 'booleano'],
         'timbrado.habilitado' => ['tipo' => 'booleano'],
         'marca.vocabulario' => ['tipo' => 'texto'],
         'marca.idioma_documentos' => ['tipo' => 'opcion', 'opciones' => ['es', 'en']],

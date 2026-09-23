@@ -40,6 +40,9 @@ class Service extends CoreModel
     /** Despacho aduanal, por BL. */
     public const PRICE_BY_BROKER_BL = 4;
 
+    /** Campos de la ruta que el booking empata al proponer sus servicios. */
+    public const ROUTE_FIELDS = ['container_type_id', 'loading_port_id', 'dicharge_port_id', 'pickup_place_id', 'final_destination_id'];
+
     protected $table = 'service';
 
     protected $primaryKey = 'service_id';
@@ -49,6 +52,17 @@ class Service extends CoreModel
         return [
             'price' => 'float',
             'active' => 'boolean',
+        ];
+    }
+
+    /** @return array<int, string> Cómo se cobra cada tipo de precio. */
+    public static function priceTypeLabels(): array
+    {
+        return [
+            self::PRICE_BY_CONTAINER => __('Por contenedor'),
+            self::PRICE_BY_BL => __('Por BL'),
+            self::PRICE_BY_BROKER_CONTAINER => __('Aduana, por contenedor'),
+            self::PRICE_BY_BROKER_BL => __('Aduana, por BL'),
         ];
     }
 

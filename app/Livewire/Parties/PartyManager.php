@@ -2,12 +2,14 @@
 
 namespace App\Livewire\Parties;
 
-use App\Models\Core\Account;
-use App\Models\Core\Provider;
+use App\Livewire\Parties\Concerns\PartyFields;
+use App\Support\Export\PartiesExport;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Clientes y proveedores.
@@ -16,104 +18,20 @@ use Livewire\WithPagination;
  * pero sí son la misma pantalla con distintos campos, así que se resuelven en un
  * componente con dos modos.
  *
- * Lo que **no** se administra aquí es la contraseña del portal: eso vive en la
- * pantalla de usuarios, junto al resto de los accesos, para no tener dos lugares
- * donde se cambian credenciales.
+ * Aquí solo va la lista; el alta y la edición abren su propia ficha
+ * (`PartyForm`), que regresa a esta lista tal como se dejó.
  */
 class PartyManager extends Component
 {
+    use PartyFields;
     use WithPagination;
-
-    /** client | provider */
-    public string $mode = 'client';
 
     #[Url(as: 'q', except: '')]
     public string $search = '';
 
-    public ?int $editing = null;
-
-    /** @var array<string, mixed> */
-    public array $form = [];
-
     public function mount(string $mode = 'client'): void
     {
         $this->mode = $mode;
-    }
-
-    public function isClient(): bool
-    {
-        return $this->mode === 'client';
-    }
-
-    public function table(): string
-    {
-        return $this->isClient() ? 'client' : 'provider';
-    }
-
-    public function key(): string
-    {
-        return $this->isClient() ? 'client_id' : 'provider_id';
-    }
-
-    public function title(): string
-    {
-        return $this->isClient() ? __('Clientes') : __('Proveedores');
-    }
-
-    /**
-     * Campos capturables: etiqueta, tipo y reglas.
-     *
-     * @return array<string, array{0: string, 1: string, 2: array<int, mixed>}>
-     */
-    public function fields(): array
-    {
-        $texto = ['nullable', 'string', 'max:255'];
-
-        $comunes = [
-            'fullName' => [__('Nombre o razón social'), 'text', ['required', 'string', 'max:255']],
-            'rfc' => [__('RFC'), 'text', ['nullable', 'string', 'max:20']],
-            'email' => [__('Correo'), 'text', ['nullable', 'email', 'max:255']],
-            'phone' => [__('Teléfono'), 'text', ['nullable', 'string', 'max:50']],
-            'address' => [__('Dirección'), 'text', $texto],
-            'city' => [__('Ciudad'), 'text', ['nullable', 'string', 'max:100']],
-            'state' => [__('Estado o provincia'), 'text', ['nullable', 'string', 'max:100']],
-            'postal_code' => [__('Código postal'), 'text', ['nullable', 'string', 'max:20']],
-            'account_id' => [__('Divisa habitual'), 'select', ['nullable', 'integer']],
-        ];
-
-        if (! $this->isClient()) {
-            return $comunes + [
-                'type_id' => [__('Tipo de proveedor'), 'select', ['nullable', 'integer']],
-            ];
-        }
-
-        // Los campos del CFDI solo salen donde se factura al SAT: en una
-        // instalación sin timbrado son cuatro casillas que nadie sabe llenar.
-        $fiscales = config('timbrado.habilitado') ? [
-            'regimen_fiscal_id' => [__('Régimen fiscal (SAT)'), 'text', ['nullable', 'string', 'max:10']],
-            'invoice_use' => [__('Uso del CFDI'), 'text', ['nullable', 'string', 'max:10']],
-            'pay_method' => [__('Método de pago'), 'text', ['nullable', 'string', 'max:10']],
-            'pay_form' => [__('Forma de pago'), 'text', ['nullable', 'string', 'max:10']],
-        ] : [];
-
-        // Datos que solo tienen sentido en un cliente.
-        return $comunes + $fiscales + [
-            'email_notification' => [__('Correos para facturas'), 'text', $texto],
-        ];
-    }
-
-    /** @return array<int, string> */
-    public function optionsFor(string $campo): array
-    {
-        return match ($campo) {
-            'account_id' => Account::options(),
-            'type_id' => [
-                Provider::TYPE_CARRIER => __('Naviera'),
-                Provider::TYPE_TRANSPORT => __('Transportista'),
-                Provider::TYPE_BROKER => 'Agente aduanal',
-            ],
-            default => [],
-        };
     }
 
     public function updatedSearch(): void
@@ -126,125 +44,37 @@ class PartyManager extends Component
         return 'vendor.pagination.app';
     }
 
-    // ------------------------------------------------------------ Edición
+    /** Esta lista con su búsqueda y su página: a dónde regresa la ficha. */
+    public function currentUrl(): string
+    {
+        return route($this->listRoute(), array_filter([
+            'q' => $this->search,
+            'page' => $this->getPage() > 1 ? $this->getPage() : null,
+        ]), absolute: false);
+    }
 
     /**
-     * Documentos que se le piden a este cliente (`fields_by_client`).
+     * Columnas que pinta el listado. El tipo del proveedor decide en qué
+     * selector del booking aparece, así que se ve.
      *
-     * Sin esto, un cliente nuevo no ofrece ni un solo campo donde subir papeles:
-     * la pantalla del booking saca los campos de aquí. En Yii2 era un CRUD suelto
-     * («Fields by client») que había que ir a buscar por su cuenta.
-     *
-     * @var array<int, string>
+     * @return array<string, array{0: string, 1: string, 2: array<int, mixed>}>
      */
-    public array $documentFields = [];
-
-    public function create(): void
+    public function listFields(): array
     {
-        $this->assertAdmin();
-
-        $this->editing = 0;
-        $this->form = collect($this->fields())->map(fn () => '')->all();
-        $this->documentFields = [];
-        $this->resetErrorBag();
+        return array_intersect_key($this->fields(), array_flip(['fullName', 'rfc', 'email', 'city', 'phone', 'type_id']));
     }
 
-    public function edit(int $id): void
+    /**
+     * La lista con su búsqueda, tal como se ve, con solo las columnas pedidas y
+     * la llave: la tabla guarda también la contraseña y las llaves del portal,
+     * que no tienen por qué salir de la base.
+     *
+     * @param  array<int, string>  $columnas
+     */
+    private function query(array $columnas): Builder
     {
-        $this->assertAdmin();
-
-        $fila = DB::table($this->table())->where($this->key(), $id)->first();
-
-        abort_if($fila === null, 404);
-
-        $this->editing = $id;
-        $this->form = collect($this->fields())
-            ->mapWithKeys(fn ($definicion, $campo) => [$campo => (string) ($fila->{$campo} ?? '')])
-            ->all();
-        $this->documentFields = $this->isClient()
-            ? DB::table('fields_by_client')->where('client_id', $id)->pluck('field_id')
-                ->map(fn ($valor) => (string) $valor)->all()
-            : [];
-        $this->resetErrorBag();
-    }
-
-    public function cancel(): void
-    {
-        $this->reset(['editing', 'form', 'documentFields']);
-        $this->resetErrorBag();
-    }
-
-    /** El catálogo de documentos, para las casillas. @return array<int, string> */
-    public function documentCatalog(): array
-    {
-        return DB::table('file_fields')->orderBy('label')
-            ->pluck('label', 'field_id')
-            ->map(fn ($etiqueta, $id) => (string) ($etiqueta ?: $id))
-            ->all();
-    }
-
-    public function save(): void
-    {
-        $this->assertAdmin();
-
-        $this->validate(
-            collect($this->fields())->mapWithKeys(fn ($d, $campo) => ["form.{$campo}" => $d[2]])->all(),
-            attributes: collect($this->fields())
-                ->mapWithKeys(fn ($d, $campo) => ["form.{$campo}" => mb_strtolower($d[0])])
-                ->all(),
-        );
-
-        $valores = collect($this->fields())
-            ->mapWithKeys(fn ($d, $campo) => [$campo => ($this->form[$campo] ?? '') === '' ? null : $this->form[$campo]])
-            ->all();
-
-        if ($this->editing === 0) {
-            $id = DB::table($this->table())->insertGetId(
-                array_merge($valores, ['created_by' => auth()->id(), 'created_at' => now()]),
-                $this->key(),
-            );
-        } else {
-            $id = $this->editing;
-            DB::table($this->table())
-                ->where($this->key(), $id)
-                ->update(array_merge($valores, ['modified_by' => auth()->id(), 'modified_at' => now()]));
-        }
-
-        $this->syncDocumentFields((int) $id);
-
-        session()->flash('status', $this->editing === 0 ? 'Registro creado.' : 'Registro actualizado.');
-        $this->cancel();
-    }
-
-    /** Deja `fields_by_client` con exactamente los documentos marcados. */
-    private function syncDocumentFields(int $clientId): void
-    {
-        if (! $this->isClient()) {
-            return;
-        }
-
-        $elegidos = collect($this->documentFields)->map(fn ($id) => (int) $id)->filter()->unique();
-        $actuales = DB::table('fields_by_client')->where('client_id', $clientId)->pluck('field_id')
-            ->map(fn ($id) => (int) $id);
-
-        DB::table('fields_by_client')
-            ->where('client_id', $clientId)
-            ->whereIn('field_id', $actuales->diff($elegidos)->all())
-            ->delete();
-
-        foreach ($elegidos->diff($actuales) as $fieldId) {
-            DB::table('fields_by_client')->insert(['client_id' => $clientId, 'field_id' => $fieldId]);
-        }
-    }
-
-    private function assertAdmin(): void
-    {
-        abort_unless(auth()->user()?->isAdmin() ?? false, 403);
-    }
-
-    public function render()
-    {
-        $filas = DB::table($this->table())
+        return DB::table($this->table())
+            ->select(array_values(array_unique([$this->key(), ...$columnas])))
             ->when($this->search !== '', function ($q) {
                 $q->where(function ($w) {
                     foreach (['fullName', 'rfc', 'email', 'city'] as $columna) {
@@ -252,11 +82,28 @@ class PartyManager extends Component
                     }
                 });
             })
-            ->orderBy('fullName')
-            ->paginate(25, ['*'], 'page', $this->getPage());
+            ->orderBy('fullName');
+    }
 
+    /** Descarga en CSV de lo que se está viendo: todo el filtro, no la página. */
+    public function export(PartiesExport $exportacion): StreamedResponse
+    {
+        abort_unless(auth()->user()?->isAdmin() ?? false, 403);
+
+        $campos = $this->fields();
+
+        return $exportacion->stream(
+            $this->query(array_keys($campos)),
+            ['ID' => $this->key()] + collect($campos)->mapWithKeys(fn ($d, $campo) => [$d[0] => $campo])->all(),
+            collect($campos)->filter(fn ($d) => $d[1] === 'select')->mapWithKeys(fn ($d, $campo) => [$campo => $this->optionsFor($campo)])->all(),
+            ($this->isClient() ? 'clientes' : 'proveedores').'-'.now()->format('Ymd-His').'.csv',
+        );
+    }
+
+    public function render()
+    {
         return view('livewire.parties.party-manager', [
-            'filas' => $filas,
+            'filas' => $this->query(array_keys($this->listFields()))->paginate(25, ['*'], 'page', $this->getPage()),
         ])->layout('components.app-layout', ['title' => $this->title()]);
     }
 }

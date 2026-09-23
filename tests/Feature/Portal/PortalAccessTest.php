@@ -61,7 +61,7 @@ class PortalAccessTest extends TestCase
 
     private function clientePortal(int $clientId = 1): User
     {
-        return User::create([
+        return User::forceCreate([
             'username' => "portal.cliente.{$clientId}", 'password' => 'secreto-de-prueba',
             'role' => User::ROLE_USER, 'access' => User::ACCESS_CLIENT, 'client_id' => $clientId, 'status' => 1,
         ]);
@@ -69,7 +69,7 @@ class PortalAccessTest extends TestCase
 
     private function interno(): User
     {
-        return User::create([
+        return User::forceCreate([
             'username' => 'operador', 'password' => 'secreto-de-prueba',
             'role' => User::ROLE_ADMIN, 'access' => User::ACCESS_INTERNAL, 'status' => 1,
         ]);

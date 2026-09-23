@@ -22,6 +22,21 @@ class BookingFiles
     /** Separador de la lista de archivos en `files_by_booking.value`. */
     private const SEPARADOR = ' / ';
 
+    /** Lo que se puede adjuntar: las mismas extensiones que aceptaba el original. */
+    public const EXTENSIONES = ['pdf', 'jpg', 'jpeg', 'png', 'zip', 'xml', 'xls', 'xlsx', 'doc', 'docx'];
+
+    /**
+     * Lo que se abre en el navegador; lo demás se descarga. Un XML o un XLS
+     * servido en línea o se pinta como texto suelto o lo intercepta un
+     * complemento; descargado, se abre con lo que corresponde.
+     */
+    public const EN_LINEA = ['pdf', 'jpg', 'jpeg', 'png'];
+
+    public static function seAbreEnLinea(string $nombre): bool
+    {
+        return in_array(strtolower(pathinfo($nombre, PATHINFO_EXTENSION)), self::EN_LINEA, true);
+    }
+
     private Filesystem $disk;
 
     public function __construct()
@@ -93,7 +108,12 @@ class BookingFiles
         return $nombre;
     }
 
-    /** Quita el archivo de la lista y del disco. */
+    /**
+     * Quita el archivo de la lista. **No lo borra del disco**, como el
+     * `delete-file` del original, que solo quitaba el renglón: el mismo nombre
+     * puede estar adjunto en otro campo, y un documento que operación quitó
+     * por error se recupera volviéndolo a listar, no volviéndolo a pedir.
+     */
     public function remove(int $bookingId, int $fieldId, string $nombre): void
     {
         $fila = DB::table('files_by_booking')
@@ -110,8 +130,6 @@ class BookingFiles
         DB::table('files_by_booking')
             ->where('booking_file_id', $fila->booking_file_id)
             ->update(['value' => implode(self::SEPARADOR, $nombres)]);
-
-        $this->disk->delete($this->directory($bookingId).'/'.$nombre);
     }
 
     /** Ruta absoluta del archivo, o null si no está en el disco. */

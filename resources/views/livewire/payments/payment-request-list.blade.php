@@ -1,13 +1,38 @@
 @php
     $money = fn ($v) => $v === null ? '—' : number_format((float) $v, 2);
     $esAdmin = auth()->user()?->isAdmin() ?? false;
+    $esSuperAdmin = auth()->user()?->isSuperAdmin() ?? false;
+    $desglose = [
+        'sub_0_paid' => 'Sub 0 %',
+        'sub_16_paid' => 'Sub 16 %',
+        'tax_16_paid' => 'IVA 16 %',
+        'non_dec' => __('No deducible'),
+        'tax_ret_paid' => __('Ret. IVA'),
+    ];
+    // Al abrir una solicitud se va a su vista propia, llevándose el filtro actual
+    // para que «Volver» regrese al mismo listado.
+    $verUrl = fn ($id) => route('payments.requests.show', $id, absolute: false).'?volver='.urlencode($this->currentUrl());
 @endphp
 
 <div class="space-y-4">
 
+    {{-- Se llegó desde un reporte de cobros y pagos: regreso con su filtro --}}
+    @if ($volver !== '')
+        <a href="{{ $volver }}" wire:navigate
+           class="inline-flex items-center gap-1.5 text-sm text-ink-muted transition hover:text-ink">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            {{ __('Volver al reporte') }}
+        </a>
+    @endif
+
     <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
-            <h2 class="text-lg font-semibold text-ink">{{ __('Solicitudes de pago') }}</h2>
+            <h2 class="text-lg font-semibold text-ink">
+                {{ __('Solicitudes de pago') }}
+                @if ($contraparte)
+                    <span class="text-ink-muted">· {{ $contraparte }}</span>
+                @endif
+            </h2>
             <p class="text-sm text-ink-muted">
                 {{ __('Cada solicitud agrupa las transacciones que se cobran o se pagan juntas.') }}
             </p>
@@ -21,20 +46,26 @@
 
     {{-- Filtros --}}
     <div class="card p-4">
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-7">
+            <label class="block">
+                <span class="field-label text-xs">{{ __('Tipo') }}</span>
+                <select wire:model.live="type" class="field-input mt-1 py-1.5 text-sm">
+                    @foreach (['' => __('Todos'), '1' => __('Cobro a cliente'), '2' => __('Pago a proveedor')] as $valor => $etiqueta)
+                        <option value="{{ $valor }}" @selected((string) $valor === $type)>{{ $etiqueta }}</option>
+                    @endforeach
+                </select>
+            </label>
+
+            <label class="block">
+                <span class="field-label text-xs">{{ __('Folio') }}</span>
+                <input type="text" inputmode="numeric" wire:model.live.debounce.400ms="folioId" value="{{ $folioId }}"
+                       class="field-input mt-1 py-1.5 text-sm" placeholder="0012">
+            </label>
+
             <label class="block">
                 <span class="field-label text-xs">{{ __('Número') }}</span>
                 <input type="text" wire:model.live.debounce.400ms="number" value="{{ $number }}"
                        class="field-input mt-1 py-1.5 text-sm" placeholder="{{ __('exacto') }}">
-            </label>
-
-            <label class="block">
-                <span class="field-label text-xs">{{ __('Tipo') }}</span>
-                <select wire:model.live="type" class="field-input mt-1 py-1.5 text-sm">
-                    @foreach (['' => __('Todos'), '1' => __('Cobros a clientes'), '2' => __('Pagos a proveedores')] as $valor => $etiqueta)
-                        <option value="{{ $valor }}" @selected((string) $valor === $type)>{{ $etiqueta }}</option>
-                    @endforeach
-                </select>
             </label>
 
             <label class="block">
@@ -56,16 +87,37 @@
                 </select>
             </label>
 
+            <div>
+                <label class="block">
+                    <span class="field-label text-xs">{{ __('Fechas') }} <span class="text-ink-faint">{{ __('(rango)') }}</span></span>
+                    <input type="text" wire:model.live.debounce.600ms="dates" value="{{ $dates }}"
+                           class="field-input mt-1 py-1.5 text-sm" placeholder="01/01/2025 - 31/12/2025">
+                </label>
+                {{-- El rango vigente: arranca en el año en curso para no traer toda la historia de golpe --}}
+                <p class="mt-1 text-xs text-ink-faint">
+                    {{ $dates !== '' ? __('Mostrando :rango', ['rango' => $dates]) : __('Mostrando todos los años') }}
+                    @if ($dates !== '')
+                        · <button type="button" wire:click="verTodosLosAnios" class="text-brand hover:underline">{{ __('Ver todos los años') }}</button>
+                    @endif
+                </p>
+            </div>
+
             <label class="block">
-                <span class="field-label text-xs">{{ __('Fechas') }} <span class="text-ink-faint">{{ __('(rango)') }}</span></span>
-                <input type="text" wire:model.live.debounce.600ms="dates" value="{{ $dates }}"
-                       class="field-input mt-1 py-1.5 text-sm" placeholder="01/01/2025 - 31/12/2025">
+                <span class="field-label text-xs">{{ __('Revaluar al TC del') }} <span class="text-ink-faint">{{ __('(dd/mm/aaaa)') }}</span></span>
+                <input type="text" wire:model.live.debounce.600ms="datePay" value="{{ $datePay }}"
+                       class="field-input mt-1 py-1.5 text-sm" placeholder="{{ now()->format('d/m/Y') }}">
             </label>
         </div>
 
         <div class="mt-3 flex flex-wrap items-end gap-2">
             <button type="button" wire:click="clearFilters" class="btn-ghost !px-3 !py-1.5 text-xs">{{ __('Limpiar filtros') }}</button>
-            <label class="ml-auto flex items-center gap-2 text-xs text-ink-muted">
+            <x-totals-switch />
+            <button type="button" wire:click="verTodas" wire:loading.attr="disabled" wire:target="verTodas"
+                    class="ml-auto btn-ghost !py-1.5 !px-3 text-xs">
+                <x-spinner wire:loading wire:target="verTodas" class="h-3.5 w-3.5" />
+                {{ __('Ver todas') }}
+            </button>
+            <label class="flex items-center gap-2 text-xs text-ink-muted">
                 {{ __('Por página') }}
                 <select wire:model.live="perPage" class="field-input !w-auto py-1 text-xs">
                     @foreach ([25, 50, 100] as $n)
@@ -88,7 +140,8 @@
         {{-- Tarjetas en móvil --}}
         <ul class="divide-y divide-line md:hidden">
             @forelse ($filas as $fila)
-                <li class="space-y-2 p-4 {{ (int) $fila->request_id === $highlight ? 'row-new' : '' }}">
+                <li class="cursor-pointer space-y-2 p-4 {{ (int) $fila->request_id === $highlight ? 'row-new' : '' }}"
+                    x-data x-on:click="Livewire.navigate('{{ $verUrl($fila->request_id) }}')">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
                             <p class="font-semibold text-ink">{{ $this->folio($fila->request_id) }}</p>
@@ -97,7 +150,7 @@
                             </p>
                         </div>
                         <span class="badge shrink-0 {{ $fila->paid ? 'badge-ok' : 'badge-warn' }}">
-                            {{ $fila->paid ? 'Pagada' : 'Pendiente' }}
+                            {{ $fila->paid ? __('Pagada') : __('Pendiente') }}
                         </span>
                     </div>
                     <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
@@ -107,7 +160,7 @@
                         </div>
                         <div class="flex justify-between gap-2">
                             <dt class="text-ink-faint">{{ __('Importe') }}</dt>
-                            <dd class="font-semibold tabular-nums text-ink">{{ $money($fila->amount) }} {{ $fila->prefix }}</dd>
+                            <dd class="font-semibold tabular-nums text-ink">{{ $money($fila->amount_original_neg) }} {{ $fila->prefix }}</dd>
                         </div>
                     </dl>
                 </li>
@@ -130,7 +183,13 @@
                         <th class="px-3 py-2.5 text-left font-semibold">{{ __('Divisa') }}</th>
                         <th class="px-3 py-2.5 text-right font-semibold">{{ __('TC') }}</th>
                         <th class="px-3 py-2.5 text-right font-semibold">{{ __('Importe') }}</th>
+                        @foreach ($desglose as $etiqueta)
+                            <th class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">{{ $etiqueta }}</th>
+                        @endforeach
                         <th class="px-3 py-2.5 text-right font-semibold">{{ __('Total pagado') }}</th>
+                        <th class="px-3 py-2.5 text-right font-semibold">{{ __('TC pago') }}</th>
+                        <th class="px-3 py-2.5 text-right font-semibold">{{ __('Total a pagar') }}</th>
+                        <th class="px-3 py-2.5 text-right font-semibold">{{ __('Diferencia') }}</th>
                         <th class="px-3 py-2.5 text-left font-semibold">{{ __('Estado') }}</th>
                         @if ($esAdmin)
                             <th class="px-3 py-2.5 text-right font-semibold"><span class="sr-only">{{ __('Acciones') }}</span></th>
@@ -142,17 +201,11 @@
                     @forelse ($filas as $fila)
                         @php $recienCreada = (int) $fila->request_id === $highlight; @endphp
                         <tr class="cursor-pointer transition {{ $recienCreada ? 'row-new' : 'hover:bg-raised' }}"
-                            wire:click="toggle({{ $fila->request_id }})">
+                            x-data x-on:click="Livewire.navigate('{{ $verUrl($fila->request_id) }}')">
                             <td class="whitespace-nowrap px-3 py-2">
-                                <span class="inline-flex items-center gap-2">
-                                    <svg class="h-3.5 w-3.5 shrink-0 text-ink-faint transition {{ $expanded === (int) $fila->request_id ? 'rotate-90' : '' }}"
-                                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                                    </svg>
-                                    <span class="font-medium text-ink">{{ $this->folio($fila->request_id) }}</span>
-                                </span>
+                                <span class="font-medium text-brand hover:underline">{{ $this->folio($fila->request_id) }}</span>
                             </td>
-                            <td class="whitespace-nowrap px-3 py-2 text-ink-muted">{{ (int) $fila->type === 1 ? 'Cobro' : 'Pago' }}</td>
+                            <td class="whitespace-nowrap px-3 py-2 text-ink-muted">{{ (int) $fila->type === 1 ? __('Cobro a cliente') : __('Pago a proveedor') }}</td>
                             <td class="max-w-[16rem] truncate px-3 py-2 text-ink-muted">
                                 {{ (int) $fila->type === 1 ? ($fila->clientName ?: '—') : ($fila->providerName ?: '—') }}
                             </td>
@@ -165,17 +218,26 @@
                             <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-faint">
                                 {{ $fila->exchange_value === null ? '—' : number_format((float) $fila->exchange_value, 4) }}
                             </td>
-                            <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-soft">{{ $money($fila->amount) }}</td>
+                            {{-- Con signo, como el «Amount» de Yii2: negativo en los pagos a proveedor. --}}
+                            <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-soft">{{ $money($fila->amount_original_neg) }}</td>
+                            @foreach ($desglose as $columna => $etiqueta)
+                                <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-muted">{{ $money($fila->{$columna}) }}</td>
+                            @endforeach
                             <td class="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums {{ (float) $fila->total_paid < 0 ? 'text-brand' : 'text-ink' }}">
                                 {{ $money($fila->total_paid) }}
                             </td>
+                            <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-faint">
+                                {{ $fila->pay_tc === null ? '—' : number_format((float) $fila->pay_tc, 4) }}
+                            </td>
+                            <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-soft">{{ $money($fila->total_to_pay) }}</td>
+                            <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink-muted">{{ $money($fila->diference) }}</td>
                             <td class="whitespace-nowrap px-3 py-2">
                                 <span class="badge {{ $fila->paid ? 'badge-ok' : 'badge-warn' }}">
-                                    {{ $fila->paid ? 'Pagada' : 'Pendiente' }}
+                                    {{ $fila->paid ? __('Pagada') : __('Pendiente') }}
                                 </span>
                             </td>
                             @if ($esAdmin)
-                                <td class="whitespace-nowrap px-3 py-2 text-right" wire:click.stop>
+                                <td class="whitespace-nowrap px-3 py-2 text-right" wire:click.stop x-on:click.stop>
                                     <div class="flex justify-end gap-3 text-xs">
                                         <a href="{{ route('payments.requests.document', $fila->request_id) }}" target="_blank"
                                            class="text-ink-muted transition hover:text-brand">{{ __('Imprimir') }}</a>
@@ -187,67 +249,40 @@
                                             <button type="button" wire:click="markPaid({{ $fila->request_id }})"
                                                     wire:confirm="{{ __('¿Marcar esta solicitud como pagada?') }}"
                                                     class="text-brand hover:underline">{{ __('Pagar') }}</button>
-                                            <button type="button" wire:click="delete({{ $fila->request_id }})"
-                                                    wire:confirm="{{ __('Se borrará la solicitud y se soltarán sus transacciones. ¿Continuar?') }}"
-                                                    class="text-ink-muted transition hover:text-brand">{{ __('Borrar') }}</button>
+                                            @if ($esSuperAdmin)
+                                                <button type="button" wire:click="delete({{ $fila->request_id }})"
+                                                        wire:confirm="{{ __('Se borrará la solicitud y se soltarán sus transacciones. ¿Continuar?') }}"
+                                                        class="text-ink-muted transition hover:text-brand">{{ __('Borrar') }}</button>
+                                            @endif
                                         @endif
                                     </div>
                                 </td>
                             @endif
                         </tr>
-
-                        {{-- Transacciones que agrupa --}}
-                        @if ($expanded === (int) $fila->request_id)
-                            <tr>
-                                <td colspan="{{ $esAdmin ? 12 : 11 }}" class="bg-raised/50 p-0">
-                                    <div class="overflow-x-auto p-4">
-                                        <table class="min-w-full text-xs">
-                                            <thead class="text-[11px] uppercase tracking-wide text-ink-faint">
-                                                <tr>
-                                                    <th class="px-3 py-1.5 text-left font-semibold">{{ __('Transacción') }}</th>
-                                                    <th class="px-3 py-1.5 text-left font-semibold">{{ __('Booking') }}</th>
-                                                    <th class="px-3 py-1.5 text-left font-semibold">{{ __('Fecha') }}</th>
-                                                    <th class="px-3 py-1.5 text-right font-semibold">{{ __('Total') }}</th>
-                                                    <th class="px-3 py-1.5 text-right font-semibold">{{ __('Pagado') }}</th>
-                                                    <th class="px-3 py-1.5 text-right font-semibold">{{ __('Por pagar') }}</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody class="divide-y divide-line">
-                                                @forelse ($transacciones as $t)
-                                                    <tr>
-                                                        <td class="whitespace-nowrap px-3 py-1.5">
-                                                            <a href="{{ route('transactions.show', $t->transc_id) }}" wire:navigate
-                                                               class="text-brand hover:underline">{{ $t->tran_number ?: $t->transc_id }}</a>
-                                                        </td>
-                                                        <td class="whitespace-nowrap px-3 py-1.5 text-ink-muted">{{ trim((string) $t->booking_number) ?: '—' }}</td>
-                                                        <td class="whitespace-nowrap px-3 py-1.5 text-ink-muted">
-                                                            {{ $t->tran_date ? \Illuminate\Support\Carbon::parse($t->tran_date)->format('d/m/Y') : '—' }}
-                                                        </td>
-                                                        <td class="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-ink-soft">{{ $money($t->total_natural_amount) }}</td>
-                                                        <td class="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-ink-muted">{{ $money($t->tran_paid_amount) }}</td>
-                                                        <td class="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-ink">{{ $money($t->left_to_pay) }}</td>
-                                                    </tr>
-                                                @empty
-                                                    <tr>
-                                                        <td colspan="6" class="px-3 py-6 text-center text-ink-faint">
-                                                            {{ __('Esta solicitud no tiene transacciones.') }}
-                                                        </td>
-                                                    </tr>
-                                                @endforelse
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endif
                     @empty
                         <tr>
-                            <td colspan="{{ $esAdmin ? 12 : 11 }}" class="px-3 py-12 text-center text-ink-faint">
+                            <td colspan="{{ $esAdmin ? 20 : 19 }}" class="px-3 py-12 text-center text-ink-faint">
                                 {{ __('No hay solicitudes con estos filtros.') }}
                             </td>
                         </tr>
                     @endforelse
                 </tbody>
+
+                @if ($totals)
+                    <tfoot class="border-t border-line bg-panel text-sm font-semibold">
+                        <tr>
+                            <td colspan="9" class="px-3 py-2.5 text-ink-muted">{{ __('Total del filtro completo') }} <span class="font-normal text-ink-faint">(MXN)</span></td>
+                            @foreach (array_keys($desglose) as $columna)
+                                <td class="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-ink-soft">{{ $money($totals[$columna]) }}</td>
+                            @endforeach
+                            <td class="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-ink">{{ $money($totals['total_paid']) }}</td>
+                            <td></td>
+                            <td class="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-ink">{{ $money($totals['total_to_pay']) }}</td>
+                            <td class="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-ink-soft">{{ $money($totals['diference']) }}</td>
+                            <td colspan="{{ $esAdmin ? 2 : 1 }}"></td>
+                        </tr>
+                    </tfoot>
+                @endif
             </table>
         </div>
     </div>

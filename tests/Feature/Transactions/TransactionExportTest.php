@@ -104,6 +104,24 @@ class TransactionExportTest extends TestCase
         $this->assertStringNotContainsString('1,200.00', $csv);
     }
 
+    /** El reporte por booking baja lo que pinta su pantalla, no las columnas del listado. */
+    public function test_el_reporte_por_booking_baja_sus_propias_columnas(): void
+    {
+        $csv = $this->actingAs($this->admin())
+            ->get(route('transactions.export', ['screen' => 'report']))
+            ->assertOk()
+            ->streamedContent();
+
+        $renglones = array_filter(explode("\n", trim($csv)));
+
+        $this->assertCount(2, $renglones, 'Un renglón por booking más el encabezado.');
+        $this->assertStringContainsString(__('Utilidad'), $csv);
+        $this->assertStringContainsString('BK-1', $csv);
+        // 100 + 200 + … + 1200 = 7800 de ingreso, sin costos.
+        $this->assertStringContainsString(',7800,0,7800', $csv);
+        $this->assertStringNotContainsString(__('Compañía'), $csv);
+    }
+
     public function test_quien_no_es_administrador_no_descarga(): void
     {
         $usuario = new User;

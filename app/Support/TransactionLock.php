@@ -83,14 +83,17 @@ final class TransactionLock
     }
 
     /**
-     * ¿Se puede cambiar la fecha aunque el documento esté bloqueado?
+     * ¿Se puede cambiar la fecha aunque el documento esté bloqueado (factura ya
+     * pagada o timbrada)?
      *
      * Es la acción `modify-date` del original, que aparece como un lápiz junto a
-     * la fecha solo cuando el formulario está deshabilitado, el booking sigue
-     * abierto y quien mira es super administrador.
+     * la fecha solo cuando el formulario está deshabilitado y el booking sigue
+     * abierto. En Yii2 se reservaba al super administrador; aquí se abre a
+     * cualquier administrador —lo pidió el cliente— porque es una corrección de
+     * captura habitual y no toca importes.
      */
     public static function canChangeDate(bool $bookingLocked, ?User $user): bool
     {
-        return ! $bookingLocked && ($user?->isSuperAdmin() ?? false);
+        return ! $bookingLocked && ($user?->isAdmin() ?? false);
     }
 }

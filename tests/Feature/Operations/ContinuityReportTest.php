@@ -28,7 +28,7 @@ class ContinuityReportTest extends TestCase
 
     private function usuario(int $rol = User::ROLE_ADMIN): User
     {
-        return User::create([
+        return User::forceCreate([
             'username' => 'operador'.$rol, 'password' => 'secreto-de-prueba', 'role' => $rol, 'status' => 1,
         ]);
     }
@@ -90,9 +90,36 @@ class ContinuityReportTest extends TestCase
         $this->pantalla()->call('editMilestone', 1, 'modified_by', null)->assertNotFound();
     }
 
-    public function test_quien_no_es_administrador_no_captura(): void
+    /** Como el `setdate` del original: la fecha planeada la captura cualquier usuario interno. */
+    public function test_cualquier_usuario_interno_captura(): void
     {
-        $this->pantalla(User::ROLE_USER)->call('editMilestone', 1, 'departure', null)->assertForbidden();
+        $this->pantalla(User::ROLE_USER)
+            ->call('editMilestone', 1, 'departure', null)
+            ->set('value', '2026-03-01')
+            ->call('saveMilestone')
+            ->assertHasNoErrors();
+
+        $this->assertStringStartsWith('2026-03-01', DB::table('booking_continuity')->value('departure'));
+    }
+
+    /** El original guardaba fecha y hora; la captura vuelve a traer la hora. */
+    public function test_la_fecha_se_guarda_con_su_hora(): void
+    {
+        $this->pantalla()
+            ->call('editMilestone', 1, 'departure', null)
+            ->assertSet('value', now()->format('Y-m-d').'T00:00')
+            ->set('value', '2026-03-01T14:30')
+            ->call('saveMilestone')
+            ->assertHasNoErrors();
+
+        $this->assertSame('2026-03-01 14:30:00', DB::table('booking_continuity')->value('departure'));
+    }
+
+    public function test_al_abrir_una_fecha_guardada_se_ofrece_con_su_hora(): void
+    {
+        $this->pantalla()
+            ->call('editMilestone', 1, 'departure', '2026-03-01 14:30:00')
+            ->assertSet('value', '2026-03-01T14:30');
     }
 
     public function test_el_listado_descarta_borradores(): void
@@ -105,5 +132,17 @@ class ContinuityReportTest extends TestCase
 
         $this->assertCount(1, $filas->items());
         $this->assertSame('BK-1', $filas->items()[0]->booking_number);
+    }
+
+    public function test_un_booking_con_dos_filas_de_continuidad_sale_una_vez(): void
+    {
+        DB::table('booking_continuity')->insert([
+            ['cont_id' => 1, 'booking' => 1, 'pickup_date' => '2026-03-01 00:00:00'],
+            ['cont_id' => 2, 'booking' => 1, 'pickup_date' => '2026-03-02 00:00:00'],
+        ]);
+
+        $filas = $this->pantalla()->set('dates', '01/03/2026 - 31/03/2026')->viewData('filas');
+
+        $this->assertSame(1, $filas->total());
     }
 }

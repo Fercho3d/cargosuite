@@ -14,6 +14,18 @@ return [
     |
     */
 
+    // Tipo de cambio del dólar (SIE). Token gratis en
+    // https://www.banxico.org.mx/SieAPIRest/service/v1/token
+    // Frego en Yii2, que sigue en operación junto a este. Sin valor, el mismo
+    // servidor en el puerto 80.
+    'legacy' => [
+        'url' => env('LEGACY_URL'),
+    ],
+
+    'banxico' => [
+        'token' => env('BANXICO_TOKEN'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

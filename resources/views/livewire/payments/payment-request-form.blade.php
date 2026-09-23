@@ -51,6 +51,31 @@
             </label>
         </div>
 
+        {{-- Tipo de cambio: el del día como referencia o uno propio (la casilla «Custom TC» de Yii2) --}}
+        <div class="flex flex-wrap items-end gap-4">
+            <label class="flex items-center gap-2 text-sm text-ink-soft">
+                <input type="checkbox" wire:model.live="customTc" class="rounded border-line text-brand focus:ring-brand">
+                {{ __('Tipo de cambio propio') }}
+            </label>
+            @if ($customTc)
+                <label class="block">
+                    <span class="field-label text-xs">{{ __('Tipo de cambio') }}</span>
+                    <input type="number" step="0.0001" min="0" wire:model="tcValue" value="{{ $tcValue }}"
+                           class="field-input mt-1 !w-36 py-1.5 text-right text-sm tabular-nums" placeholder="0.0000">
+                    @error('tcValue') <span class="mt-1 block text-xs text-brand">{{ $message }}</span> @enderror
+                </label>
+            @else
+                @php $tcDelDia = $this->dayRate(); @endphp
+                <span class="text-sm text-ink-muted">
+                    {{ __('Tipo de cambio') }}:
+                    <span class="tabular-nums text-ink-soft">{{ $tcDelDia === null ? '—' : number_format($tcDelDia, 4) }}</span>
+                    @if ($tcDelDia === null)
+                        <span class="text-xs text-ink-faint">{{ __('(se registra el del día al guardar)') }}</span>
+                    @endif
+                </span>
+            @endif
+        </div>
+
         {{-- Transacciones y el importe que se aplica a cada una --}}
         <div class="overflow-x-auto rounded-xl border border-line">
             <table class="min-w-full text-sm">

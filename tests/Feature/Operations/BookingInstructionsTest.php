@@ -33,7 +33,7 @@ class BookingInstructionsTest extends TestCase
 
     private function detalle(int $rol = User::ROLE_ADMIN): Testable
     {
-        $this->actingAs(User::create([
+        $this->actingAs(User::forceCreate([
             'username' => 'operador'.$rol, 'password' => 'secreto-de-prueba', 'role' => $rol, 'status' => 1,
         ]));
 

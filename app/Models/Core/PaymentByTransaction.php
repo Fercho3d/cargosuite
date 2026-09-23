@@ -20,6 +20,24 @@ class PaymentByTransaction extends CoreModel
 
     protected $keyType = 'string';
 
+    /**
+     * Firma de alta y modificación, como el `beforeSave` de Yii2. `created_at` es
+     * DATE en la tabla; `modified_at`, DATETIME. Las correcciones de importe van
+     * por consulta directa (sin eventos) y firman con `modificationStamp()`.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $renglon) {
+            $renglon->forceFill(['created_at' => now()->toDateString(), 'created_by' => auth()->id()] + self::modificationStamp());
+        });
+    }
+
+    /** @return array{modified_at: string, modified_by: int|string|null} */
+    public static function modificationStamp(): array
+    {
+        return ['modified_at' => now()->toDateTimeString(), 'modified_by' => auth()->id()];
+    }
+
     protected function casts(): array
     {
         return [

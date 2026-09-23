@@ -4,7 +4,6 @@ namespace App\Support\Pdf;
 
 use App\Models\Core\Bank;
 use App\Models\Core\PaymentRequest;
-use App\Models\Core\Provider;
 use App\Queries\TransactionFilters;
 use App\Queries\TransactionQuery;
 use App\Support\Documentos;
@@ -47,7 +46,8 @@ class PaymentRequestDocument
         return view('pdf.payment-request', [
             'solicitud' => $solicitud,
             'fecha' => $solicitud->date ? Carbon::parse($solicitud->date)->format('d/m/Y') : '',
-            'beneficiario' => Provider::find($solicitud->provider_id)?->fullName ?? '',
+            // Yii2 solo leía el proveedor y el cobro a cliente (tipo 1) salía en blanco.
+            'beneficiario' => ((int) $solicitud->type === 1 ? $solicitud->client : $solicitud->provider)?->fullName ?? '',
             'importe' => number_format($importe, 2),
             'importeEnLetra' => $this->spellOut($importe),
             'centavos' => number_format($importe - floor($importe), 2),

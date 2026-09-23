@@ -31,7 +31,7 @@ class TransactionFilesTest extends TestCase
         Storage::fake('documentos');
 
         Http::preventStrayRequests();
-        Http::fake(['sidofqa.segob.gob.mx/*' => Http::response(['ListaIndicadores' => []])]);
+        Http::fake(['www.banxico.org.mx/*' => Http::response(['bmx' => ['series' => [['datos' => []]]]])]);
 
         DB::table('account')->insert([['account_id' => 1, 'account_name' => 'Pesos', 'default' => 1, 'prefix' => 'MXN']]);
         DB::table('booking')->insert([['booking_id' => 1, 'booking_number' => 'BK-1', 'client' => 1, 'mode' => 10]]);
@@ -127,6 +127,28 @@ class TransactionFilesTest extends TestCase
             ->get(route('transactions.file', [1, 'pdf']))
             ->assertOk()
             ->assertHeader('content-disposition', 'inline; filename="factura.pdf"');
+    }
+
+    public function test_el_xml_se_puede_ver_en_el_navegador(): void
+    {
+        Storage::disk('documentos')->put('transactions/1/pdf/factura.xml', '<cfdi/>');
+        DB::table('transaction')->where('transc_id', 1)->update(['xml_attach' => 'factura.xml']);
+
+        $this->actingAs($this->admin())
+            ->get(route('transactions.file', [1, 'xml']))
+            ->assertOk()
+            ->assertHeader('content-disposition', 'inline; filename="factura.xml"');
+    }
+
+    public function test_con_descargar_se_baja_como_archivo(): void
+    {
+        Storage::disk('documentos')->put('transactions/1/pdf/factura.pdf', 'contenido');
+        DB::table('transaction')->where('transc_id', 1)->update(['pdf_attach' => 'factura.pdf']);
+
+        $this->actingAs($this->admin())
+            ->get(route('transactions.file', [1, 'pdf']).'?descargar=1')
+            ->assertOk()
+            ->assertDownload('factura.pdf');
     }
 
     public function test_pedir_un_adjunto_que_no_existe_responde_404(): void

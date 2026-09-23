@@ -38,7 +38,7 @@ class GastosViajeTest extends TestCase
 
     private function pantalla(int $rol = User::ROLE_ADMIN): Testable
     {
-        $usuario = User::create([
+        $usuario = User::forceCreate([
             'username' => 'jefa'.$rol, 'password' => 'secreto-de-prueba',
             'role' => $rol, 'access' => User::ACCESS_INTERNAL, 'status' => 1,
         ]);

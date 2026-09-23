@@ -29,6 +29,31 @@ Queda en http://cargosuite.loc (vhost de Apache) o con `php artisan serve`.
 Cuentas de la demostración: `demo.admin`, `demo.facturacion`, `demo.operaciones`,
 `demo.cliente` y `demo.proveedor`, contraseña `demo1234`.
 
+## Tareas programadas
+
+En el servidor, el cron de Laravel una vez por minuto:
+
+```bash
+* * * * * cd /ruta/al/sistema && php artisan schedule:run >> /dev/null 2>&1
+```
+
+| Comando | Cuándo | Qué hace |
+|---|---|---|
+| `exchange:diario` | lunes a viernes, 07:30 | trae el tipo de cambio del dólar de Banxico |
+| `operacion:avisos-continuidad aviso` | diario, 07:00 | avisa las tareas del booking que aún tienen tiempo |
+| `operacion:avisos-continuidad vencido` | diario, 07:05 | avisa las que ya se pasaron de fecha |
+| `cfdi:revisar-cancelaciones` | diario, 08:00 | pregunta al SAT en qué quedaron las cancelaciones solicitadas |
+
+`cfdi:revisar-cancelaciones` recorre las solicitudes pendientes de
+`cfdi_cancelacion`, consulta el servicio público del SAT y marca como canceladas
+las que el SAT ya da por canceladas; espera un segundo entre consultas
+(`--pausa=0` para no esperar). Hace falta porque el PAC avisa una sola vez, al
+recibir la solicitud: lo que pase después solo lo sabe el SAT. Ver
+`docs/CORREOS-Y-PDF.md`.
+
+Los dos avisos solo se programan con `MARCA_AVISOS_CORREO=true` en el `.env`
+(`marca.correo.avisos_por_correo`). `php artisan schedule:list` enseña lo que quedó activo.
+
 ## Pruebas
 
 ```bash

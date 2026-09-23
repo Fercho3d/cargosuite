@@ -50,6 +50,11 @@ class Home extends Component
             return redirect()->route(auth()->user()->isPortal() ? 'portal' : 'dashboard');
         }
 
+        // Sin portada pública (instalación de cliente): la raíz va al login.
+        if (! config('marca.landing')) {
+            return redirect()->route('login');
+        }
+
         return null;
     }
 

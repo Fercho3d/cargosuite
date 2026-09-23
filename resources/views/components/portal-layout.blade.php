@@ -1,4 +1,4 @@
-@props(['title' => 'Portal'])
+@props(['title' => null])
 @php
     $tema = \App\Support\Theme::current();
     $temaResuelto = \App\Support\Theme::resolved();
@@ -12,7 +12,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title }} · {{ \App\Support\Marca::nombre() }}</title>
+    <title>{{ $title ?? __('Portal') }} · {{ \App\Support\Marca::nombre() }}</title>
     @include('partials.theme-script')
     <style>[x-cloak]{display:none!important}</style>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -28,7 +28,7 @@
     <header class="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur">
         <div class="mx-auto flex h-16 max-w-5xl items-center gap-3 px-4 sm:px-6">
             @include('partials.logo', ['class' => 'text-xl', 'alto' => 'h-8'])
-            <span class="text-[10px] font-semibold uppercase tracking-widest text-ink-faint">Portal</span>
+            <span class="text-[10px] font-semibold uppercase tracking-widest text-ink-faint">{{ __('Portal') }}</span>
 
             <div class="ml-auto flex items-center gap-3">
                 <div class="hidden sm:block"><x-theme-toggle /></div>
@@ -45,17 +45,17 @@
                     <div x-show="open" x-cloak x-on:click.outside="open = false"
                          class="absolute right-0 mt-2 w-56 rounded-xl border border-line bg-panel p-1.5 shadow-xl">
                         <div class="flex items-center justify-between gap-2 px-3 py-2 sm:hidden">
-                            <span class="text-sm text-ink-muted">Tema</span>
+                            <span class="text-sm text-ink-muted">{{ __('Tema') }}</span>
                             <x-theme-toggle />
                         </div>
                         <a href="{{ route('security.show') }}" wire:navigate
                            class="block rounded-lg px-3 py-2 text-sm text-ink-muted transition hover:bg-raised hover:text-ink">
-                            Seguridad y 2FA
+                            {{ __('Seguridad y 2FA') }}
                         </a>
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
                             <button type="submit" class="block w-full rounded-lg px-3 py-2 text-left text-sm text-brand transition hover:bg-raised">
-                                Cerrar sesión
+                                {{ __('Cerrar sesión') }}
                             </button>
                         </form>
                     </div>

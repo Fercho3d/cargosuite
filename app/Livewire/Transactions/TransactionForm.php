@@ -11,6 +11,7 @@ use App\Models\Core\Provider;
 use App\Models\Core\Transaction;
 use App\Queries\TransactionFilters;
 use App\Queries\TransactionQuery;
+use App\Support\ExchangeRates;
 use App\Support\TransactionFiles;
 use App\Support\TransactionLock;
 use Illuminate\Support\Carbon;
@@ -74,6 +75,13 @@ class TransactionForm extends Component
      */
     public bool $dateIsEditable = false;
 
+    /**
+     * El cliente o proveedor ya no se cambia cuando el documento entró en una
+     * solicitud de pago: la solicitud se armó a nombre de esa contraparte
+     * (`_form.php` del original deshabilitaba el selector con `payment_request`).
+     */
+    public bool $partyIsLocked = false;
+
     /*
      * Adjuntos. Los dos van a la MISMA subcarpeta `pdf` de la transacción, igual
      * que en el sistema original; la columna guarda solo el nombre del archivo.
@@ -105,12 +113,24 @@ class TransactionForm extends Component
 
     private function mountForCreate(?int $booking, string $tipo): void
     {
-        if ($booking === null || ! Booking::whereKey($booking)->exists()) {
+        $modelo = $booking === null ? null : Booking::find($booking);
+
+        if ($modelo === null) {
             throw new NotFoundHttpException(__('Falta el booking al que pertenece la transacción.'));
         }
 
+        // El original no ofrecía los botones de alta en un booking cerrado; aquí
+        // además se rechaza la dirección escrita a mano.
+        abort_if($modelo->locked, 422, __('El booking está cerrado: no se le pueden agregar transacciones.'));
+
         $this->bookingId = $booking;
-        $this->tranType = $tipo === 'costo' ? Transaction::TYPE_BILL : Transaction::TYPE_INVOICE;
+        // Los tres botones de la pantalla del booking en el original: Invoice,
+        // Bill y Credit Bill (nota de crédito de proveedor, que resta al costo).
+        $this->tranType = match ($tipo) {
+            'costo' => Transaction::TYPE_BILL,
+            'nota-credito' => Transaction::TYPE_CREDIT_BILL,
+            default => Transaction::TYPE_INVOICE,
+        };
         $this->tranDate = now()->toDateString();
         $this->invoiceType = (string) Transaction::INVOICE_TYPE_NORMAL;
     }
@@ -135,6 +155,7 @@ class TransactionForm extends Component
         $this->xmlAttached = $modelo->xml_attach ?: null;
 
         $this->lockReason = $this->lockFor($modelo)->reason;
+        $this->partyIsLocked = (bool) $modelo->payment_request || $modelo->payments()->exists();
         $this->dateIsEditable = TransactionLock::canChangeDate(
             (bool) ($modelo->bookingModel?->locked ?? false),
             auth()->user(),
@@ -159,6 +180,11 @@ class TransactionForm extends Component
     public function isInvoice(): bool
     {
         return $this->tranType === Transaction::TYPE_INVOICE;
+    }
+
+    public function isCreditBill(): bool
+    {
+        return $this->tranType === Transaction::TYPE_CREDIT_BILL;
     }
 
     public function isLocked(): bool
@@ -186,7 +212,9 @@ class TransactionForm extends Component
             'tranNumber' => ['nullable', 'string', 'max:128'],
             'seal' => ['nullable', 'string', 'max:128'],
             'newSeal' => ['nullable', 'string', 'max:128'],
-            'invoiceType' => [Rule::requiredIf($this->isInvoice()), 'nullable', 'integer'],
+            'invoiceType' => [Rule::requiredIf($this->isInvoice()), 'nullable', 'integer', Rule::in([
+                Transaction::INVOICE_TYPE_NORMAL, Transaction::INVOICE_TYPE_HISTORY, Transaction::INVOICE_TYPE_CREDIT,
+            ])],
             'customerId' => [Rule::requiredIf($this->isInvoice()), 'nullable', Rule::exists('client', 'client_id')],
             'vendorId' => [Rule::requiredIf(! $this->isInvoice()), 'nullable', Rule::exists('provider', 'provider_id')],
             'pdfFile' => ['nullable', 'file', 'extensions:pdf', 'max:20480'],
@@ -208,15 +236,15 @@ class TransactionForm extends Component
     protected function validationAttributes(): array
     {
         return [
-            'tranDate' => 'fecha',
-            'accountId' => 'moneda',
+            'tranDate' => __('fecha'),
+            'accountId' => __('moneda'),
             'companyId' => __('compañía'),
             'tranNumber' => __('número'),
             'invoiceType' => __('tipo de factura'),
-            'customerId' => 'cliente',
-            'vendorId' => 'proveedor',
-            'pdfFile' => 'archivo PDF',
-            'xmlFile' => 'archivo XML',
+            'customerId' => __('cliente'),
+            'vendorId' => __('proveedor'),
+            'pdfFile' => __('archivo PDF'),
+            'xmlFile' => __('archivo XML'),
         ];
     }
 
@@ -261,6 +289,9 @@ class TransactionForm extends Component
             if ($this->dateIsEditable) {
                 $this->validateOnly('tranDate');
                 $modelo->tran_date = Carbon::parse($this->tranDate)->toDateString();
+                // Como el `beforeSave` del original: la fecha nueva necesita su
+                // tipo de cambio para que existan los importes en pesos.
+                app(ExchangeRates::class)->ensureFor(Carbon::parse($this->tranDate));
             }
 
             $modelo->save();
@@ -310,7 +341,7 @@ class TransactionForm extends Component
     {
         $entero = fn (?string $valor) => $valor === null ? null : (int) $valor;
 
-        return [
+        $datos = [
             'booking' => $this->bookingId,
             'tran_type' => $this->tranType,
             'tran_date' => $this->tranDate,
@@ -318,11 +349,24 @@ class TransactionForm extends Component
             'company_id' => $entero($this->companyId),
             'customer' => $this->isInvoice() ? $entero($this->customerId) : null,
             'vendor' => $this->isInvoice() ? null : $entero($this->vendorId),
-            'invoice_type' => $this->isInvoice() ? $entero($this->invoiceType) : null,
-            'tran_number' => $this->numberIsEditable() ? $this->tranNumber : null,
+            'invoice_type' => $this->isInvoice() ? $entero($this->invoiceType) : Transaction::INVOICE_TYPE_NORMAL,
             'seal' => $this->seal,
             'new_seal' => $this->newSeal,
         ];
+
+        // El folio del consecutivo no viaja en el formulario: al editar se
+        // conserva el que ya tenía, en lugar de borrarlo.
+        if ($this->numberIsEditable()) {
+            $datos['tran_number'] = $this->tranNumber;
+        }
+
+        // Con la contraparte bloqueada se conserva la guardada aunque la
+        // petición traiga otra: el selector va deshabilitado en pantalla.
+        if ($this->partyIsLocked) {
+            unset($datos['customer'], $datos['vendor']);
+        }
+
+        return $datos;
     }
 
     public function render()
@@ -340,10 +384,12 @@ class TransactionForm extends Component
     {
         // Se escribe entero y no armando la cadena por partes: «factura» es
         // femenino y «costo» masculino, y así no sale «Nueva costo».
-        return match (true) {
-            $this->transactionId !== null => $this->isInvoice() ? __('Editar factura') : __('Editar costo'),
-            $this->isInvoice() => __('Nueva factura'),
-            default => __('Nuevo costo'),
+        $editar = $this->transactionId !== null;
+
+        return match ($this->tranType) {
+            Transaction::TYPE_INVOICE => $editar ? __('Editar factura') : __('Nueva factura'),
+            Transaction::TYPE_CREDIT_BILL => $editar ? __('Editar nota de crédito de proveedor') : __('Nueva nota de crédito de proveedor'),
+            default => $editar ? __('Editar costo') : __('Nuevo costo'),
         };
     }
 }

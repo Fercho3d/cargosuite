@@ -104,17 +104,30 @@ class ContinuityAlertsTest extends TestCase
     }
 
     /**
-     * «Gated Out» está dos veces en la lista del original, así que ese hito
-     * manda dos correos iguales. Se conserva y queda fijado aquí.
+     * «Gated Out» está dos veces en la lista del original y mandaba dos correos
+     * iguales; en el nuevo sale uno.
      */
-    public function test_el_hito_repetido_del_original_manda_dos_correos(): void
+    public function test_gated_out_manda_un_solo_correo(): void
     {
         $this->continuidad('gated_out', now()->addDay()->toDateTimeString());
         $this->checklist();
 
         $this->artisan('operacion:avisos-continuidad', ['nivel' => 'aviso'])->assertSuccessful();
 
-        Mail::assertSentCount(2);
+        Mail::assertSentCount(1);
+    }
+
+    public function test_sin_destinatario_avisa_y_no_manda_nada(): void
+    {
+        config(['marca.correo.avisos_operacion' => []]);
+        $this->continuidad('SI_date', now()->addDays(3)->toDateTimeString());
+        $this->checklist();
+
+        $this->artisan('operacion:avisos-continuidad', ['nivel' => 'aviso'])
+            ->expectsOutputToContain('MARCA_MAIL_AVISOS')
+            ->assertSuccessful();
+
+        Mail::assertNothingSent();
     }
 
     public function test_simular_no_manda_nada(): void

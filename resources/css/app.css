@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import 'flatpickr/dist/flatpickr.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -151,6 +152,11 @@
         @apply block text-sm font-medium text-ink-soft;
     }
 
+    /* Botón de acción por fila (tabla de bookings): icono en un cuadro chico. */
+    .booking-accion {
+        @apply inline-flex h-7 w-7 items-center justify-center rounded-lg border border-line text-ink-soft transition hover:bg-raised hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50;
+    }
+
     .field-input {
         @apply block w-full rounded-lg border border-line bg-panel px-3.5 py-2.5 text-ink placeholder-ink-faint shadow-sm transition focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/40;
         /* Un campo bloqueado tiene que notarse: el formulario de una transacción
@@ -240,6 +246,12 @@
         box-shadow: inset 3px 0 0 0 var(--pick-line);
     }
 
+    /* Renglón con pérdida (reporte por booking): rojo, como la fila `danger` del original. */
+    .row-loss {
+        background-color: var(--danger-bg);
+        box-shadow: inset 3px 0 0 0 var(--danger-ink);
+    }
+
     /* Bloque gris animado para los estados de carga. */
     .skeleton {
         @apply animate-shimmer rounded-md bg-raised;
@@ -267,4 +279,62 @@
     box-shadow:
         0 0 10px var(--color-accent-500),
         0 0 5px var(--color-accent-500) !important;
+}
+
+/*
+ * Calendario flatpickr (campo «Fechas»): el rango pintado con el rojo de la
+ * marca, y una variante oscura para que no salga un recuadro blanco sobre el
+ * tema oscuro.
+ */
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+    background: var(--color-accent-500);
+    border-color: var(--color-accent-500);
+}
+
+.flatpickr-day.inRange {
+    background: color-mix(in srgb, var(--color-accent-500) 16%, transparent);
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.dark .flatpickr-calendar {
+    background: var(--panel);
+    color: var(--ink);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+}
+
+.dark .flatpickr-calendar::before,
+.dark .flatpickr-calendar::after {
+    border-bottom-color: var(--panel);
+    border-top-color: var(--panel);
+}
+
+.dark .flatpickr-months .flatpickr-month,
+.dark .flatpickr-current-month input.cur-year,
+.dark .flatpickr-monthDropdown-months {
+    color: var(--ink);
+    fill: var(--ink);
+}
+
+.dark .flatpickr-day {
+    color: var(--ink-soft);
+}
+
+.dark .flatpickr-day:hover {
+    background: var(--raised);
+    border-color: var(--raised);
+}
+
+.dark .flatpickr-day.flatpickr-disabled,
+.dark .flatpickr-day.prevMonthDay,
+.dark .flatpickr-day.nextMonthDay,
+.dark span.flatpickr-weekday {
+    color: var(--ink-faint);
+}
+
+.dark .flatpickr-months .flatpickr-prev-month svg,
+.dark .flatpickr-months .flatpickr-next-month svg {
+    fill: var(--ink-soft);
 }

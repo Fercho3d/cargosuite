@@ -16,19 +16,18 @@
     <section class="card p-5 sm:p-6">
         <p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ __('Generar factura y costos') }}</p>
         <h2 class="mt-0.5 text-2xl font-semibold text-ink">
-            {{ trim((string) $booking->booking_number) ?: 'Booking '.$booking->booking_id }}
+            {{ trim((string) $booking->booking_number) ?: __('Booking').' '.$booking->booking_id }}
         </h2>
         <p class="mt-1 text-sm text-ink-muted">{{ $cliente ?: __('Sin cliente') }}</p>
 
         <p class="mt-4 max-w-3xl text-sm text-ink-muted">
             {{ __('Estos son los servicios contratados que empatan con la ruta del booking y con los contenedores que lleva. Es la misma propuesta que armaba el sistema anterior, entera y marcada: confirmar sin tocar nada escribe lo mismo que él. Nada se guarda hasta que confirmes, y abajo verás') }}
-            exactamente qué documentos van a quedar, con fecha {{ $hoy->format('d/m/Y') }}.
+            {{ __('exactamente qué documentos van a quedar, con fecha :fecha.', ['fecha' => $hoy->format('d/m/Y')]) }}
         </p>
 
         @if ($existentes->isNotEmpty())
             <div class="alert-warn mt-4">
-                Este booking ya tiene {{ $existentes->count() }}
-                {{ $existentes->count() === 1 ? __('transacción') : 'transacciones' }} sin cancelar
+                {{ trans_choice(__('{1}Este booking ya tiene :count transacción sin cancelar|[2,*]Este booking ya tiene :count transacciones sin cancelar'), $existentes->count(), ['count' => $existentes->count()]) }}
                 ({{ $existentes->map(fn ($t) => $t->tran_number ?: '#'.$t->transc_id)->join(', ') }}).
                 {{ __('Generar otra vez las duplica.') }}
             </div>
@@ -136,7 +135,7 @@
 
                 @if ($descartados > 0)
                     <p class="border-t border-line px-5 py-3 text-xs" style="color: var(--warn-ink)">
-                        Con esta ruta empatan {{ $descartados + 1 }} precios distintos de este transportista.
+                        {{ __('Con esta ruta empatan :n precios distintos de este transportista.', ['n' => $descartados + 1]) }}
                         {{ __('El sistema toma el primero y abre un costo por cada contenedor y por cada precio que empató, que es lo que hacía el sistema anterior. Si no es lo que corresponde, quita el renglón y captura el costo a mano.') }}
                     </p>
                 @endif
@@ -146,8 +145,7 @@
                         {{ __('Sin renglones marcados: no se creará ningún documento.') }}
                     @else
                         @php $copias = array_sum(array_map(fn ($d) => $d->copies, $documentos)); @endphp
-                        Quedará{{ $copias === 1 ? '' : 'n' }} <span class="font-semibold text-ink">{{ $copias }}</span>
-                        {{ $copias === 1 ? 'documento' : 'documentos' }}:
+                        {{ trans_choice(__('{1}Quedará :count documento:|[0,*]Quedarán :count documentos:'), $copias, ['count' => $copias]) }}
                         @foreach ($plan->totalsByAccount($bloque) as $cuenta => $total)
                             <span class="ml-1 tabular-nums text-ink">{{ $divisa($cuenta) }} {{ $money($total) }}</span>
                         @endforeach
@@ -167,10 +165,10 @@
                     <p class="text-ink-muted">{{ __('No hay ningún renglón marcado.') }}</p>
                 @else
                     <p class="text-ink">
-                        <span class="font-semibold">{{ $plan->documentCount() }}</span>
-                        {{ $plan->documentCount() === 1 ? 'documento' : 'documentos' }} con
-                        <span class="font-semibold">{{ $plan->lineCount() }}</span>
-                        {{ $plan->lineCount() === 1 ? 'concepto' : 'conceptos' }}.
+                        {{ __(':docs con :lineas.', [
+                            'docs' => trans_choice(__('{1}:count documento|[0,*]:count documentos'), $plan->documentCount(), ['count' => $plan->documentCount()]),
+                            'lineas' => trans_choice(__('{1}:count concepto|[0,*]:count conceptos'), $plan->lineCount(), ['count' => $plan->lineCount()]),
+                        ]) }}
                     </p>
                     <p class="mt-0.5 text-xs text-ink-faint">
                         {{ __('Las facturas al cliente toman folio consecutivo al crearse.') }}
@@ -179,9 +177,9 @@
             </div>
 
             <div class="flex items-center gap-3">
-                <a href="{{ route('operations.bookings.show', $booking->booking_id) }}" wire:navigate class="btn-ghost px-4 py-2 text-sm">Cancelar</a>
+                <a href="{{ route('operations.bookings.show', $booking->booking_id) }}" wire:navigate class="btn-ghost px-4 py-2 text-sm">{{ __('Cancelar') }}</a>
                 <button type="button" wire:click="generate" @disabled($plan->isEmpty())
-                        wire:confirm="Se van a crear {{ $plan->documentCount() }} documentos con sus conceptos. ¿Continuar?"
+                        wire:confirm="{{ __('Se van a crear :n documentos con sus conceptos. ¿Continuar?', ['n' => $plan->documentCount()]) }}"
                         wire:loading.attr="disabled" wire:target="generate" class="btn-accent px-4 py-2 text-sm">
                     <x-spinner wire:loading wire:target="generate" class="h-4 w-4" />
                     {{ __('Generar') }}

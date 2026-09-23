@@ -113,6 +113,12 @@ class Expediente
         return $validas === [] ? ['maritimo'] : $validas;
     }
 
+    /** ¿Esta instalación mueve de esta forma? */
+    public static function usa(string $modalidad): bool
+    {
+        return in_array($modalidad, self::modalidades(), true);
+    }
+
     public static function visible(string $campo): bool
     {
         if (in_array($campo, self::ocultos(), true)) {

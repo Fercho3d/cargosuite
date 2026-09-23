@@ -2,13 +2,22 @@
 
 namespace App\Actions\Transactions;
 
+use App\Models\CfdiCancelacion;
 use App\Models\Core\Transaction;
+use App\Support\Cfdi\CancelResult;
 use App\Support\Cfdi\CfdiException;
 use App\Support\Cfdi\PacClient;
 use App\Support\TransactionFiles;
 
 /**
- * Cancela ante el SAT una factura ya timbrada.
+ * Solicita ante el SAT la cancelación de una factura ya timbrada.
+ *
+ * ⚠️ **Pedir la cancelación no es cancelar.** Salvo los comprobantes que el SAT
+ * deja cancelar sin aceptación, lo que devuelve el PAC es un acuse y la factura
+ * sigue vigente hasta que el receptor autorice o se le venza el plazo. La
+ * solicitud queda anotada en `cfdi_cancelacion` y `transaction.cancelled` solo
+ * lo marca la consulta al SAT (`RefreshCancellationStatus`), que se hace aquí
+ * mismo al terminar y a diario con `cfdi:revisar-cancelaciones`.
  *
  * ⚠️ El RFC que se le manda al PAC tiene que ser **aquel con el que se timbró**,
  * no el de la cuenta ni el de la compañía actual: el PAC busca el UUID dentro de
@@ -25,9 +34,9 @@ class CancelStamp
         '04' => '04 · Operación nominativa relacionada en una factura global',
     ];
 
-    public function __construct(private PacClient $pac) {}
+    public function __construct(private PacClient $pac, private RefreshCancellationStatus $consultarSat) {}
 
-    public function handle(Transaction $transaccion, string $motivo, ?string $sustituye = null): void
+    public function handle(Transaction $transaccion, string $motivo, ?string $sustituye = null): CancelResult
     {
         if (blank($transaccion->seal)) {
             throw new CfdiException('Esta factura no está timbrada, no hay nada que cancelar.');
@@ -41,13 +50,36 @@ class CancelStamp
             throw new CfdiException('El motivo 01 exige el folio fiscal del comprobante que lo sustituye.');
         }
 
-        $this->pac->cancel($transaccion->seal, $this->emisorRfc($transaccion), $motivo, $sustituye);
+        // El SAT solo admite folio de sustitución con el motivo 01; con los demás
+        // se descarta aunque venga capturado, para no mandárselo al PAC.
+        if ($motivo !== '01') {
+            $sustituye = null;
+        }
 
-        $transaccion->forceFill([
-            'cancelled' => 1,
-            'cancel_reason_id' => $motivo,
-            'new_seal' => $sustituye,
-        ])->save();
+        $resultado = $this->pac->cancel($transaccion->seal, $this->emisorRfc($transaccion), $motivo, $sustituye);
+
+        CfdiCancelacion::updateOrCreate(['transc_id' => $transaccion->transc_id], [
+            'uuid' => $transaccion->seal,
+            'motivo' => $motivo,
+            'sustituye' => $sustituye,
+            'estado' => $resultado->estado,
+            'codigo' => $resultado->codigo,
+            'mensaje' => $resultado->mensaje,
+            'solicitado_por' => auth()->id(),
+            'solicitado_at' => now(),
+            // Una solicitud nueva deja sin valor lo último que dijo el SAT.
+            'sat_estado' => null,
+            'sat_estatus' => null,
+            'verificado_at' => null,
+        ]);
+
+        // Las que no piden aceptación el SAT las cancela al momento; las demás
+        // seguirán vigentes hasta que conteste el receptor.
+        if ($this->consultarSat->handle($transaccion)->estaCancelado()) {
+            return new CancelResult(CancelResult::CANCELADA, $resultado->codigo, 'El SAT canceló el comprobante.');
+        }
+
+        return $resultado;
     }
 
     /**

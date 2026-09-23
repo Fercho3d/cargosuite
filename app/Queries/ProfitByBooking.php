@@ -51,18 +51,20 @@ class ProfitByBooking
         $rows = [];
         $totales = $this->emptyTotals();
 
-        foreach ($facturas as $bookingId => $factura) {
+        // También los bookings que solo tienen costos: su profit es la pérdida.
+        foreach ($facturas->keys()->merge($costos->keys())->unique() as $bookingId) {
+            $factura = $facturas->get($bookingId);
             $costo = $costos->get($bookingId);
 
-            // Los costos vienen con signo negativo del motor; la utilidad se
-            // calcula contra su magnitud, igual que el original.
+            // Los importes ya vienen en magnitud renglón por renglón (ver
+            // `amountsFor`): las notas de crédito de proveedor restan del costo.
             $fila = [
                 'booking_id' => $bookingId,
-                'booking' => trim((string) $factura->booking_number),
-                'inv_doc' => (float) $factura->doc,
-                'cost_doc' => abs((float) ($costo->doc ?? 0)),
-                'inv_pago' => (float) $factura->pago,
-                'cost_pago' => abs((float) ($costo->pago ?? 0)),
+                'booking' => trim((string) ($factura ?? $costo)->booking_number),
+                'inv_doc' => (float) ($factura->doc ?? 0),
+                'cost_doc' => (float) ($costo->doc ?? 0),
+                'inv_pago' => (float) ($factura->pago ?? 0),
+                'cost_pago' => (float) ($costo->pago ?? 0),
             ];
 
             $fila['profit_doc'] = $fila['inv_doc'] - $fila['cost_doc'];
@@ -76,6 +78,48 @@ class ProfitByBooking
         }
 
         return ['rows' => $rows, 'totals' => $totales];
+    }
+
+    /**
+     * Utilidad de unos bookings concretos, para pintarla renglón por renglón.
+     *
+     * La usa el listado de Costos: de un costo interesa saber si el booking al
+     * que pertenece deja dinero. Se resuelve con los bookings de la página en
+     * una sola consulta, no una por renglón, y con el mismo criterio que el
+     * resumen: importes del booking completo, sin el filtro de la pantalla.
+     *
+     * @param  int[]  $bookings
+     * @return array<int, array{inv_doc: float, cost_doc: float, profit_doc: float, profit_pago: float}>
+     */
+    public function forBookings(array $bookings): array
+    {
+        $bookings = array_values(array_unique(array_filter($bookings)));
+
+        if ($bookings === []) {
+            return [];
+        }
+
+        $facturas = $this->amountsFor($bookings, [Transaction::TYPE_INVOICE]);
+        $costos = $this->amountsFor($bookings, [Transaction::TYPE_BILL, Transaction::TYPE_CREDIT_BILL]);
+
+        $utilidades = [];
+
+        foreach ($bookings as $bookingId) {
+            $factura = $facturas->get($bookingId);
+            $costo = $costos->get($bookingId);
+
+            $ingresoDoc = (float) ($factura->doc ?? 0);
+            $costoDoc = (float) ($costo->doc ?? 0);
+
+            $utilidades[$bookingId] = [
+                'inv_doc' => $ingresoDoc,
+                'cost_doc' => $costoDoc,
+                'profit_doc' => $ingresoDoc - $costoDoc,
+                'profit_pago' => (float) ($factura->pago ?? 0) - (float) ($costo->pago ?? 0),
+            ];
+        }
+
+        return $utilidades;
     }
 
     /** @return array<string, float> */
@@ -116,6 +160,11 @@ class ProfitByBooking
     /**
      * Importes sin IVA por booking, ya con el respaldo por transacción aplicado.
      *
+     * Sigue el criterio de la pantalla del booking del original
+     * (`views/transaction/index.php`): cada renglón entra por su magnitud
+     * (`ABS`), las notas de crédito al cliente (`invoice_type` 3) quedan fuera
+     * del ingreso y las de proveedor (`tran_type` 2) restan del costo.
+     *
      * @param  int[]  $bookings
      * @param  int[]  $tipos
      * @return Collection<int, object>
@@ -125,19 +174,23 @@ class ProfitByBooking
         $filtros = TransactionFilters::make([]);
         $filtros->type = $tipos;
         $filtros->booking_in = $bookings;
+        // Los importes son del booking completo, sin el filtro de la pantalla,
+        // pero el modo sí se hereda: una cotización (modo 9) no sale si no.
+        $filtros->showQuatation = $this->filters->showQuatation;
 
         $inner = TransactionQuery::make($filtros)->aggregateQuery()->reorder();
 
         return collect(
             DB::table(DB::raw('('.$inner->toSql().') AS agg'))
                 ->mergeBindings($inner)
+                ->whereRaw('NOT (agg.tran_type = ? AND IFNULL(agg.invoice_type, 0) = ?)', [Transaction::TYPE_INVOICE, Transaction::INVOICE_TYPE_CREDIT])
                 ->selectRaw(<<<'SQL'
                     agg.booking_id,
                     agg.booking_number,
-                    SUM(agg.amount_original_mxn) AS doc,
-                    SUM(CASE WHEN agg.amount_original_paid_mxn <> 0
+                    SUM((CASE WHEN agg.tran_type = 2 THEN -1 ELSE 1 END) * ABS(agg.amount_original_mxn)) AS doc,
+                    SUM((CASE WHEN agg.tran_type = 2 THEN -1 ELSE 1 END) * ABS(CASE WHEN agg.amount_original_paid_mxn <> 0
                              THEN agg.amount_original_paid_mxn
-                             ELSE agg.amount_original_mxn END) AS pago
+                             ELSE agg.amount_original_mxn END)) AS pago
                 SQL)
                 ->groupBy('agg.booking_id', 'agg.booking_number')
                 // El orden del original lo dictaba el de la pantalla; aquí se fija

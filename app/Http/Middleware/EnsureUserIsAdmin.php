@@ -19,7 +19,7 @@ class EnsureUserIsAdmin
     {
         $user = $request->user();
 
-        abort_unless($user && $user->isAdmin(), 403, 'Esta sección es solo para administradores.');
+        abort_unless($user && $user->isAdmin(), 403, __('Esta sección es solo para administradores.'));
 
         return $next($request);
     }

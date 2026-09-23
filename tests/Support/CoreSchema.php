@@ -30,6 +30,9 @@ class CoreSchema
         $orden = 0;
 
         foreach ([
+            // La maniobra de vacío («Empty Pass») va antes de la recolección,
+            // como en el formulario de continuidad del sistema de origen.
+            'vacuum_maneuver' => 'Maniobra de vacío',
             'pickup_date' => 'Recolección',
             'doc_cut_of' => 'Corte documental',
             'SI_date' => 'Instrucciones',
@@ -74,7 +77,11 @@ class CoreSchema
             $table->tinyInteger('status')->default(1);
             $table->string('remember_token', 100)->nullable();
             $table->text('two_factor_secret')->nullable();
+            $table->text('two_factor_recovery_codes')->nullable();
+            $table->timestamp('two_factor_confirmed_at')->nullable();
             $table->dateTime('last_login')->nullable();
+            $table->integer('created_by')->nullable();
+            $table->integer('modified_by')->nullable();
             $table->dateTime('created_at')->nullable();
             $table->dateTime('modified_at')->nullable();
         });
@@ -127,9 +134,14 @@ class CoreSchema
             $table->string('customer_reference')->nullable();
             $table->string('commodity')->nullable();
             $table->string('set_point')->nullable();
-            $table->string('booking_type')->nullable();
+            // Entero como en producción: 1 = importación, 2 = exportación.
+            $table->integer('booking_type')->nullable();
             $table->date('dicharge_ETA')->nullable();
-            $table->date('arrival')->nullable();
+            // La lista de verificación del booking: fecha y hora, como en
+            // producción (`Booking::LISTA_DE_VERIFICACION`).
+            foreach (['arrival', 'realeased_from_shiping', 'customs_cleared', 'truck_service_request', 'delivered_consigned'] as $paso) {
+                $table->dateTime($paso)->nullable();
+            }
             $table->integer('vessel')->nullable();
             $table->integer('loading_port')->nullable();
             $table->integer('dicharge_port_id')->nullable();
@@ -269,6 +281,9 @@ class CoreSchema
             $table->date('seguro_vence')->nullable();
             $table->date('verificacion_vence')->nullable();
             $table->unsignedInteger('kilometraje')->nullable();
+            $table->unsignedInteger('servicio_cada_km')->nullable();
+            $table->unsignedInteger('ultimo_servicio_km')->nullable();
+            $table->date('ultimo_servicio')->nullable();
             $table->boolean('activo')->default(true);
             $table->string('notas', 255)->nullable();
         });
@@ -290,6 +305,120 @@ class CoreSchema
             $table->string('folio', 40)->nullable();
             $table->unsignedInteger('created_by')->nullable();
             $table->dateTime('created_at')->nullable();
+        });
+
+        Schema::create('refaccion', function ($table) {
+            $table->increments('refaccion_id');
+            $table->string('codigo', 40);
+            $table->string('nombre', 120);
+            $table->string('categoria', 40)->nullable();
+            $table->string('medida', 20)->nullable();
+            $table->string('ubicacion', 40)->nullable();
+            $table->decimal('existencia', 12, 2)->default(0);
+            $table->decimal('minimo', 12, 2)->default(0);
+            $table->decimal('costo', 12, 4)->default(0);
+            $table->boolean('activo')->default(true);
+            $table->string('notas', 255)->nullable();
+        });
+
+        Schema::create('mantenimiento', function ($table) {
+            $table->increments('mantenimiento_id');
+            $table->string('folio', 20);
+            $table->unsignedInteger('unidad_id');
+            $table->string('tipo', 12)->default('preventivo');
+            $table->string('estado', 10)->default('abierto');
+            $table->date('entrada');
+            $table->date('salida')->nullable();
+            $table->unsignedInteger('odometro')->nullable();
+            $table->string('taller', 10)->default('interno');
+            $table->unsignedInteger('provider_id')->nullable();
+            $table->string('descripcion', 200);
+            $table->decimal('mano_obra', 14, 2)->default(0);
+            $table->string('notas', 255)->nullable();
+            $table->unsignedInteger('created_by')->nullable();
+            $table->dateTime('created_at')->nullable();
+        });
+
+        Schema::create('mantenimiento_refaccion', function ($table) {
+            $table->increments('renglon_id');
+            $table->unsignedInteger('mantenimiento_id');
+            $table->unsignedInteger('refaccion_id');
+            $table->decimal('cantidad', 12, 2)->default(1);
+            $table->decimal('costo', 12, 4)->default(0);
+        });
+
+        Schema::create('movimiento_refaccion', function ($table) {
+            $table->increments('movimiento_id');
+            $table->unsignedInteger('refaccion_id');
+            $table->string('tipo', 10);
+            $table->decimal('cantidad', 12, 2);
+            $table->decimal('costo', 12, 4)->default(0);
+            $table->date('fecha');
+            $table->unsignedInteger('mantenimiento_id')->nullable();
+            $table->unsignedInteger('provider_id')->nullable();
+            $table->string('folio', 40)->nullable();
+            $table->string('notas', 255)->nullable();
+            $table->unsignedInteger('created_by')->nullable();
+            $table->dateTime('created_at')->nullable();
+        });
+
+        Schema::create('empleado', function ($table) {
+            $table->increments('empleado_id');
+            $table->string('nombre', 120);
+            $table->string('numero', 30)->nullable();
+            $table->string('puesto', 60)->nullable();
+            $table->string('departamento', 60)->nullable();
+            $table->string('rfc', 20)->nullable();
+            $table->string('curp', 20)->nullable();
+            $table->string('nss', 20)->nullable();
+            $table->date('ingreso')->nullable();
+            $table->decimal('salario_diario', 12, 4)->nullable();
+            $table->string('banco', 40)->nullable();
+            $table->string('clabe', 20)->nullable();
+            $table->unsignedInteger('operador_id')->nullable();
+            $table->boolean('activo')->default(true);
+            $table->string('notas', 255)->nullable();
+        });
+
+        Schema::create('nomina', function ($table) {
+            $table->increments('nomina_id');
+            $table->string('numero', 20);
+            $table->date('desde');
+            $table->date('hasta');
+            $table->string('periodicidad', 12)->default('quincenal');
+            $table->string('estado', 10)->default('abierta');
+            $table->dateTime('pagada_en')->nullable();
+            $table->unsignedInteger('created_by')->nullable();
+            $table->dateTime('created_at')->nullable();
+            $table->string('notas', 255)->nullable();
+        });
+
+        Schema::create('nomina_renglon', function ($table) {
+            $table->increments('renglon_id');
+            $table->unsignedInteger('nomina_id');
+            $table->unsignedInteger('empleado_id');
+            $table->string('concepto', 120);
+            $table->string('tipo', 12)->default('percepcion');
+            $table->decimal('importe', 16, 4)->default(0);
+            $table->unsignedInteger('liquidacion_id')->nullable();
+        });
+
+        // Bitácora de cancelaciones de CFDI (migración `create_cfdi_cancelacion`).
+        Schema::create('cfdi_cancelacion', function ($table) {
+            $table->increments('id');
+            $table->unsignedInteger('transc_id')->unique();
+            $table->string('uuid', 40);
+            $table->string('motivo', 2);
+            $table->string('sustituye', 40)->nullable();
+            $table->string('estado', 12)->default('solicitada');
+            $table->string('codigo', 20)->nullable();
+            $table->string('mensaje', 255)->nullable();
+            $table->string('sat_estado', 20)->nullable();
+            $table->string('sat_estatus', 40)->nullable();
+            $table->unsignedInteger('solicitado_por')->nullable();
+            $table->dateTime('solicitado_at');
+            $table->dateTime('verificado_at')->nullable();
+            $table->index('estado');
         });
 
         Schema::create('configuracion', function ($table) {
@@ -348,6 +477,12 @@ class CoreSchema
             $table->unsignedInteger('modified_by')->nullable();
             $table->dateTime('modified_at')->nullable();
             $table->unique(['booking', 'hito_id']);
+        });
+
+        // La modalidad del embarque (CY/CY, SD/SD…), que se elige en el detalle.
+        Schema::create('modality', function ($table) {
+            $table->increments('modality_id');
+            $table->string('modality_name', 15)->nullable();
         });
 
         Schema::create('booking_continuity', function ($table) {
@@ -411,9 +546,13 @@ class CoreSchema
             $table->decimal('longitud', 9, 6)->nullable();
         });
 
+        // Cumplimiento de la lista de verificación: por casilla, cuándo se marcó
+        // y quién. `modified_by` es el autor que lee el disparador de
+        // `check_list_history` en producción.
         Schema::create('check_list', function ($table) {
             $table->increments('check_id');
             $table->integer('booking')->nullable();
+            $table->integer('modified_by')->nullable();
 
             foreach ([
                 'booking_number', 'pickup_date', 'modality', 'doc_cut_of', 'SI_date', 'cleared',
@@ -423,6 +562,7 @@ class CoreSchema
                 'delivered', 'pick_up_place', 'insurance', 'corrected_draft', 'vgm',
             ] as $casilla) {
                 $table->dateTime($casilla.'_chk_date')->nullable();
+                $table->integer($casilla.'_chk_by')->nullable();
             }
         });
 
@@ -448,19 +588,24 @@ class CoreSchema
             $table->text('value')->nullable();
         });
 
+        // En producción `booking`, `container_type`, `quantity`, `comodity` y
+        // las cuatro columnas de auditoría son NOT NULL **sin default**: un NULL
+        // explícito falla allá y tiene que fallar aquí. El default de las de
+        // auditoría y de `comodity` no existe en producción; está solo para
+        // las pruebas que dan de alta contenedores sin capturarlas.
         Schema::create('containers', function ($table) {
             $table->increments('container_ID');
-            $table->integer('booking')->nullable();
-            $table->integer('container_type')->nullable();
-            $table->integer('quantity')->nullable();
-            $table->string('comodity')->nullable();
+            $table->integer('booking');
+            $table->integer('container_type');
+            $table->integer('quantity');
+            $table->string('comodity', 25)->default('');
             $table->string('number')->nullable();
             $table->string('seal')->nullable();
             $table->dateTime('pick_up_date')->nullable();
-            $table->integer('created_by')->nullable();
-            $table->integer('modified_by')->nullable();
-            $table->dateTime('created_at')->nullable();
-            $table->dateTime('modified_at')->nullable();
+            $table->integer('created_by')->default(0);
+            $table->integer('modified_by')->default(0);
+            $table->date('created_at')->default('1970-01-01');
+            $table->date('modified_at')->default('1970-01-01');
         });
 
         Schema::create('container_types', function ($table) {
@@ -468,26 +613,31 @@ class CoreSchema
             $table->string('container_name')->nullable();
         });
 
+        // Las longitudes son las de la base real (SQLite no las hace valer, pero
+        // documentan lo que la ficha tiene que validar). `phone` es `int(11)`.
         Schema::create('client', function ($table) {
             $table->integer('client_id')->primary();
-            $table->string('fullName');
-            $table->string('email')->nullable();
-            $table->string('email_notification')->nullable();
+            $table->string('fullName', 100);
+            // En producción es NOT NULL: los clientes sin correo lo tienen vacío.
+            // El default es solo para no repetirlo en cada alta de prueba.
+            $table->string('email', 50)->default('');
+            $table->string('email_notification', 1000)->nullable();
             $table->text('notification_notes')->nullable();
-            $table->string('country')->nullable();
+            $table->string('country', 25)->nullable();
             $table->dateTime('created_at')->nullable();
             $table->dateTime('modified_at')->nullable();
             // Datos fiscales del receptor: los usa el layout CFDI.
-            $table->string('rfc')->nullable();
-            $table->string('pay_form')->nullable();
-            $table->string('pay_method')->nullable();
-            $table->string('invoice_use')->nullable();
-            $table->string('regimen_fiscal_id')->nullable();
-            $table->string('postal_code')->nullable();
-            $table->string('phone')->nullable();
-            $table->string('address')->nullable();
-            $table->string('city')->nullable();
-            $table->string('state')->nullable();
+            $table->string('rfc', 25)->nullable();
+            $table->string('pay_form', 5)->nullable();
+            $table->string('pay_method', 5)->nullable();
+            $table->string('invoice_use', 5)->nullable();
+            $table->string('regimen_fiscal_id', 3)->nullable();
+            $table->string('postal_code', 25)->nullable();
+            $table->integer('phone')->nullable();
+            $table->string('address', 255)->nullable();
+            $table->string('address2', 255)->nullable();
+            $table->string('city', 25)->nullable();
+            $table->string('state', 25)->nullable();
             $table->integer('account_id')->nullable();
             $table->integer('match_pickup_place')->default(0);
             $table->integer('created_by')->nullable();
@@ -496,22 +646,31 @@ class CoreSchema
 
         Schema::create('provider', function ($table) {
             $table->integer('provider_id')->primary();
-            $table->string('fullName')->nullable();
-            $table->string('email')->nullable();
+            $table->string('fullName', 100)->nullable();
+            $table->string('email', 50)->nullable();
             $table->dateTime('created_at')->nullable();
             $table->dateTime('modified_at')->nullable();
             // 1 naviera, 2 transportista, 3 agente aduanal.
             $table->integer('type_id')->nullable();
-            $table->string('rfc')->nullable();
-            $table->string('phone')->nullable();
-            $table->string('address')->nullable();
-            $table->string('city')->nullable();
-            $table->string('state')->nullable();
-            $table->string('postal_code')->nullable();
+            $table->string('rfc', 25)->nullable();
+            $table->integer('phone')->nullable();
+            $table->string('address', 255)->nullable();
+            $table->string('city', 25)->nullable();
+            $table->string('state', 25)->nullable();
+            $table->string('postal_code', 25)->nullable();
             $table->integer('account_id')->nullable();
             $table->integer('created_by')->nullable();
             $table->integer('modified_by')->nullable();
         });
+
+        // Catálogos del SAT para los datos fiscales del cliente. En la base real
+        // no tienen llave primaria; `code` es lo que se guarda en `client`.
+        foreach (['invoice_use', 'pay_method', 'pay_form'] as $catalogoSat) {
+            Schema::create($catalogoSat, function ($table) {
+                $table->string('code', 4)->nullable();
+                $table->string('name', 64)->nullable();
+            });
+        }
 
         Schema::create('charge_type', function ($table) {
             $table->integer('charge_type_id')->primary();
@@ -551,6 +710,8 @@ class CoreSchema
             $table->date('end_date')->nullable();
             $table->decimal('min', 16, 4)->nullable();
             $table->decimal('max', 16, 4)->nullable();
+            // Nombre del contrato en PDF (`uploads/services/{id}/pdf/`).
+            $table->string('contract', 255)->nullable();
         });
 
         Schema::create('exchange', function ($table) {
@@ -562,6 +723,9 @@ class CoreSchema
             $table->text('url')->nullable();
             $table->integer('created_by')->nullable();
             $table->integer('modified_by')->nullable();
+            // En la base son `date`, no `datetime`.
+            $table->date('created_at')->nullable();
+            $table->date('modified_at')->nullable();
         });
 
         Schema::create('transaction', function ($table) {
@@ -651,6 +815,10 @@ class CoreSchema
             $table->integer('request_id');
             $table->integer('transc_id');
             $table->decimal('amount', 16, 4)->nullable();
+            $table->date('created_at')->nullable();
+            $table->integer('created_by')->nullable();
+            $table->dateTime('modified_at')->nullable();
+            $table->integer('modified_by')->nullable();
             $table->integer('paid')->default(0);
             $table->primary(['request_id', 'transc_id']);
         });

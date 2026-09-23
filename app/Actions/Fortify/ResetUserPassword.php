@@ -21,6 +21,12 @@ class ResetUserPassword implements ResetsUserPasswords
      */
     public function reset(User $user, array $input): void
     {
+        // Una cuenta dada de baja no recupera el acceso por esta vía. El mensaje
+        // es el mismo que el de un enlace vencido, para no delatar su estado.
+        if (! $user->isActive()) {
+            throw ValidationException::withMessages(['email' => [__('passwords.token')]]);
+        }
+
         Validator::make($input, [
             'password' => $this->passwordRules(),
         ])->validate();

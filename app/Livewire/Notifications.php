@@ -16,6 +16,19 @@ class Notifications extends Component
     /** Grupo que se está viendo, o vacío para todos. */
     public string $grupo = '';
 
+    /** A dónde regresa «Volver»: la pantalla desde la que se abrió la campana. */
+    public string $volver = '';
+
+    public function mount(): void
+    {
+        $url = (string) request()->query('volver', '');
+
+        // Solo direcciones propias del sistema, nunca a otro sitio.
+        $this->volver = str_starts_with($url, '/') && ! str_starts_with($url, '//')
+            ? $url
+            : route('dashboard', absolute: false);
+    }
+
     /** @return array<string, string> */
     public function grupos(): array
     {

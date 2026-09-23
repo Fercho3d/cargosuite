@@ -1,3 +1,53 @@
+import flatpickr from 'flatpickr';
+
+/**
+ * Selector de rango de fechas (el campo «Fechas» de los listados).
+ *
+ * Abre un calendario al hacer clic y deja elegir inicio y fin. Escribe el valor
+ * en la propiedad de Livewire con el MISMO formato que ya espera el servidor
+ * ("dd/mm/aaaa - dd/mm/aaaa"), pero de forma diferida: no dispara la consulta:
+ * eso lo hace el botón «Filtrar», para que capturar no se sienta pesado.
+ */
+document.addEventListener('alpine:init', () => {
+    window.Alpine.data('dateRangePicker', (valorInicial) => ({
+        fp: null,
+
+        init() {
+            this.fp = flatpickr(this.$refs.input, {
+                mode: 'range',
+                dateFormat: 'd/m/Y',
+                locale: { rangeSeparator: ' - ', firstDayOfWeek: 1 },
+                defaultDate: this.parse(valorInicial),
+                onChange: (fechas, texto) => {
+                    // Un rango solo se aplica cuando están las dos fechas; al
+                    // limpiar el calendario se vacía el filtro.
+                    if (fechas.length === 2) {
+                        this.$wire.set('dates', texto, false);
+                    } else if (fechas.length === 0) {
+                        this.$wire.set('dates', '', false);
+                    }
+                },
+            });
+
+            // Si el servidor limpia el filtro («Limpiar filtros»), vaciar también
+            // el calendario, que vive fuera del alcance de Livewire (wire:ignore).
+            this.$watch('$wire.dates', (valor) => {
+                if (!valor && this.fp.selectedDates.length) {
+                    this.fp.clear();
+                }
+            });
+        },
+
+        parse(valor) {
+            return valor && valor.includes(' - ') ? valor.split(' - ') : null;
+        },
+
+        destroy() {
+            this.fp?.destroy();
+        },
+    }));
+});
+
 /**
  * Tema claro/oscuro.
  *
@@ -219,4 +269,69 @@ document.addEventListener('livewire:navigated', () => {
     // y poner la clase en el mismo cuadro no reinicia la animación.
     void pantalla.offsetWidth;
     pantalla.classList.add('page-enter');
+});
+
+/**
+ * Campo de importe: solo deja capturar números y un punto decimal, y va
+ * poniendo las comas de miles mientras se escribe («2929.91» → «2,929.91»).
+ *
+ * El servidor quita las comas antes de validar, así que a Livewire se le manda
+ * el texto tal como se ve. Se usa junto con `wire:model` en el mismo `<input>`.
+ */
+document.addEventListener('alpine:init', () => {
+    window.Alpine.data('campoImporte', () => ({
+        init() {
+            this.formatear();
+
+            // Cuando el servidor cambia el valor (p. ej. el precio del servicio
+            // elegido), llega sin comas: se vuelve a formatear al pintarse.
+            const propiedad = this.$el.getAttribute('wire:model');
+            if (propiedad) {
+                this.$wire.$watch(propiedad, () => this.$nextTick(() => this.formatear()));
+            }
+
+            this.$el.addEventListener('input', () => this.formatear(true));
+        },
+
+        formatear(avisar = false) {
+            const campo = this.$el;
+            const antes = campo.value;
+
+            // Cuántos caracteres válidos hay antes del cursor, para devolverlo
+            // al mismo lugar después de meter o quitar comas.
+            const cursor = campo.selectionStart ?? antes.length;
+            const validosAntes = antes.slice(0, cursor).replace(/[^\d.]/g, '').length;
+
+            let limpio = antes.replace(/[^\d.]/g, '');
+            const punto = limpio.indexOf('.');
+            if (punto !== -1) {
+                limpio = limpio.slice(0, punto + 1) + limpio.slice(punto + 1).replace(/\./g, '');
+            }
+
+            const [entero, decimales] = limpio.split('.');
+            const conComas = entero.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            const nuevo = decimales === undefined ? conComas : `${conComas}.${decimales}`;
+
+            if (nuevo === antes) {
+                return;
+            }
+
+            campo.value = nuevo;
+
+            if (document.activeElement === campo) {
+                let posicion = 0;
+                for (let vistos = 0; posicion < nuevo.length && vistos < validosAntes; posicion++) {
+                    if (nuevo[posicion] !== ',') {
+                        vistos++;
+                    }
+                }
+                campo.setSelectionRange(posicion, posicion);
+            }
+
+            // Livewire ya leyó el valor sin formato: se le vuelve a avisar.
+            if (avisar) {
+                campo.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        },
+    }));
 });

@@ -31,7 +31,7 @@ class BookingDeleteTest extends TestCase
 
     private function detalle(int $rol = User::ROLE_ADMIN): Testable
     {
-        $this->actingAs(User::create([
+        $this->actingAs(User::forceCreate([
             'username' => 'operador'.$rol, 'password' => 'secreto-de-prueba', 'role' => $rol, 'status' => 1,
         ]));
 
@@ -74,6 +74,16 @@ class BookingDeleteTest extends TestCase
     public function test_quien_no_es_administrador_no_borra(): void
     {
         $this->detalle(User::ROLE_USER)->call('delete')->assertForbidden();
+
+        $this->assertNotNull(Booking::find(1));
+    }
+
+    /** La vista esconde el botón, pero la acción se puede llamar directa. */
+    public function test_un_booking_cerrado_no_se_borra(): void
+    {
+        DB::table('booking')->where('booking_id', 1)->update(['locked' => 1]);
+
+        $this->detalle()->call('delete')->assertStatus(422);
 
         $this->assertNotNull(Booking::find(1));
     }

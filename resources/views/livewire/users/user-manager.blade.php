@@ -2,17 +2,18 @@
 @use('App\Livewire\Users\UserManager')
 
 @php
-    $roles = [
-        User::ROLE_USER => __('Usuario'),
-        User::ROLE_ADMIN => 'Administrador',
-        User::ROLE_SUPER_ADMIN => 'Super administrador',
-    ];
+    // Todos los roles, internos y de portal, para el filtro del listado.
+    $roles = User::allRoles();
 
     $accesos = [
-        UserManager::ACCESS_INTERNAL => 'Interno',
+        UserManager::ACCESS_INTERNAL => __('Interno'),
         UserManager::ACCESS_CLIENT => __('Portal de cliente'),
         UserManager::ACCESS_PROVIDER => __('Portal de proveedor'),
     ];
+
+    // El select de rol depende del acceso elegido: `access` es `.live`, así que
+    // al cambiarlo la pantalla se vuelve a pintar con la lista que toca.
+    $rolesForm = $this->rolesAsignables();
 @endphp
 
 <div class="space-y-4">
@@ -74,7 +75,7 @@
                 <label class="block">
                     <span class="field-label">{{ __('Rol') }}</span>
                     <select wire:model="userRole" class="field-input mt-1.5">
-                        @foreach ($roles as $valor => $etiqueta)
+                        @foreach ($rolesForm as $valor => $etiqueta)
                             <option value="{{ $valor }}" @selected((string) $valor === $userRole)>{{ $etiqueta }}</option>
                         @endforeach
                     </select>
@@ -103,7 +104,7 @@
                 @endif
 
                 <label class="block">
-                    <span class="field-label">Contraseña {{ $editing === 0 ? '' : __('(dejar vacía para no cambiarla)') }}</span>
+                    <span class="field-label">{{ __('Contraseña') }} {{ $editing === 0 ? '' : __('(dejar vacía para no cambiarla)') }}</span>
                     <x-password-input wire:model="password" wrapper="mt-1.5" autocomplete="new-password" />
                     @error('password') <span class="mt-1 block text-xs text-brand">{{ $message }}</span> @enderror
                 </label>
@@ -113,11 +114,14 @@
                     <x-password-input wire:model="passwordConfirmation" wrapper="mt-1.5" autocomplete="new-password" />
                 </label>
 
-                <label class="flex items-end gap-2 pb-2.5 text-sm text-ink-soft">
-                    <input type="checkbox" wire:model="active" @checked($active)
-                           class="h-4 w-4 rounded border-line bg-panel text-accent-500 focus:ring-accent-500">
-                    {{ __('Activo') }}
-                </label>
+                {{-- Nadie se da de baja a sí mismo, tampoco desde aquí. --}}
+                @if ($editing !== auth()->id())
+                    <label class="flex items-end gap-2 pb-2.5 text-sm text-ink-soft">
+                        <input type="checkbox" wire:model="active" @checked($active)
+                               class="h-4 w-4 rounded border-line bg-panel text-accent-500 focus:ring-accent-500">
+                        {{ __('Activo') }}
+                    </label>
+                @endif
             </div>
 
             <div class="flex flex-wrap justify-end gap-3 border-t border-line pt-4">
@@ -158,7 +162,7 @@
     <div class="relative rounded-xl border border-line bg-panel">
         <div wire:loading.delay class="absolute inset-0 z-20 rounded-xl bg-panel/75 text-center backdrop-blur-[1px]">
             <span class="mt-14 inline-flex items-center gap-2 rounded-full border border-line bg-panel px-4 py-2 text-sm text-ink-muted shadow-lg">
-                <x-spinner class="h-4 w-4 text-brand" /> Actualizando…
+                <x-spinner class="h-4 w-4 text-brand" /> {{ __('Actualizando…') }}
             </span>
         </div>
 
@@ -168,10 +172,13 @@
                     <tr>
                         <th class="px-4 py-2.5 text-left font-semibold">{{ __('Usuario') }}</th>
                         <th class="px-4 py-2.5 text-left font-semibold">{{ __('Nombre') }}</th>
+                        <th class="px-4 py-2.5 text-left font-semibold">{{ __('Correo') }}</th>
                         <th class="px-4 py-2.5 text-left font-semibold">{{ __('Rol') }}</th>
                         <th class="px-4 py-2.5 text-left font-semibold">{{ __('Acceso') }}</th>
                         <th class="px-4 py-2.5 text-left font-semibold">{{ __('Estado') }}</th>
                         <th class="px-4 py-2.5 text-left font-semibold">{{ __('Último ingreso') }}</th>
+                        <th class="px-4 py-2.5 text-left font-semibold">{{ __('Creado por / el') }}</th>
+                        <th class="px-4 py-2.5 text-left font-semibold">{{ __('Modificado por / el') }}</th>
                         <th class="px-4 py-2.5 text-right font-semibold"><span class="sr-only">{{ __('Acciones') }}</span></th>
                     </tr>
                 </thead>
@@ -181,16 +188,36 @@
                         <tr class="transition hover:bg-raised {{ $usuario->status ? '' : 'opacity-60' }}">
                             <td class="max-w-[18rem] truncate px-4 py-2 text-ink" title="{{ $usuario->username }}">{{ $usuario->username ?: '—' }}</td>
                             <td class="max-w-[14rem] truncate px-4 py-2 text-ink-muted">{{ $usuario->name ?: '—' }}</td>
-                            <td class="whitespace-nowrap px-4 py-2 text-ink-muted">{{ $roles[(int) $usuario->role] ?? '—' }}</td>
-                            <td class="whitespace-nowrap px-4 py-2 text-ink-muted">{{ $accesos[(int) $usuario->access] ?? 'Interno' }}</td>
+                            <td class="max-w-[16rem] truncate px-4 py-2 text-ink-muted" title="{{ $usuario->email }}">{{ $usuario->email ?: '—' }}</td>
+                            <td class="whitespace-nowrap px-4 py-2 text-ink-muted">{{ $usuario->roleLabel() }}</td>
+                            <td class="whitespace-nowrap px-4 py-2 text-ink-muted">
+                                {{-- Una cuenta heredada sin `access` entra como interna, pero se
+                                     señala para que alguien lo capture desde «Editar». --}}
+                                @if ($usuario->sinAccesoDefinido())
+                                    <span class="badge badge-warn" title="{{ __('Entra como interno hasta que se le asigne un acceso.') }}">{{ __('Sin acceso definido') }}</span>
+                                @else
+                                    {{ $accesos[(int) $usuario->access] ?? __('Interno') }}
+                                @endif
+                            </td>
                             <td class="whitespace-nowrap px-4 py-2">
                                 <span class="badge {{ $usuario->status ? 'badge-ok' : 'badge-neutral' }}">
                                     {{ $usuario->status ? __('Activo') : __('De baja') }}
                                 </span>
                             </td>
                             <td class="whitespace-nowrap px-4 py-2 text-ink-muted">
-                                {{ $usuario->last_login ? $usuario->last_login->format('d/m/Y') : '—' }}
+                                {{ $usuario->last_login ? $usuario->last_login->format('d/m/Y H:i') : '—' }}
                             </td>
+                            {{-- Auditoría, como en el grid original: quién y cuándo. --}}
+                            @foreach ([[$usuario->creador, $usuario->created_at], [$usuario->modificador, $usuario->modified_at]] as [$quien, $cuando])
+                                <td class="whitespace-nowrap px-4 py-2 text-xs text-ink-muted">
+                                    @if ($quien || $cuando)
+                                        <span class="text-ink">{{ $quien?->username ?? '—' }}</span>
+                                        <span class="text-ink-faint">{{ $cuando?->format('d/m/Y H:i') ?? '—' }}</span>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                            @endforeach
                             <td class="whitespace-nowrap px-4 py-2 text-right">
                                 <div class="flex justify-end gap-3 text-xs">
                                     <button type="button" wire:click="edit({{ $usuario->usr_id }})" class="text-brand hover:underline">{{ __('Editar') }}</button>
@@ -199,14 +226,14 @@
                                         <button type="button" wire:click="toggleActive({{ $usuario->usr_id }})"
                                                 wire:confirm="{{ $usuario->status ? '¿Dar de baja a este usuario?' : '¿Reactivar a este usuario?' }}"
                                                 class="text-ink-muted transition hover:text-brand">
-                                            {{ $usuario->status ? 'Baja' : 'Reactivar' }}
+                                            {{ $usuario->status ? __('Baja') : __('Reactivar') }}
                                         </button>
                                     @endif
                                 </div>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="px-4 py-12 text-center text-ink-faint">{{ __('No hay usuarios con estos filtros.') }}</td></tr>
+                        <tr><td colspan="10" class="px-4 py-12 text-center text-ink-faint">{{ __('No hay usuarios con estos filtros.') }}</td></tr>
                     @endforelse
                 </tbody>
             </table>

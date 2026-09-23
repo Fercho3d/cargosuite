@@ -14,7 +14,7 @@
     <a href="{{ route('transactions.booking', $bookingId) }}" wire:navigate
        class="inline-flex items-center gap-1.5 text-sm text-ink-muted transition hover:text-ink">
         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-        Transacciones del booking {{ trim((string) ($booking?->booking_number ?? '')) }}
+        {{ __('Transacciones del booking') }} {{ trim((string) ($booking?->booking_number ?? '')) }}
     </a>
 
     {{-- Los campos llevan `value` y `@selected` explícitos además de `wire:model`:
@@ -34,13 +34,19 @@
                     <rect x="5" y="11" width="14" height="9" rx="2"/><path stroke-linecap="round" d="M8 11V8a4 4 0 0 1 8 0v3"/>
                 </svg>
                 <span>
-                    {{ $lockReason }}
-                    Solo puedes cambiar la compañía emisora{{ $dateIsEditable ? __(' y la fecha') : '' }}.
+                    {{ $lockReason ? __($lockReason) : '' }}
+                    {{ __('Solo puedes cambiar la compañía emisora') }}{{ $dateIsEditable ? __(' y la fecha') : '' }}.
                 </span>
             </p>
         @endif
 
         @include('partials.validation-errors')
+
+        @if ($this->isCreditBill())
+            <p class="rounded-lg border border-line bg-raised px-3 py-2 text-xs text-ink-muted">
+                {{ __('Los conceptos de una nota de crédito de proveedor se capturan en positivo; el sistema los resta del costo del booking, igual que el original.') }}
+            </p>
+        @endif
 
         <div class="grid gap-4 sm:grid-cols-2">
             <label class="block">
@@ -91,8 +97,13 @@
         </div>
 
         <label class="block">
-            <span class="field-label">{{ $esFactura ? __('Cliente') : __('Proveedor') }}</span>
-            <select wire:model="{{ $esFactura ? 'customerId' : 'vendorId' }}" @disabled($bloqueada)
+            <span class="field-label">
+                {{ $esFactura ? __('Cliente') : __('Proveedor') }}
+                @if ($partyIsLocked && ! $bloqueada)
+                    <span class="font-normal text-ink-faint">{{ __('(ya está en una solicitud de pago)') }}</span>
+                @endif
+            </span>
+            <select wire:model="{{ $esFactura ? 'customerId' : 'vendorId' }}" @disabled($bloqueada || $partyIsLocked)
                     class="field-input mt-1.5" required>
                 <option value="">Selecciona {{ $esFactura ? __('el cliente') : __('el proveedor') }}</option>
                 @php $seleccionado = $esFactura ? $customerId : $vendorId; @endphp
@@ -174,7 +185,7 @@
 
             <button type="submit" wire:loading.attr="disabled" wire:target="save" class="btn-accent">
                 <x-spinner wire:loading wire:target="save" class="h-4 w-4" />
-                <span wire:loading.remove wire:target="save">{{ $transactionId ? 'Guardar cambios' : __('Crear transacción') }}</span>
+                <span wire:loading.remove wire:target="save">{{ $transactionId ? __('Guardar cambios') : __('Crear transacción') }}</span>
                 <span wire:loading wire:target="save">{{ __('Guardando…') }}</span>
             </button>
         </footer>

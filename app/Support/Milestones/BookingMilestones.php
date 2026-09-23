@@ -2,6 +2,7 @@
 
 namespace App\Support\Milestones;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -78,12 +79,26 @@ class BookingMilestones
             return;
         }
 
+        // Llega de un `datetime-local` («2026-03-01T10:30») o como fecha sola;
+        // se guarda siempre como datetime, que es lo que hay en las dos tablas.
+        $fecha = blank($fecha) ? null : Carbon::parse($fecha)->format('Y-m-d H:i:s');
+
         DB::table('hito_por_expediente')->updateOrInsert(
             ['booking' => $booking, 'hito_id' => $hito->hito_id],
-            ['fecha' => $fecha ?: null, 'modified_by' => $usuario, 'modified_at' => now()],
+            ['fecha' => $fecha, 'modified_by' => $usuario, 'modified_at' => now()],
         );
 
         self::espeja($booking, $hito, $fecha, $usuario);
+    }
+
+    /**
+     * La fecha como la espera un `datetime-local`: la guardada con su hora, o
+     * hoy a las 00:00 si no hay nada. La hora es opcional para quien captura:
+     * si no la sabe, deja las cero.
+     */
+    public static function paraCaptura(?string $fecha): string
+    {
+        return blank($fecha) ? now()->format('Y-m-d\T00:00') : Carbon::parse($fecha)->format('Y-m-d\TH:i');
     }
 
     /** Copia el hito heredado a su columna de siempre. Ver la nota de la clase. */

@@ -46,13 +46,6 @@ return [
     'habilitado' => env('TIMBRADO_HABILITADO', true),
 
     'rfc_cuenta' => env('TIMBRADO_RFC'),
-
-    /**
-     * Nombre del emisor cuando la transacción no trae compañía (facturas
-     * anteriores al catálogo de compañías). Estaba escrito dentro del código,
-     * con la razón social del primer cliente.
-     */
-    'emisor_nombre' => env('TIMBRADO_EMISOR_NOMBRE', ''),
     'usuario' => env('TIMBRADO_USER'),
     'password' => env('TIMBRADO_PASSWORD'),
 
@@ -65,6 +58,17 @@ return [
          * usa el endpoint de timbrado.
          */
         'cancelacion' => env('TIMBRADO_URL_CANCELACION'),
+
+        /*
+         * Consulta pública de CFDI del SAT: la misma que responde al leer el QR
+         * de una factura. Es de SOLO LECTURA y no lleva credenciales; se usa
+         * para saber si una cancelación solicitada ya se consumó, porque el PAC
+         * avisa una sola vez.
+         */
+        'consulta_sat' => env(
+            'SAT_URL_CONSULTA',
+            'https://consultaqr.facturaelectronica.sat.gob.mx/ConsultaCFDIService.svc'
+        ),
     ],
 
     /*
@@ -77,12 +81,6 @@ return [
         'usuario' => 'UsuarioPruebasWS',
         'password' => 'b9ec2afa3361a59af4b4d102d3f704eabdf097d4',
     ],
-
-    /*
-     * Código postal del lugar de expedición cuando la compañía emisora no lo
-     * tiene capturado. Es el valor histórico del sistema.
-     */
-    'lugar_expedicion_por_omision' => '44648',
 
     /*
      * Verificar el certificado del PAC. Se deja encendido: el sistema original lo

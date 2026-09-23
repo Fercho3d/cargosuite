@@ -39,18 +39,17 @@ class CfdiLayout
     private bool $hayRetencion = false;
 
     /**
+     * @param  object  $emisor  La compañía de la transacción, con RFC, razón
+     *                          social, régimen y código postal capturados.
      * @param  Collection<int, Charge>  $conceptos
      * @param  float|null  $tipoCambio  Del motor de consulta, no de la tabla.
      * @param  string|null  $numeroBooking  Ídem: se recibe, no se pega al modelo.
      */
     public function __construct(
         private object $transaccion,
-        private ?object $emisor,
+        private object $emisor,
         private object $receptor,
         private Collection $conceptos,
-        private string $rfcPorOmision,
-        private string $nombrePorOmision,
-        private string $lugarPorOmision,
         private ?float $tipoCambio = null,
         private ?string $numeroBooking = null,
     ) {}
@@ -59,6 +58,15 @@ class CfdiLayout
     {
         if ($this->conceptos->isEmpty()) {
             throw new CfdiException('La transacción no tiene conceptos que facturar.');
+        }
+
+        // Sin valores por omisión: antes el layout caía al RFC y al nombre de la
+        // CUENTA del PAC, que no es el emisor, y se podía timbrar a nombre
+        // equivocado. Quien llama ya validó la compañía; esto es la red de abajo.
+        foreach (['rfc', 'business_name', 'regimen_fiscal', 'postal_code'] as $campo) {
+            if (blank($this->emisor->{$campo} ?? null)) {
+                throw new CfdiException("La compañía emisora no tiene capturado «{$campo}»: no se puede timbrar a su nombre.");
+            }
         }
 
         $this->prepareTotals();
@@ -132,7 +140,9 @@ class CfdiLayout
             ."Exportacion=01\n";
 
         if ($moneda !== 'MXN') {
-            $layout .= 'TipoCambio='.$this->tipoCambio."\n";
+            // Yii2 pegaba el decimal(11,4) tal cual lo da MySQL («17.0000»); con el
+            // float un TC entero saldría «17».
+            $layout .= 'TipoCambio='.($this->tipoCambio === null ? '' : $this->money($this->tipoCambio))."\n";
         }
 
         return $layout
@@ -145,29 +155,18 @@ class CfdiLayout
 
     private function lugarExpedicion(): string
     {
-        return filled($this->emisor?->postal_code) ? $this->emisor->postal_code : $this->lugarPorOmision;
+        return $this->emisor->postal_code;
     }
 
-    /**
-     * Datos del emisor según la compañía de la transacción (multiemisor).
-     *
-     * Si la transacción no trae compañía se usan los valores históricos, para no
-     * romper facturas anteriores a que existiera el catálogo de compañías.
-     */
+    /** Datos del emisor según la compañía de la transacción (multiemisor). */
     private function emisorSection(): string
     {
-        $rfc = filled($this->emisor?->rfc) ? $this->emisor->rfc : $this->rfcPorOmision;
-        $nombre = filled($this->emisor?->business_name)
-            ? $this->emisor->business_name
-            : $this->nombrePorOmision;
-        $regimen = filled($this->emisor?->regimen_fiscal) ? $this->emisor->regimen_fiscal : '601';
-
         // El espacio después de `Rfc=` no es un descuido: así lo emite el sistema
         // original y el layout se compara carácter por carácter contra él.
         return "\n[Emisor]\n"
-            ."Rfc= {$rfc}\n"
-            ."Nombre={$nombre}\n"
-            ."RegimenFiscal={$regimen}\n";
+            ."Rfc= {$this->emisor->rfc}\n"
+            ."Nombre={$this->emisor->business_name}\n"
+            ."RegimenFiscal={$this->emisor->regimen_fiscal}\n";
     }
 
     private function receptorSection(): string

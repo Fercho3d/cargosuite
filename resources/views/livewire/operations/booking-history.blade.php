@@ -4,7 +4,7 @@
         'UPDATE' => 'badge-neutral',
         'DELETED' => 'badge-danger',
     ];
-    $etiqueta = ['CREATE' => 'Alta', 'UPDATE' => 'Cambio', 'DELETED' => 'Baja'];
+    $etiqueta = ['CREATE' => __('Alta'), 'UPDATE' => __('Cambio'), 'DELETED' => __('Baja')];
 @endphp
 
 <div class="mx-auto max-w-4xl space-y-4">
@@ -18,17 +18,17 @@
     <section class="card p-5 sm:p-6">
         <p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ __('Historial') }}</p>
         <h2 class="mt-0.5 text-2xl font-semibold text-ink">
-            {{ trim((string) $booking->booking_number) ?: 'Booking '.$booking->booking_id }}
+            {{ trim((string) $booking->booking_number) ?: __('Booking').' '.$booking->booking_id }}
         </h2>
         <p class="mt-1 text-sm text-ink-muted">
-            {{ $total }} {{ $total === 1 ? 'movimiento registrado' : 'movimientos registrados' }}.
+            {{ trans_choice('{1}:count movimiento registrado.|[0,*]:count movimientos registrados.', $total, ['count' => $total]) }}
             {{ __('Lo escribe la propia base de datos cada vez que algo cambia.') }}
         </p>
 
         @if ($origenes->count() > 1)
             <div class="mt-4 flex flex-wrap gap-2">
                 <button type="button" wire:click="$set('origen', '')"
-                        class="badge {{ $origen === '' ? 'badge-ok' : 'badge-neutral' }}">Todo</button>
+                        class="badge {{ $origen === '' ? 'badge-ok' : 'badge-neutral' }}">{{ __('Todo') }}</button>
                 @foreach ($origenes as $nombre)
                     <button type="button" wire:click="$set('origen', '{{ $nombre }}')"
                             class="badge {{ $origen === $nombre ? 'badge-ok' : 'badge-neutral' }}">{{ $nombre }}</button>
@@ -67,6 +67,9 @@
                                     <span class="text-ink-faint">→</span>
                                 @endif
                                 <span class="text-ink">{{ $cambio['despues'] ?? '—' }}</span>
+                                @if (filled($cambio['por'] ?? null))
+                                    <span class="text-xs text-ink-faint">{{ __('Marcado por') }}: {{ $cambio['por'] }}</span>
+                                @endif
                             </dd>
                         </div>
                     @endforeach
@@ -78,4 +81,6 @@
             {{ __('Este booking no tiene movimientos registrados.') }}
         </div>
     @endforelse
+
+    <div>{{ $eventos->links() }}</div>
 </div>

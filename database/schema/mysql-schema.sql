@@ -114,6 +114,9 @@ CREATE TABLE `booking` (
   `custom_brocker_id` int(11) DEFAULT NULL,
   `final_destination_id` int(11) DEFAULT NULL,
   `mode` int(11) DEFAULT 10,
+  `operador_id` int(10) unsigned DEFAULT NULL,
+  `unidad_id` int(10) unsigned DEFAULT NULL,
+  `caja_id` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`booking_id`) USING BTREE,
   KEY `fk_vessel` (`vessel`) USING BTREE,
   KEY `fk_loading_port` (`loading_port`) USING BTREE,
@@ -575,6 +578,17 @@ CREATE TABLE `company` (
   PRIMARY KEY (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `configuracion`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `configuracion` (
+  `clave` varchar(60) NOT NULL,
+  `valor` text DEFAULT NULL,
+  `modified_at` datetime DEFAULT NULL,
+  `modified_by` int(10) unsigned DEFAULT NULL,
+  PRIMARY KEY (`clave`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `container_types`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
@@ -641,6 +655,30 @@ CREATE TABLE `dicharge_port` (
   `longitud` decimal(9,6) DEFAULT NULL,
   PRIMARY KEY (`dicharge_port_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci ROW_FORMAT=DYNAMIC;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `empleado`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `empleado` (
+  `empleado_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(120) NOT NULL,
+  `numero` varchar(30) DEFAULT NULL,
+  `puesto` varchar(60) DEFAULT NULL,
+  `departamento` varchar(60) DEFAULT NULL,
+  `rfc` varchar(20) DEFAULT NULL,
+  `curp` varchar(20) DEFAULT NULL,
+  `nss` varchar(20) DEFAULT NULL,
+  `ingreso` date DEFAULT NULL,
+  `salario_diario` decimal(12,4) DEFAULT NULL,
+  `banco` varchar(40) DEFAULT NULL,
+  `clabe` varchar(20) DEFAULT NULL,
+  `operador_id` int(10) unsigned DEFAULT NULL,
+  `activo` tinyint(1) NOT NULL DEFAULT 1,
+  `notas` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`empleado_id`),
+  KEY `empleado_activo_nombre_index` (`activo`,`nombre`),
+  KEY `empleado_operador_id_index` (`operador_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `exchange`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -711,6 +749,32 @@ CREATE TABLE `final_destination` (
   PRIMARY KEY (`final_destination_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `gasto_viaje`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `gasto_viaje` (
+  `gasto_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `booking` int(10) unsigned DEFAULT NULL,
+  `tipo` varchar(15) NOT NULL DEFAULT 'combustible',
+  `fecha` date NOT NULL,
+  `unidad_id` int(10) unsigned DEFAULT NULL,
+  `operador_id` int(10) unsigned DEFAULT NULL,
+  `provider_id` int(10) unsigned DEFAULT NULL,
+  `descripcion` varchar(120) DEFAULT NULL,
+  `litros` decimal(10,2) DEFAULT NULL,
+  `precio_litro` decimal(10,4) DEFAULT NULL,
+  `odometro` int(10) unsigned DEFAULT NULL,
+  `importe` decimal(16,4) NOT NULL DEFAULT 0.0000,
+  `forma_pago` varchar(20) DEFAULT NULL,
+  `folio` varchar(40) DEFAULT NULL,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`gasto_id`),
+  KEY `gasto_viaje_booking_index` (`booking`),
+  KEY `gasto_viaje_unidad_id_odometro_index` (`unidad_id`,`odometro`),
+  KEY `gasto_viaje_tipo_fecha_index` (`tipo`,`fecha`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `hito`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
@@ -766,6 +830,42 @@ CREATE TABLE `invoice_use` (
   `moral` varchar(4) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `liquidacion`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `liquidacion` (
+  `liquidacion_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `numero` varchar(20) NOT NULL,
+  `operador_id` int(10) unsigned NOT NULL,
+  `desde` date NOT NULL,
+  `hasta` date NOT NULL,
+  `estado` varchar(10) NOT NULL DEFAULT 'abierta',
+  `pagada_en` datetime DEFAULT NULL,
+  `bank_id` int(10) unsigned DEFAULT NULL,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime DEFAULT NULL,
+  `notas` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`liquidacion_id`),
+  KEY `liquidacion_operador_id_estado_index` (`operador_id`,`estado`),
+  KEY `liquidacion_desde_index` (`desde`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `liquidacion_renglon`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `liquidacion_renglon` (
+  `renglon_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `liquidacion_id` int(10) unsigned NOT NULL,
+  `booking` int(10) unsigned DEFAULT NULL,
+  `concepto` varchar(120) NOT NULL,
+  `tipo` varchar(12) NOT NULL DEFAULT 'percepcion',
+  `importe` decimal(16,4) NOT NULL DEFAULT 0.0000,
+  `fecha` date DEFAULT NULL,
+  PRIMARY KEY (`renglon_id`),
+  KEY `liquidacion_renglon_liquidacion_id_index` (`liquidacion_id`),
+  KEY `liquidacion_renglon_booking_index` (`booking`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `loading_ports`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
@@ -777,6 +877,44 @@ CREATE TABLE `loading_ports` (
   `longitud` decimal(9,6) DEFAULT NULL,
   PRIMARY KEY (`port_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci ROW_FORMAT=DYNAMIC;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `mantenimiento`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `mantenimiento` (
+  `mantenimiento_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `folio` varchar(20) NOT NULL,
+  `unidad_id` int(10) unsigned NOT NULL,
+  `tipo` varchar(12) NOT NULL DEFAULT 'preventivo',
+  `estado` varchar(10) NOT NULL DEFAULT 'abierto',
+  `entrada` date NOT NULL,
+  `salida` date DEFAULT NULL,
+  `odometro` int(10) unsigned DEFAULT NULL,
+  `taller` varchar(10) NOT NULL DEFAULT 'interno',
+  `provider_id` int(10) unsigned DEFAULT NULL,
+  `descripcion` varchar(200) NOT NULL,
+  `mano_obra` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `notas` varchar(255) DEFAULT NULL,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`mantenimiento_id`),
+  KEY `mantenimiento_unidad_id_entrada_index` (`unidad_id`,`entrada`),
+  KEY `mantenimiento_estado_index` (`estado`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `mantenimiento_refaccion`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `mantenimiento_refaccion` (
+  `renglon_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `mantenimiento_id` int(10) unsigned NOT NULL,
+  `refaccion_id` int(10) unsigned NOT NULL,
+  `cantidad` decimal(12,2) NOT NULL DEFAULT 1.00,
+  `costo` decimal(12,4) NOT NULL DEFAULT 0.0000,
+  PRIMARY KEY (`renglon_id`),
+  KEY `mantenimiento_refaccion_mantenimiento_id_index` (`mantenimiento_id`),
+  KEY `mantenimiento_refaccion_refaccion_id_index` (`refaccion_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `migrations`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -819,6 +957,88 @@ CREATE TABLE `model_has_roles` (
   PRIMARY KEY (`role_id`,`model_id`,`model_type`),
   KEY `model_has_roles_model_id_model_type_index` (`model_id`,`model_type`),
   CONSTRAINT `model_has_roles_role_id_foreign` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `movimiento_refaccion`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `movimiento_refaccion` (
+  `movimiento_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `refaccion_id` int(10) unsigned NOT NULL,
+  `tipo` varchar(10) NOT NULL,
+  `cantidad` decimal(12,2) NOT NULL,
+  `costo` decimal(12,4) NOT NULL DEFAULT 0.0000,
+  `fecha` date NOT NULL,
+  `mantenimiento_id` int(10) unsigned DEFAULT NULL,
+  `provider_id` int(10) unsigned DEFAULT NULL,
+  `folio` varchar(40) DEFAULT NULL,
+  `notas` varchar(255) DEFAULT NULL,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`movimiento_id`),
+  KEY `movimiento_refaccion_refaccion_id_fecha_index` (`refaccion_id`,`fecha`),
+  KEY `movimiento_refaccion_mantenimiento_id_index` (`mantenimiento_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `nomina`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `nomina` (
+  `nomina_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `numero` varchar(20) NOT NULL,
+  `desde` date NOT NULL,
+  `hasta` date NOT NULL,
+  `periodicidad` varchar(12) NOT NULL DEFAULT 'quincenal',
+  `estado` varchar(10) NOT NULL DEFAULT 'abierta',
+  `pagada_en` datetime DEFAULT NULL,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime DEFAULT NULL,
+  `notas` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`nomina_id`),
+  KEY `nomina_estado_index` (`estado`),
+  KEY `nomina_desde_index` (`desde`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `nomina_renglon`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `nomina_renglon` (
+  `renglon_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `nomina_id` int(10) unsigned NOT NULL,
+  `empleado_id` int(10) unsigned NOT NULL,
+  `concepto` varchar(120) NOT NULL,
+  `tipo` varchar(12) NOT NULL DEFAULT 'percepcion',
+  `importe` decimal(16,4) NOT NULL DEFAULT 0.0000,
+  `liquidacion_id` int(10) unsigned DEFAULT NULL,
+  PRIMARY KEY (`renglon_id`),
+  KEY `nomina_renglon_nomina_id_index` (`nomina_id`),
+  KEY `nomina_renglon_nomina_id_empleado_id_index` (`nomina_id`,`empleado_id`),
+  KEY `nomina_renglon_liquidacion_id_index` (`liquidacion_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `operador`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `operador` (
+  `operador_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(120) NOT NULL,
+  `numero` varchar(30) DEFAULT NULL,
+  `rfc` varchar(20) DEFAULT NULL,
+  `curp` varchar(20) DEFAULT NULL,
+  `nss` varchar(20) DEFAULT NULL,
+  `telefono` varchar(40) DEFAULT NULL,
+  `licencia` varchar(40) DEFAULT NULL,
+  `licencia_tipo` varchar(20) DEFAULT NULL,
+  `licencia_vence` date DEFAULT NULL,
+  `examen_medico_vence` date DEFAULT NULL,
+  `ingreso` date DEFAULT NULL,
+  `activo` tinyint(1) NOT NULL DEFAULT 1,
+  `notas` varchar(255) DEFAULT NULL,
+  `tarifa_tipo` varchar(12) DEFAULT NULL,
+  `tarifa_valor` decimal(12,4) DEFAULT NULL,
+  PRIMARY KEY (`operador_id`),
+  KEY `operador_activo_nombre_index` (`activo`,`nombre`),
+  KEY `operador_licencia_vence_index` (`licencia_vence`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `password_reset_tokens`;
@@ -1007,6 +1227,26 @@ CREATE TABLE `providers_by_booking` (
   CONSTRAINT `fk_provid_id` FOREIGN KEY (`provider`) REFERENCES `provider` (`provider_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `refaccion`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `refaccion` (
+  `refaccion_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `codigo` varchar(40) NOT NULL,
+  `nombre` varchar(120) NOT NULL,
+  `categoria` varchar(40) DEFAULT NULL,
+  `medida` varchar(20) DEFAULT NULL,
+  `ubicacion` varchar(40) DEFAULT NULL,
+  `existencia` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `minimo` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `costo` decimal(12,4) NOT NULL DEFAULT 0.0000,
+  `activo` tinyint(1) NOT NULL DEFAULT 1,
+  `notas` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`refaccion_id`),
+  UNIQUE KEY `refaccion_codigo_unique` (`codigo`),
+  KEY `refaccion_activo_nombre_index` (`activo`,`nombre`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `role_has_permissions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
@@ -1077,6 +1317,24 @@ CREATE TABLE `session` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci ROW_FORMAT=DYNAMIC;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `solicitud_demo`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `solicitud_demo` (
+  `solicitud_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(100) NOT NULL,
+  `empresa` varchar(100) DEFAULT NULL,
+  `correo` varchar(120) NOT NULL,
+  `telefono` varchar(40) DEFAULT NULL,
+  `mensaje` varchar(500) DEFAULT NULL,
+  `origen` varchar(60) DEFAULT NULL,
+  `atendida` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`solicitud_id`),
+  KEY `solicitud_demo_created_at_index` (`created_at`),
+  KEY `solicitud_demo_atendida_index` (`atendida`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `tax_code`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
@@ -1132,6 +1390,32 @@ CREATE TABLE `transaction` (
   KEY `transc_id` (`transc_id`),
   CONSTRAINT `fk_tran_booking` FOREIGN KEY (`booking`) REFERENCES `booking` (`booking_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci ROW_FORMAT=DYNAMIC;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `unidad`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `unidad` (
+  `unidad_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `numero` varchar(30) NOT NULL,
+  `tipo` varchar(20) NOT NULL DEFAULT 'tractor',
+  `placas` varchar(20) DEFAULT NULL,
+  `marca` varchar(40) DEFAULT NULL,
+  `modelo` varchar(40) DEFAULT NULL,
+  `anio` varchar(4) DEFAULT NULL,
+  `serie` varchar(40) DEFAULT NULL,
+  `permiso_sct` varchar(40) DEFAULT NULL,
+  `seguro_vence` date DEFAULT NULL,
+  `verificacion_vence` date DEFAULT NULL,
+  `kilometraje` int(10) unsigned DEFAULT NULL,
+  `servicio_cada_km` int(10) unsigned DEFAULT NULL,
+  `ultimo_servicio_km` int(10) unsigned DEFAULT NULL,
+  `ultimo_servicio` date DEFAULT NULL,
+  `activo` tinyint(1) NOT NULL DEFAULT 1,
+  `notas` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`unidad_id`),
+  KEY `unidad_activo_numero_index` (`activo`,`numero`),
+  KEY `unidad_seguro_vence_index` (`seguro_vence`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `user_preferences`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1220,5 +1504,12 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (6,'2026_08_25_0000
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (7,'2026_08_28_000001_create_hitos_tables',4);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (8,'2026_08_28_000002_create_campos_propios_expediente',5);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (9,'2026_08_28_000004_add_coordinates_to_places',6);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (10,'2026_08_28_000005_create_solicitud_demo',7);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (11,'2026_08_28_000006_create_flota_propia',8);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (12,'2026_08_28_000007_create_liquidacion_operadores',9);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (13,'2026_08_28_000008_create_configuracion',10);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (14,'2026_08_28_000009_create_gasto_viaje',11);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (15,'2026_08_28_000010_create_nomina',12);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (16,'2026_09_03_000001_create_taller',13);
 COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;

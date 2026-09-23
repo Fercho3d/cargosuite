@@ -43,11 +43,21 @@ class BookingFilters
     /** Sobre `booking.dicharge_ETA`. */
     public ?string $dicharge_ETA = null;
 
+    /** Sobre `booking.created_at`: el default del listado (año en curso). */
+    public ?string $created = null;
+
     /**
      * Modo del booking: 10 = booking real, 9 = cotización. El listado del
      * sistema original solo enseña los reales y descarta los borradores.
      */
     public int $mode = 10;
+
+    /**
+     * Borradores: 0 = solo los bookings en firme (lo de siempre), 1 = solo los
+     * borradores, null = los dos. El detalle usa null porque un borrador se
+     * abre para capturarle contenedores y confirmarlo.
+     */
+    public ?int $is_draft = 0;
 
     public bool $onlyLocked = false;
 

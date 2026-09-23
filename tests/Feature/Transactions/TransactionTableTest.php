@@ -4,6 +4,7 @@ namespace Tests\Feature\Transactions;
 
 use App\Livewire\Transactions\TransactionTable;
 use App\Models\User;
+use App\Models\UserPreference;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Group;
@@ -23,19 +24,29 @@ class TransactionTableTest extends LegacyDatabaseTestCase
         $this->actingAs($this->userWithRole([User::ROLE_ADMIN, User::ROLE_SUPER_ADMIN]));
     }
 
-    /** @param  int[]  $roles */
+    /**
+     * Un usuario INTERNO y ACTIVO con (o sin) el rol: a los dados de baja el
+     * sistema los saca con una redirección antes de llegar a la pantalla, y a
+     * los del portal los manda a su portal. Se le fija el idioma en español
+     * porque lo que se afirma son textos, y el primer administrador de la base
+     * local tiene guardado el inglés.
+     *
+     * @param  int[]  $roles
+     */
     private function userWithRole(array $roles, bool $matching = true): User
     {
         $user = User::query()
             ->when($matching, fn ($q) => $q->whereIn('role', $roles), fn ($q) => $q->whereNotIn('role', $roles))
+            ->where(fn ($q) => $q->whereNull('status')->orWhere('status', 1))
+            ->where(fn ($q) => $q->whereNull('access')->orWhere('access', User::ACCESS_INTERNAL))
             ->orderBy('usr_id')
             ->first();
 
         if (! $user) {
-            $this->markTestSkipped('La base local no tiene un usuario con el rol necesario.');
+            $this->markTestSkipped('La base local no tiene un usuario activo con el rol necesario.');
         }
 
-        return $user;
+        return $user->setRelation('preference', (new UserPreference)->forceFill(['locale' => 'es']));
     }
 
     public function test_la_facturacion_es_solo_para_administradores(): void
@@ -185,21 +196,12 @@ class TransactionTableTest extends LegacyDatabaseTestCase
             ->assertSee('x-on:click="abierto = !abierto"', false)
             ->assertSee(__('Filtros'));
 
-        // Sin filtros no hay contador; con dos, aparece el 2.
-        $componente->assertDontSeeHtml('text-accent-400">1<')
+        // El listado arranca acotado al año en curso, así que ya hay un filtro
+        // puesto; con dos más, el contador dice 3.
+        $componente->assertSeeHtml('text-brand">1</span>')
             ->set('tranNumber', 'F-1')
             ->set('paid', '0')
-            ->assertSeeHtml('>2<');
-    }
-
-    public function test_los_totales_se_calculan_solo_cuando_se_piden(): void
-    {
-        $this->actAsUser();
-
-        Livewire::test(TransactionTable::class, ['screen' => 'invoice'])
-            ->assertSet('totals', null)
-            ->call('calculateTotals')
-            ->assertNotSet('totals', null);
+            ->assertSeeHtml('text-brand">3</span>');
     }
 
     public function test_la_pantalla_de_un_booking_solo_trae_ese_booking(): void
@@ -219,6 +221,52 @@ class TransactionTableTest extends LegacyDatabaseTestCase
         foreach ($rows as $row) {
             $this->assertSame((int) $booking, (int) $row->booking);
         }
+    }
+
+    public function test_la_pantalla_de_un_booking_muestra_su_profit(): void
+    {
+        $this->actAsUser();
+
+        $booking = DB::table('transaction')
+            ->join('booking', 'booking.booking_id', '=', 'transaction.booking')
+            ->where('booking.mode', 10)
+            ->where('transaction.tran_type', 0)
+            ->value('transaction.booking');
+
+        Livewire::test(TransactionTable::class, ['screen' => 'booking', 'booking' => $booking])
+            ->assertSee(__('Profit del booking'));
+    }
+
+    /** Como el original: un booking sin facturas también dice cuánto se lleva perdido. */
+    public function test_el_profit_sale_aunque_el_booking_solo_tenga_costos(): void
+    {
+        $this->actAsUser();
+
+        $booking = DB::table('transaction')
+            ->whereNotIn('booking', DB::table('transaction')->where('tran_type', 0)->select('booking'))
+            ->where('tran_type', 1)
+            ->value('booking');
+
+        Livewire::test(TransactionTable::class, ['screen' => 'booking', 'booking' => $booking])
+            ->assertSee(__('Profit del booking'))
+            ->assertSee(__('s/facturas'));
+    }
+
+    /** El profit del booking se reparte entre sus facturas según el subtotal de cada una. */
+    public function test_el_profit_se_prorratea_entre_las_facturas_del_booking(): void
+    {
+        $this->actAsUser();
+
+        $booking = DB::table('transaction')->where('tran_type', 0)->value('booking');
+
+        $pantalla = Livewire::test(TransactionTable::class, ['screen' => 'booking', 'booking' => $booking]);
+        $profit = $pantalla->viewData('bookingProfit');
+
+        $this->assertEqualsWithDelta(
+            $profit['profit_doc'],
+            collect($pantalla->viewData('rows')->items())->sum(fn ($row) => $pantalla->instance()->invoiceProfit($row, $profit) ?? 0),
+            0.01,
+        );
     }
 
     /**

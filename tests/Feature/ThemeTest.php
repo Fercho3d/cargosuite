@@ -48,7 +48,7 @@ class ThemeTest extends TestCase
 
     private function usuario(): User
     {
-        return User::create([
+        return User::forceCreate([
             'name' => 'Prueba',
             'username' => 'usuario.prueba',
             'password' => 'secreto-de-prueba',

@@ -79,14 +79,11 @@
                         <div>
                             <p class="text-sm font-medium text-ink-soft">{{ __('Códigos de recuperación') }}</p>
                             <p class="text-xs text-ink-faint">{{ __('Guárdalos en un lugar seguro; te permiten entrar si pierdes tu dispositivo.') }}</p>
-                            <div class="mt-2 grid grid-cols-2 gap-1.5 rounded-lg border border-line bg-surface p-3 font-mono text-xs text-ink-muted sm:grid-cols-4">
-                                @foreach (json_decode(decrypt($user->two_factor_recovery_codes), true) as $rc)
-                                    <span>{{ $rc }}</span>
-                                @endforeach
-                            </div>
                         </div>
                         <div class="flex flex-wrap gap-3">
-                            <form method="POST" action="/user/two-factor-recovery-codes">@csrf<button class="btn-ghost">{{ __('Regenerar códigos') }}</button></form>
+                            {{-- Se enseñan en su propia pantalla, detrás de la confirmación
+                                 de contraseña: una sesión abierta no basta para copiarlos. --}}
+                            <a href="{{ route('security.recovery-codes') }}" class="btn-ghost">{{ __('Ver códigos') }}</a>
                             <form method="POST" action="/user/two-factor-authentication">
                                 @csrf @method('DELETE')
                                 <button class="btn-ghost !border-accent-700 !text-brand">{{ __('Desactivar 2FA') }}</button>

@@ -49,7 +49,15 @@ ruta Veracruz–Rotterdam empata con **diez** precios de meses diferentes.
 
 **Al armar una solicitud de pago se podía aplicar más de lo que se debe.** La
 validación existía en el sistema viejo; era lo único de esa pantalla que no se
-había portado, y ya está.
+había portado. Se portó, pero al principio con un tope de más: el viejo usa dos
+según la pantalla (`modeopen` en `set-amount-to-pay`), y aquí se había tomado
+el de la solicitud reabierta (saldo más lo pagado, o sea el total del
+documento) también para el alta. Un costo de 1,000 con 600 pagados en otra
+solicitud admitía hasta 1,000. Ahora el alta topa en el saldo, como la columna
+«To pay» del viejo, y la reabierta en el saldo más lo aplicado en esa misma
+solicitud, que es más estricto que el viejo (él sumaba también lo pagado por
+otras solicitudes). Además el alta rechaza con motivo las saldadas y las
+canceladas, que en el viejo simplemente no tenían casilla.
 
 ## Apagado hace años
 
@@ -60,6 +68,8 @@ había portado, y ya está.
 | Movimientos de banco | enero de 2024 | 4 renglones |
 | Contratos en PDF de los servicios | 2023 | 156 archivos, ninguno más reciente |
 | La tabla `carrier_booking` | siempre | 0 renglones |
+| `site/contact` | siempre | La acción existe, pero `AccessControl` de `SiteController` no la deja pasar a nadie |
+| Recuperar la contraseña | siempre | Están las vistas `recoverPass` y `ressetPass`, pero ninguna acción las pinta |
 
 ## Código que no hace lo que dice
 
@@ -72,12 +82,45 @@ había portado, y ya está.
   mostraría 103.85 %. Se conservó tal cual para no mover los porcentajes que el
   cliente ve hoy.
 - **«Gated Out» está dos veces** en la lista de hitos que vigilan los avisos, así
-  que ese hito manda dos correos iguales.
+  que ese hito manda dos correos iguales. En el nuevo ya no se repite: sale un
+  solo correo.
 - **El total de la cotización arranca con el número de piezas**: reutiliza la
   variable que venía sumando los contenedores.
 - **Los avisos de tareas atrasadas eran dos direcciones web**: cualquiera que
   diera con ellas disparaba los correos a toda la operación. Ahora son un comando
   del servidor.
+- **`TransactionController::actionPay` y `PaymentRequestController::actionPay`**
+  terminan llamando a `Transaction::paid()`, que no existe: marcar como pagado
+  desde ahí es un error fatal.
+- **`actionGlobalReport` (`TransactionReport`)** sale siempre vacío: filtra por
+  una variable `$booking` que nunca se define. `actionBookingDetail` tiene el
+  mismo defecto (`Booking::findOne($booking)` sin `$booking`).
+- **`actionChargeDetail`, `actionUpdateAjax` y `actionUpdateType`** de
+  transacciones no las llama ninguna vista ni ningún script.
+- **El catálogo `holiday`** no abre: su controlador usa `HolidaySearch`, que no
+  existe.
+- **`loading-ports` (en plural)** filtra por la columna `delted`, con errata; la
+  consulta revienta. El catálogo que sí se usa es `loading-port`.
+- **Borrar un destino final (`final-destination/delete`)** pone `active = 0` y
+  no guarda: el registro sigue igual.
+
+## Corregido en la reescritura (septiembre 2026)
+
+Lo que la auditoría de paridad encontró mal en el sistema viejo y quedó
+arreglado en el nuevo (lo que ya se cuenta arriba no se repite):
+
+- Lo pagado de una transacción (`paid_amount`, `paid`, `paid_at`) se recalcula
+  desde sus pagos cada vez que cambian; `payTran()` lo acumulaba a mano sobre
+  valores ya leídos y podía duplicarlo o dejar mal el estado.
+- La cuenta de portal tiene que quedar ligada a un cliente o proveedor que
+  exista; el viejo solo pedía que fuera un número.
+- Nadie puede darse de baja ni quitarse el rol a sí mismo, y el último super
+  administrador activo no se puede desactivar ni degradar: en el viejo bastaba
+  editar la cuenta para quedarse sin nadie que administrara usuarios.
+- Rol, acceso, estado y el cliente o proveedor de una cuenta ya no se asignan
+  en masa desde lo que llegue del formulario.
+- La recuperación de contraseña funciona y una cuenta dada de baja no la puede
+  usar para volver a entrar.
 
 ## Seguridad
 

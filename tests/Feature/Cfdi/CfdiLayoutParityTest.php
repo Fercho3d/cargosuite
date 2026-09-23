@@ -24,19 +24,6 @@ use Tests\LegacyDatabaseTestCase;
 #[Group('parity')]
 class CfdiLayoutParityTest extends LegacyDatabaseTestCase
 {
-    /**
-     * El nombre del emisor por omisión ya no está escrito en el código sino en
-     * `config/timbrado.php`, y por omisión viene vacío. La paridad se compara
-     * contra los documentos de la instalación anterior, así que aquí se fija el
-     * suyo: es el que usan las facturas previas al catálogo de compañías.
-     */
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config(['timbrado.emisor_nombre' => 'FREGO TRADING & LOGISTICS DE MEXICO']);
-    }
-
     public static function facturas(): array
     {
         $path = dirname(__DIR__, 2).'/Fixtures/legacy-cfdi-layout.json';
@@ -80,14 +67,13 @@ class CfdiLayoutParityTest extends LegacyDatabaseTestCase
             TransactionFilters::make(['tran_in' => [$transactionId], 'showCancelled' => 1])
         )->get(1)->first();
 
+        // Las facturas del fixture tienen todas compañía con datos fiscales
+        // completos: el layout ya no admite emisor por omisión.
         return (new CfdiLayout(
             transaccion: $transaccion,
             emisor: $transaccion->company,
             receptor: $transaccion->client,
             conceptos: Charge::with('chargeType')->where('transaction', $transactionId)->orderBy('charge_id')->get(),
-            nombrePorOmision: (string) config('timbrado.emisor_nombre'),
-            rfcPorOmision: (string) config('timbrado.demo.rfc_cuenta'),
-            lugarPorOmision: (string) config('timbrado.lugar_expedicion_por_omision'),
             tipoCambio: $fila->exchange_value === null ? null : (float) $fila->exchange_value,
             numeroBooking: $fila->booking_number,
         ))->build();

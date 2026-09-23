@@ -90,6 +90,39 @@ class PaymentRequestQuery
             ->all();
     }
 
+    /**
+     * Saldo por banco activo: la suma en pesos de las solicitudes pagadas hasta
+     * la fecha de corte, con signo (cobros suman, pagos restan), al tipo de
+     * cambio de cada solicitud. Es el «Total» que la pantalla de Bancos del
+     * original calculaba con `BankEntrySearch` (sin los movimientos de banco,
+     * que están apagados). Una solicitud sin tipo de cambio registrado no
+     * aporta, igual que allá.
+     *
+     * @return Collection<int, object> bank_id, bank_name, total
+     */
+    public function bankBalances(Carbon $hasta): Collection
+    {
+        $tc = $this->requestRate();
+
+        return collect(DB::table('bank')
+            ->leftJoin('payment_request as pr', function ($join) use ($hasta) {
+                $join->on('pr.bank_id', '=', 'bank.bank_id')
+                    ->where('pr.paid', '=', 1)
+                    ->whereDate('pr.date', '<=', $hasta->toDateString());
+            })
+            ->leftJoin('account as acc', 'acc.account_id', '=', 'pr.currency_id')
+            ->leftJoin('exchange as ex', function ($join) {
+                $join->on('ex.account', '=', 'acc.account_id')
+                    ->on('ex.date_exchange', '=', 'pr.date');
+            })
+            ->where('bank.active', 1)
+            ->groupBy('bank.bank_id', 'bank.bank_name')
+            ->orderBy('bank.bank_name')
+            ->selectRaw("bank.bank_id, bank.bank_name,
+                ROUND(IFNULL(SUM((CASE WHEN pr.type = 1 THEN pr.amount ELSE -pr.amount END) * {$tc}), 0), 2) AS total")
+            ->get());
+    }
+
     // ------------------------------------------------------------ Armado
 
     public function query(): Builder
@@ -255,7 +288,7 @@ class PaymentRequestQuery
             ->when($f->client_id, fn ($q, $v) => $q->where('pr.client_id', $v))
             ->when($f->currency_id, fn ($q, $v) => $q->where('pr.currency_id', $v))
             ->when($f->type, fn ($q, $v) => $q->where('pr.type', $v))
-            ->when($f->number, fn ($q, $v) => $q->where('pr.number', $v))
+            ->when($f->number !== null && $f->number !== '', fn ($q) => $q->where('pr.number', $f->number))
             ->when($f->paid !== null, fn ($q) => $q->where('pr.paid', $f->paid));
 
         if (($rango = $f->dateRange()) !== null) {

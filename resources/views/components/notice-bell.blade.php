@@ -13,7 +13,8 @@
     }
 @endphp
 
-<a href="{{ route('notifications') }}" wire:navigate
+{{-- Se lleva la pantalla actual (con su filtro) para que «Volver» regrese ahí. --}}
+<a href="{{ route('notifications', ['volver' => request()->routeIs('notifications') ? request()->query('volver') : request()->getRequestUri()]) }}" wire:navigate
    class="relative flex h-9 w-9 items-center justify-center rounded-full text-ink-muted transition hover:bg-raised hover:text-ink"
    title="{{ __('Avisos') }}" aria-label="{{ __('Avisos') }}">
     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">

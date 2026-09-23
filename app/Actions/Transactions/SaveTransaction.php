@@ -53,9 +53,11 @@ class SaveTransaction
      * número que se captura a mano.
      *
      * Hereda del original una carrera conocida: dos altas simultáneas pueden leer
-     * el mismo máximo. En producción las tablas son MyISAM (sin transacciones),
-     * así que la solución no es un `SELECT ... FOR UPDATE`; se deja igual que en
-     * Yii2 y se resuelve, si aparece, con una secuencia propia.
+     * el mismo máximo. `transaction` y `charge` son InnoDB (con `ON DELETE CASCADE`
+     * de `charge` a `transaction`), así que un `SELECT ... FOR UPDATE` sí
+     * funcionaría, pero el Yii2 viejo sigue dando folios sobre la misma tabla sin
+     * ese candado y solo protegería las altas de este lado. Se deja igual que en
+     * Yii2 y se resuelve, si aparece, con una secuencia propia que usen los dos.
      */
     private function assignInvoiceNumber(Transaction $transaccion): void
     {

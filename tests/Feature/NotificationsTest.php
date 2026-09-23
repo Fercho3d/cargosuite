@@ -44,7 +44,7 @@ class NotificationsTest extends TestCase
 
     private function usuario(): User
     {
-        return User::create([
+        return User::forceCreate([
             'username' => 'operador', 'password' => 'secreto-de-prueba',
             'role' => User::ROLE_ADMIN, 'status' => 1,
         ]);
@@ -150,6 +150,22 @@ class NotificationsTest extends TestCase
             ->assertSee('No hay nada pendiente.');
     }
 
+    public function test_volver_regresa_a_la_pantalla_de_origen(): void
+    {
+        Livewire::withQueryParams(['volver' => '/pagos/solicitudes?tipo=1'])
+            ->actingAs($this->usuario())
+            ->test(Notifications::class)
+            ->assertSet('volver', '/pagos/solicitudes?tipo=1');
+    }
+
+    public function test_volver_no_sale_a_otro_sitio(): void
+    {
+        Livewire::withQueryParams(['volver' => '//otro-sitio.com'])
+            ->actingAs($this->usuario())
+            ->test(Notifications::class)
+            ->assertSet('volver', route('dashboard', absolute: false));
+    }
+
     /** La campana enseña el mismo número que la bandeja. */
     public function test_la_campana_cuenta_lo_mismo_que_la_bandeja(): void
     {
@@ -164,7 +180,7 @@ class NotificationsTest extends TestCase
         $this->actingAs($this->usuario())
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee(route('notifications'));
+            ->assertSee(e(route('notifications', ['volver' => '/dashboard'])), false);
     }
 
     /**

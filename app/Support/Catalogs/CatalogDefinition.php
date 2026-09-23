@@ -2,6 +2,8 @@
 
 namespace App\Support\Catalogs;
 
+use Closure;
+
 /**
  * Descripción de un catálogo maestro: qué tabla es, cómo se llama en pantalla y
  * qué campos tiene.
@@ -16,6 +18,17 @@ final class CatalogDefinition
      * @param  CatalogField[]  $fields
      * @param  string|null  $softDelete  Columna de baja lógica; sin ella el borrado es real.
      * @param  string[]  $searchable  Columnas donde busca el cuadro de búsqueda.
+     * @param  array<int, array{0: string, 1: string, 2?: string}>  $usedBy
+     *                                                                       Dónde se referencia este catálogo: pares `[tabla, columna]` y, si la
+     *                                                                       referencia no es por la llave, la columna propia que se compara. Se
+     *                                                                       consulta antes de borrar: algunas foráneas son `ON DELETE CASCADE` y
+     *                                                                       borrarían la operación sin avisar.
+     * @param  ?Closure(): array<string, mixed>  $insertDefaults  Columnas que no se
+     *                                                            capturan pero la tabla exige al insertar (`NOT NULL` sin default).
+     * @param  bool  $superAdmin  Solo el super administrador entra y escribe, como en
+     *                            los controladores de Yii2 que exigían `isSuperAdmin()`.
+     * @param  array<string, Closure(object): array{0: string, 1: bool}>  $badges
+     *                                                                             Columnas calculadas del listado: etiqueta => `[texto, está bien]`.
      */
     public function __construct(
         public readonly string $slug,
@@ -29,7 +42,17 @@ final class CatalogDefinition
         public readonly bool $audited = false,
         public readonly array $searchable = [],
         public readonly ?string $note = null,
+        public readonly array $usedBy = [],
+        public readonly ?Closure $insertDefaults = null,
+        public readonly bool $superAdmin = false,
+        public readonly array $badges = [],
     ) {}
+
+    /** @return array<string, mixed> */
+    public function insertDefaults(): array
+    {
+        return $this->insertDefaults === null ? [] : ($this->insertDefaults)();
+    }
 
     /** @return CatalogField[] */
     public function listFields(): array

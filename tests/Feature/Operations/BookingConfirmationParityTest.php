@@ -107,10 +107,15 @@ class BookingConfirmationParityTest extends LegacyDatabaseTestCase
         return $celdas;
     }
 
-    /** Colapsa los espacios: el original los reparte a su antojo. */
+    /**
+     * Colapsa los espacios: el original los reparte a su antojo. Y quita el
+     * «12:00:00 AM» de las fechas sin hora: el original lo imprimía y la
+     * plantilla nueva no, a propósito, porque no es ninguna hora.
+     */
     private function normalize(string $texto): string
     {
         $texto = html_entity_decode($texto, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $texto = str_replace(' 12:00:00 AM', '', $texto);
         $texto = preg_replace('#/\*.*?\*/#s', '', $texto) ?? '';
         $texto = preg_replace('/>\s+</', '><', $texto) ?? '';
         $texto = preg_replace('/\s+/u', ' ', $texto) ?? '';

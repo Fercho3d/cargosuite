@@ -28,7 +28,7 @@ class BillingGeneratorTest extends TestCase
         // El alta de una transacción registra el tipo de cambio del día; en las
         // pruebas nunca se sale a la red.
         Http::preventStrayRequests();
-        Http::fake(['sidofqa.segob.gob.mx/*' => Http::response(['ListaIndicadores' => []])]);
+        Http::fake(['www.banxico.org.mx/*' => Http::response(['bmx' => ['series' => [['datos' => []]]]])]);
 
         DB::table('account')->insert([
             ['account_id' => 1, 'account_name' => 'Pesos', 'prefix' => 'MXN', 'default' => 1],
@@ -69,7 +69,7 @@ class BillingGeneratorTest extends TestCase
 
     private function usuario(int $rol = User::ROLE_ADMIN): User
     {
-        return User::create([
+        return User::forceCreate([
             'username' => 'operador'.$rol, 'password' => 'secreto-de-prueba', 'role' => $rol, 'status' => 1,
         ]);
     }

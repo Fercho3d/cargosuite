@@ -21,9 +21,11 @@ class InvoiceMail extends Mailable
 {
     use Queueable, SerializesModels;
 
+    /** @param  array<int, string>  $copiaOculta  Copia oculta interna; la decide `SendInvoice`. */
     public function __construct(
         public Transaction $transaction,
         public string $bookingNumber,
+        public array $copiaOculta = [],
     ) {
         // El correo se arma en el idioma de los DOCUMENTOS y no en el de quien
         // lo dispara: lo lee el cliente, no el operador. `locale()` es el
@@ -38,7 +40,7 @@ class InvoiceMail extends Mailable
         // El asunto lleva un espacio al final, como en el original.
         return new Envelope(
             subject: __('Factura del booking').' ['.$this->bookingNumber.'] ',
-            bcc: config('marca.correo.copia_facturas'),
+            bcc: $this->copiaOculta,
         );
     }
 

@@ -95,6 +95,10 @@ class BookingListTest extends LegacyDatabaseTestCase
     /** El avance es cuántas de esas casillas tienen fecha, sobre el divisor histórico. */
     public function test_el_avance_cuadra_con_las_casillas_marcadas(): void
     {
+        // El avance heredado es el de la instalación original, y es el que esta
+        // prueba compara; el resto del mundo cuenta hitos (`marca.avance`).
+        config(['marca.avance' => 'verificacion']);
+
         $this->actingAs($this->usuario());
 
         $fila = collect(Livewire::test(BookingList::class)->viewData('filas')->items())

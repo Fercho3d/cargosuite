@@ -46,7 +46,11 @@ class BookingTimeline
         'custom_brocker_id' => 'Agente aduanal', 'final_destination' => 'Destino final (texto)',
         'final_destination_id' => 'Destino final', 'booking_type' => 'Tipo de booking',
         'email_notification' => 'Correos de notificación', 'is_draft' => 'Borrador', 'locked' => 'Cerrado',
-        'mode' => 'Modo', 'arrival' => 'Arribo', 'remarks' => 'Notas',
+        'mode' => 'Modo', 'remarks' => 'Notas',
+        // La lista de verificación del booking (`Booking::LISTA_DE_VERIFICACION`).
+        'arrival' => 'Arribo', 'realeased_from_shiping' => 'Liberado por la naviera',
+        'customs_cleared' => 'Despachado en aduana', 'truck_service_request' => 'Transporte solicitado',
+        'delivered_consigned' => 'Entregado al consignatario',
         'shipper_is' => 'Shipper (es)', 'shipper_should' => 'Shipper (debe ser)',
         'consignee_is' => 'Consignee (es)', 'consignee_should' => 'Consignee (debe ser)',
         'notify_party_is' => 'Notify party (es)', 'notify_party_should' => 'Notify party (debe ser)',
@@ -83,9 +87,9 @@ class BookingTimeline
     public function forBooking(int $bookingId): Collection
     {
         return collect()
-            ->merge($this->changes('booking_history', 'booking_id', $bookingId, 'Booking'))
+            ->merge($this->changes('booking_history', 'booking_id', $bookingId, __('Booking')))
             ->merge($this->containerChanges($bookingId))
-            ->merge($this->changes('booking_continuity_history', 'booking', $bookingId, 'Continuidad'))
+            ->merge($this->changes('booking_continuity_history', 'booking', $bookingId, __('Continuidad')))
             ->merge($this->checklistChanges($bookingId))
             ->sortByDesc('fecha')
             ->values();
@@ -112,12 +116,13 @@ class BookingTimeline
             ->orderBy('change_date')
             ->get()
             ->groupBy('container_ID')
-            ->flatMap(fn (Collection $serie, $id) => $this->diff($serie->values(), 'Contenedor '.$id));
+            ->flatMap(fn (Collection $serie, $id) => $this->diff($serie->values(), __('Contenedor :id', ['id' => $id])));
     }
 
     /**
      * La lista de verificación se lee distinto: no cambian valores, se marcan y
-     * se desmarcan casillas.
+     * se desmarcan casillas. Cada marca lleva quién la hizo (`{casilla}_chk_by`),
+     * que no siempre es quien firmó el renglón (`modified_by`).
      *
      * @return Collection<int, array<string, mixed>>
      */
@@ -139,14 +144,17 @@ class BookingTimeline
                 $antes = $anterior?->{$columna};
 
                 if (filled($valor) && blank($antes)) {
-                    $marcas[] = ['campo' => $this->label($casilla), 'antes' => null, 'despues' => 'marcada'];
+                    $marcas[] = [
+                        'campo' => __(self::etiqueta($casilla)), 'antes' => null, 'despues' => __('marcada'),
+                        'por' => $this->userName($fila->{$casilla.'_chk_by'} ?? null),
+                    ];
                 } elseif (blank($valor) && filled($antes)) {
-                    $marcas[] = ['campo' => $this->label($casilla), 'antes' => 'marcada', 'despues' => null];
+                    $marcas[] = ['campo' => __(self::etiqueta($casilla)), 'antes' => __('marcada'), 'despues' => null];
                 }
             }
 
             if ($marcas !== [] || $anterior === null) {
-                $eventos->push($this->event($fila, 'Lista de verificación', $marcas));
+                $eventos->push($this->event($fila, __('Lista de verificación'), $marcas));
             }
 
             $anterior = $fila;
@@ -183,7 +191,7 @@ class BookingTimeline
                 }
 
                 $cambios[] = [
-                    'campo' => $this->label($columna),
+                    'campo' => __(self::etiqueta($columna)),
                     'antes' => $anterior === null ? null : $this->display($columna, $antes),
                     'despues' => $this->display($columna, $valor),
                 ];
@@ -211,7 +219,8 @@ class BookingTimeline
         ];
     }
 
-    private function label(string $columna): string
+    /** Nombre visible de una columna, para quien la enseñe fuera del historial. */
+    public static function etiqueta(string $columna): string
     {
         return self::ETIQUETAS[$columna] ?? $columna;
     }

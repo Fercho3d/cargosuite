@@ -43,7 +43,7 @@ class PaymentRequestDocumentTest extends TestCase
 
     private function usuario(int $rol = User::ROLE_ADMIN): User
     {
-        return User::create([
+        return User::forceCreate([
             'username' => 'operador'.$rol, 'password' => 'secreto-de-prueba', 'role' => $rol, 'status' => 1,
         ]);
     }
@@ -60,6 +60,17 @@ class PaymentRequestDocumentTest extends TestCase
         $this->assertStringContainsString('0123456789', $html);
         $this->assertStringContainsString('20/01/2026', $html);
         $this->assertStringContainsString('BK-77', $html);
+    }
+
+    /** El original solo leía el proveedor: el cobro a cliente salía sin beneficiario. */
+    public function test_el_cobro_a_cliente_lleva_el_nombre_del_cliente(): void
+    {
+        DB::table('client')->insert([['client_id' => 5, 'fullName' => 'Importadora del Pacífico']]);
+        DB::table('payment_request')->where('request_id', 9)->update(['type' => 1, 'provider_id' => null, 'client_id' => 5]);
+
+        $html = app(PaymentRequestDocument::class)->html(PaymentRequest::findOrFail(9));
+
+        $this->assertStringContainsString('Importadora del Pacífico', $html);
     }
 
     public function test_se_sirve_como_pdf(): void

@@ -1,3 +1,5 @@
+@use('App\Http\Middleware\EnsureUserIsActive')
+
 <x-guest-layout :title="__('Iniciar sesión')">
     <div class="mb-6">
         <h1 class="text-lg font-semibold text-ink">{{ __('Iniciar sesión') }}</h1>
@@ -7,8 +9,9 @@
     @include('partials.session-status')
     @include('partials.validation-errors')
 
-    @if (session('status'))
-        <div class="alert-ok mb-4 rounded-lg px-3 py-2 text-sm">{{ session('status') }}</div>
+    {{-- Lo manda `EnsureUserIsActive` al cerrar la sesión de una cuenta dada de baja. --}}
+    @if (request('motivo') === EnsureUserIsActive::MOTIVO)
+        <div class="alert-warn mb-4 rounded-lg px-3 py-2 text-sm">{{ __('Tu cuenta está dada de baja.') }}</div>
     @endif
 
     <form method="POST" action="{{ route('login') }}" class="space-y-5">

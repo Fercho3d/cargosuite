@@ -6,7 +6,7 @@
             [__('HB'), 'hb', 'text', null, false],
             [__('Referencia del cliente'), 'customerReference', 'text', null, false],
             [__('Cliente'), 'clientId', 'select', $clientes, true],
-            [__('Tipo de booking'), 'bookingType', 'text', null, false],
+            [__('Tipo de booking'), 'bookingType', 'select', \App\Models\Core\Booking::typeLabels(), false],
         ],
         'Transporte' => [
             [__('Buque'), 'vesselId', 'select', $buques, true],
@@ -52,14 +52,22 @@
     <a href="{{ $bookingId ? route('operations.bookings.show', $bookingId) : route('operations.bookings') }}" wire:navigate
        class="inline-flex items-center gap-1.5 text-sm text-ink-muted transition hover:text-ink">
         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-        {{ $bookingId ? 'Volver al booking' : 'Volver a bookings' }}
+        {{ $bookingId ? __('Volver al booking') : __('Volver a bookings') }}
     </a>
 
     <form wire:submit="save" class="card space-y-6 p-5 sm:p-6">
         <header>
-            <h2 class="text-lg font-semibold text-ink">{{ $bookingId ? __('Editar booking') : __('Nuevo booking') }}</h2>
+            <h2 class="text-lg font-semibold text-ink">{{ $this->titulo() }}</h2>
             @if ($bookingId)
                 <p class="mt-0.5 text-sm text-ink-muted">{{ $bookingNumber }}</p>
+            @else
+                {{-- Nace como borrador: la confirmación al cliente sale al
+                     confirmarlo desde el detalle, ya con sus contenedores. --}}
+                <p class="mt-0.5 text-sm text-ink-muted">
+                    {{ $esCotizacion
+                        ? __('Se guarda como borrador; una cotización no le manda confirmación al cliente.')
+                        : __('Se guarda como borrador. Los contenedores se capturan en el detalle y ahí se confirma para avisar al cliente.') }}
+                </p>
             @endif
         </header>
 
@@ -89,7 +97,7 @@
                             @if ($tipo === 'select')
                                 <select wire:model="{{ $propiedad }}" @disabled($locked)
                                         class="field-input mt-1.5" @required($obligatorio)>
-                                    <option value="">{{ $obligatorio ? 'Selecciona' : __('Sin especificar') }}</option>
+                                    <option value="">{{ $obligatorio ? __('Selecciona') : __('Sin especificar') }}</option>
                                     @foreach ($opciones as $id => $nombre)
                                         <option value="{{ $id }}" @selected((string) $id === (string) $$propiedad)>{{ $nombre }}</option>
                                     @endforeach
@@ -174,7 +182,7 @@
                wire:navigate class="btn-ghost">{{ __('Cancelar') }}</a>
             <button type="submit" wire:loading.attr="disabled" wire:target="save" @disabled($locked) class="btn-accent">
                 <x-spinner wire:loading wire:target="save" class="h-4 w-4" />
-                {{ $bookingId ? 'Guardar cambios' : 'Crear booking' }}
+                {{ $bookingId ? __('Guardar cambios') : ($esCotizacion ? __('Crear cotización') : __('Crear booking')) }}
             </button>
         </footer>
     </form>

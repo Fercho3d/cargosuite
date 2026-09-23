@@ -58,6 +58,16 @@ return [
             'ignore_exceptions' => false,
         ],
 
+        // Facturas mandadas a clientes, salgan o no. Va aparte y en `info` porque
+        // producción corre con LOG_LEVEL=error y así no quedaba rastro de nada.
+        'facturas' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/facturas.log'),
+            'level' => 'info',
+            'days' => 365,
+            'replace_placeholders' => true,
+        ],
+
         'single' => [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),

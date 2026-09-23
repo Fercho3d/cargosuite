@@ -2,11 +2,14 @@
 
 namespace App\Queries;
 
+use App\Models\CfdiCancelacion;
+use App\Support\Cfdi\CancelResult;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Motor de consulta del módulo Transactions.
@@ -61,9 +64,17 @@ class TransactionQuery
         return collect($this->aggregateQuery()->when($limit, fn ($q) => $q->limit($limit))->get());
     }
 
+    /**
+     * A partir de aquí, la vía de dos fases arma un `IN (…)` con demasiados IDs
+     * —se repite en la consulta de filas y en cada agregado— y MySQL truena con
+     * «too many placeholders» (error 1390). Con páginas así de grandes («Ver
+     * todas») se usa la vía agregada, que filtra con un semi-join sin listar IDs.
+     */
+    private const MAX_DOS_FASES = 2000;
+
     public function paginate(int $perPage = 100, int $page = 1): LengthAwarePaginator
     {
-        if ($this->canUseTwoPhase()) {
+        if ($this->canUseTwoPhase() && $perPage <= self::MAX_DOS_FASES) {
             $total = $this->countIds();
             $ids = $this->idQuery()->forPage($page, $perPage)->pluck('transc_id')->all();
             $rows = $ids === [] ? collect() : $this->rowsFor($ids);
@@ -381,6 +392,10 @@ class TransactionQuery
             $query->whereIn('t.tran_type', $f->type_in);
         }
 
+        if ($f->invoice_type !== null) {
+            $query->where('t.invoice_type', $f->invoice_type);
+        }
+
         if ($f->notIn !== null) {
             $query->whereNotIn('t.transc_id', function ($sub) use ($f) {
                 $sub->select('transc_id')->from('payments_by_transaction')->where('request_id', $f->notIn);
@@ -428,10 +443,106 @@ class TransactionQuery
             $query->where('t.cancelled', $f->cancelled);
         }
 
-        match ($f->showCancelled) {
-            0 => $query->where('t.cancelled', 0),
-            1 => $query->whereIn('t.cancelled', [0, 1]),
-            2 => $query->where('t.cancelled', 1),
+        // Filtrar por estado del CFDI manda sobre «solo vigentes»: esas facturas
+        // están marcadas como canceladas y si no, el filtro no devolvería nada.
+        if ($f->cfdiEstado === null) {
+            match ($f->showCancelled) {
+                // «Solo vigentes» es vigente ANTE EL SAT. Una factura marcada
+                // aquí cuya cancelación sigue en trámite, o que el receptor
+                // rechazó, sigue viva para el SAT: esconderla es justo lo que
+                // hacía que no se encontrara para darle seguimiento.
+                0 => $query->where(fn ($q) => $q->where('t.cancelled', 0)->orWhereIn('t.transc_id', $this->pendingCancellationIds())),
+                1 => $query->whereIn('t.cancelled', [0, 1]),
+                2 => $query->where('t.cancelled', 1),
+                default => null,
+            };
+        }
+
+        $this->applyCfdiStatus($query, $f);
+    }
+
+    /**
+     * Facturas marcadas como canceladas que el SAT sigue viendo vigentes.
+     *
+     * Son las que tienen la cancelación en trámite o rechazada. Entran en el
+     * listado de vigentes porque fiscalmente lo están, y su insignia dice en
+     * qué punto va el trámite.
+     *
+     * @return int[]
+     */
+    private function pendingCancellationIds(): array
+    {
+        if (! Schema::hasTable('cfdi_cancelacion')) {
+            return [];
+        }
+
+        return DB::table('cfdi_cancelacion')
+            ->whereIn('estado', [...CancelResult::PENDIENTES, CancelResult::RECHAZADA])
+            // Solo las que el SAT ya confirmó vigentes. Mientras no se le haya
+            // preguntado, se respeta la marca heredada y la factura sigue fuera
+            // del listado de vigentes, como en el sistema original.
+            ->where('sat_estado', 'Vigente')
+            ->pluck('transc_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /**
+     * Filtro por el estado de la cancelación ante el SAT.
+     *
+     * Mira la bitácora `cfdi_cancelacion`, que es donde vive lo que el SAT
+     * contestó; `transaction.cancelled` por sí sola no distingue una cancelación
+     * consumada de una que quedó esperando al receptor o que el receptor
+     * rechazó. Como todas estas facturas están marcadas como canceladas, el
+     * filtro las deja ver aunque la pantalla venga en «solo vigentes».
+     */
+    private function applyCfdiStatus(Builder $query, TransactionFilters $f): void
+    {
+        if ($f->cfdiEstado === null || ! Schema::hasTable('cfdi_cancelacion')) {
+            return;
+        }
+
+        $plazo = now()->subHours(CfdiCancelacion::PLAZO_HORAS);
+
+        $bitacora = fn (callable $condiciones) => $query->whereExists(
+            fn ($sub) => $condiciones(
+                $sub->from('cfdi_cancelacion as cc')->selectRaw('1')->whereColumn('cc.transc_id', 't.transc_id')
+            )
+        );
+
+        // Sin timbrar y timbradas no miran la bitácora: es el sello del documento.
+        if ($f->cfdiEstado === TransactionFilters::CFDI_SIN_TIMBRAR) {
+            $query->where(fn ($q) => $q->whereNull('t.seal')->orWhere('t.seal', ''));
+
+            return;
+        }
+
+        if ($f->cfdiEstado === TransactionFilters::CFDI_TIMBRADA) {
+            $query->whereNotNull('t.seal')->where('t.seal', '<>', '');
+
+            return;
+        }
+
+        match ($f->cfdiEstado) {
+            // Confirmada por el SAT, o cancelada de siempre y sin nada pendiente.
+            CfdiCancelacion::VISTA_CANCELADA => $query->where('t.cancelled', 1)->whereNotExists(
+                fn ($sub) => $sub->from('cfdi_cancelacion as cc')->selectRaw('1')
+                    ->whereColumn('cc.transc_id', 't.transc_id')
+                    ->where(fn ($q) => $q->whereIn('cc.estado', [CancelResult::RECHAZADA, ...CancelResult::PENDIENTES])
+                        ->orWhere('cc.sat_estado', 'Vigente'))
+            ),
+            // Pedida y dentro del plazo de 72 horas que tiene el receptor.
+            CfdiCancelacion::VISTA_PROCESO => $bitacora(fn ($sub) => $sub
+                ->whereIn('cc.estado', CancelResult::PENDIENTES)
+                ->where(fn ($q) => $q->where('cc.sat_estado', '<>', 'Vigente')->orWhereNull('cc.sat_estado')
+                    ->orWhere('cc.solicitado_at', '>=', $plazo))),
+            CfdiCancelacion::VISTA_RECHAZADA => $bitacora(fn ($sub) => $sub->where('cc.estado', CancelResult::RECHAZADA)),
+            // Marcada cancelada aquí y vigente allá: ni el receptor contestó ni la
+            // solicitud llegó, y el plazo ya pasó.
+            CfdiCancelacion::VISTA_VIGENTE => $bitacora(fn ($sub) => $sub
+                ->where('cc.sat_estado', 'Vigente')
+                ->where(fn ($q) => $q->where('cc.estado', CancelResult::RECHAZADA)
+                    ->orWhere('cc.solicitado_at', '<', $plazo))),
             default => null,
         };
     }
@@ -519,8 +630,11 @@ class TransactionQuery
         'sub_0_mxn' => ['row' => null, 'agg' => 'sub_0_mxn'],
         'sub_16_mxn' => ['row' => null, 'agg' => 'sub_16_mxn'],
         'tax_16_mxn' => ['row' => null, 'agg' => 'tax_16_mxn'],
+        'non_dec' => ['row' => null, 'agg' => 'non_dec'],
         'tax_ret_mxn' => ['row' => null, 'agg' => 'tax_ret_mxn'],
         'total_amount' => ['row' => null, 'agg' => 'total_amount'],
+        'total_amount_paid_tc' => ['row' => null, 'agg' => 'total_amount_paid_tc'],
+        'total_natural_amount' => ['row' => null, 'agg' => 'total_natural_amount'],
         'tran_paid_amount' => ['row' => null, 'agg' => 'tran_paid_amount'],
         // El «Estado» del renglón se deriva del saldo, así que se ordena por él.
         'left_to_pay' => ['row' => null, 'agg' => 'left_to_pay'],

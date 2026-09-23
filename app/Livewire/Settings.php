@@ -2,8 +2,10 @@
 
 namespace App\Livewire;
 
+use App\Actions\Demo\RellenaDatosDemo;
 use App\Support\Ajustes;
 use App\Support\Expediente;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 /**
@@ -18,6 +20,10 @@ class Settings extends Component
     /** @var list<string> */
     public array $modalidades = [];
 
+    public bool $taller = false;
+
+    public bool $nomina = false;
+
     public bool $timbrado = false;
 
     public string $vocabulario = '';
@@ -26,9 +32,12 @@ class Settings extends Component
 
     public function mount(): void
     {
+        abort_unless(config('marca.ajustes'), 404);
         abort_unless(auth()->user()?->isSuperAdmin() ?? false, 403);
 
         $this->modalidades = Expediente::modalidades();
+        $this->taller = (bool) config('marca.taller');
+        $this->nomina = (bool) config('marca.nomina');
         $this->timbrado = (bool) config('timbrado.habilitado');
         $this->vocabulario = (string) config('marca.vocabulario');
         $this->idiomaDocumentos = (string) config('marca.idioma_documentos');
@@ -62,6 +71,8 @@ class Settings extends Component
 
         Ajustes::guardar([
             'marca.modalidades' => $this->modalidades,
+            'marca.taller' => $this->taller,
+            'marca.nomina' => $this->nomina,
             'timbrado.habilitado' => $this->timbrado,
             'marca.vocabulario' => $this->vocabulario,
             'marca.idioma_documentos' => $this->idiomaDocumentos,
@@ -70,9 +81,33 @@ class Settings extends Component
         session()->flash('status', __('Ajustes guardados. Vuelve a cargar para ver los cambios en el menú.'));
     }
 
+    /**
+     * Rellena la base con los datos de una vertical, para enseñar el sistema.
+     *
+     * Después se cierra la sesión a propósito: el sembrador vacía la tabla de
+     * usuarios y la vuelve a llenar, así que la sesión abierta apunta a una
+     * cuenta que ya no es la misma aunque conserve el número.
+     */
+    public function rellenar(string $vertical): void
+    {
+        abort_unless(auth()->user()?->isSuperAdmin() ?? false, 403);
+        abort_unless(RellenaDatosDemo::permitido(), 403);
+
+        app(RellenaDatosDemo::class)($vertical, auth()->id());
+
+        Auth::guard('web')->logout();
+        session()->invalidate();
+        session()->regenerateToken();
+        session()->flash('status', __('Datos de demostración listos. Vuelve a entrar.'));
+
+        $this->redirect(route('login'));
+    }
+
     public function render()
     {
-        return view('livewire.settings')
-            ->layout('components.app-layout', ['title' => __('Ajustes')]);
+        return view('livewire.settings', [
+            'demo' => RellenaDatosDemo::permitido(),
+            'vertical' => RellenaDatosDemo::permitido() ? RellenaDatosDemo::vertical() : null,
+        ])->layout('components.app-layout', ['title' => __('Ajustes')]);
     }
 }

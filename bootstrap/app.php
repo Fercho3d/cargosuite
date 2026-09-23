@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\SetLocale;
 use App\Support\Locale;
 use App\Support\Theme;
@@ -20,9 +21,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // ellas la escribe el propio navegador, así que van sin cifrar.
         $middleware->encryptCookies(except: [Theme::COOKIE, Theme::RESOLVED_COOKIE, Locale::COOKIE]);
 
-        // El idioma se resuelve después de la sesión: la preferencia del usuario
-        // vive en la base y hace falta saber quién entra.
-        $middleware->web(append: [SetLocale::class]);
+        // Un usuario dado de baja sale en su siguiente clic, como en el sistema
+        // original. El idioma se resuelve después de la sesión: la preferencia
+        // del usuario vive en la base y hace falta saber quién entra.
+        $middleware->web(append: [EnsureUserIsActive::class, SetLocale::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

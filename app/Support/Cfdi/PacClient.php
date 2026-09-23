@@ -19,12 +19,18 @@ interface PacClient
     public function stamp(string $layout): StampedInvoice;
 
     /**
-     * Cancela un comprobante ya timbrado.
+     * Pide la cancelación de un comprobante ya timbrado.
+     *
+     * Devuelve **en qué quedó la solicitud**, que casi nunca es «cancelada»:
+     * mientras el PAC no confirme la cancelación el comprobante sigue vigente
+     * ante el SAT. Quien llama tiene que mirar el resultado.
      *
      * @param  string  $rfcEmisor  El RFC con el que se timbró: el PAC busca el UUID
      *                             dentro de la base de ESE emisor.
      * @param  string  $motivo  Clave de cancelación del SAT (01–04).
      * @param  string|null  $sustituye  UUID que sustituye a este, si el motivo es 01.
+     *
+     * @throws CfdiException si el PAC rechaza la solicitud o no contesta.
      */
-    public function cancel(string $uuid, string $rfcEmisor, string $motivo, ?string $sustituye = null): void;
+    public function cancel(string $uuid, string $rfcEmisor, string $motivo, ?string $sustituye = null): CancelResult;
 }

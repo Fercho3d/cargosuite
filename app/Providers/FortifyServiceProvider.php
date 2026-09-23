@@ -7,8 +7,10 @@ use App\Actions\Fortify\ResetUserPassword;
 use App\Actions\Fortify\UpdateUserPassword;
 use App\Actions\Fortify\UpdateUserProfileInformation;
 use App\Models\User;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -41,12 +43,22 @@ class FortifyServiceProvider extends ServiceProvider
                 ->first();
 
             if ($user && $user->isActive() && Hash::check($request->input('password'), $user->password)) {
-                $user->forceFill(['last_login' => now()])->saveQuietly();
-
                 return $user;
             }
 
             return null;
+        });
+
+        /*
+         * `last_login` se marca cuando la sesión ya existe, no al acertar la
+         * contraseña: con 2FA activo, entre una cosa y otra está el código, y
+         * quien lo falla no ingresó. El evento `Login` lo dispara el guard tanto
+         * en el acceso directo como al superar el desafío del 2FA.
+         */
+        Event::listen(Login::class, function (Login $evento) {
+            if ($evento->user instanceof User) {
+                $evento->user->forceFill(['last_login' => now()])->saveQuietly();
+            }
         });
 
         /*

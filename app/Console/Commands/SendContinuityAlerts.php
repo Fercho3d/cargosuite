@@ -38,6 +38,15 @@ class SendContinuityAlerts extends Command
         }
 
         $simular = (bool) $this->option('simular');
+
+        // `Mail::to([])` revienta: sin destinatarios no hay a quién avisar, y el
+        // cron no debe marcar error por una instalación sin ese correo.
+        if (! $simular && config('marca.correo.avisos_operacion') === []) {
+            $this->warn('No se mandó ningún aviso: falta el destinatario en MARCA_MAIL_AVISOS.');
+
+            return self::SUCCESS;
+        }
+
         $resultado = $avisos->handle($nivel, enviar: ! $simular);
 
         if ($resultado === []) {

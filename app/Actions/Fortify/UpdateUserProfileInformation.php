@@ -12,7 +12,12 @@ use Laravel\Fortify\Contracts\UpdatesUserProfileInformation;
 class UpdateUserProfileInformation implements UpdatesUserProfileInformation
 {
     /**
-     * Validate and update the given user's profile information.
+     * Valida y actualiza el perfil del usuario.
+     *
+     * La feature `updateProfileInformation` está apagada en `config/fortify.php`;
+     * esto queda listo por si se reactiva: la llave primaria es `usr_id` (con
+     * `$user->id` el `ignore` no excluía a nadie y el propio correo daba
+     * «ya existe») y los anchos son los de la tabla heredada.
      *
      * @param  array<string, string>  $input
      *
@@ -21,14 +26,14 @@ class UpdateUserProfileInformation implements UpdatesUserProfileInformation
     public function update(User $user, array $input): void
     {
         Validator::make($input, [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:100'],
 
             'email' => [
                 'required',
                 'string',
                 'email',
-                'max:255',
-                Rule::unique('users')->ignore($user->id),
+                'max:45',
+                Rule::unique('users', 'email')->ignore($user->usr_id, 'usr_id'),
             ],
         ])->validateWithBag('updateProfileInformation');
 

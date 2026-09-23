@@ -3,7 +3,7 @@
 namespace Tests\Feature\Cfdi;
 
 use App\Actions\Transactions\StampTransaction;
-use App\Livewire\Parties\PartyManager;
+use App\Livewire\Parties\PartyForm;
 use App\Livewire\Transactions\TransactionDetail;
 use App\Models\Core\Transaction;
 use App\Models\User;
@@ -143,13 +143,11 @@ class TimbradoOpcionalTest extends TestCase
         $this->actingAs($this->admin());
 
         config(['timbrado.habilitado' => true]);
-        Livewire::test(PartyManager::class, ['mode' => 'client'])
-            ->call('edit', 1)
+        Livewire::test(PartyForm::class, ['mode' => 'client', 'party' => 1])
             ->assertSee('Uso del CFDI');
 
         config(['timbrado.habilitado' => false]);
-        Livewire::test(PartyManager::class, ['mode' => 'client'])
-            ->call('edit', 1)
+        Livewire::test(PartyForm::class, ['mode' => 'client', 'party' => 1])
             ->assertDontSee('Uso del CFDI')
             ->assertSee('Correos para facturas');
     }

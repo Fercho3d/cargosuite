@@ -103,7 +103,9 @@ vendor/bin/phpunit --group parity --filter=ServiceMatchingParityTest
 
 ## Pendientes
 
-- El **contrato en PDF** del servicio (`service.contract`, 156 archivos) todavía
-  no se sube desde Laravel; el resto del catálogo ya se administra completo.
+- ~~El **contrato en PDF** del servicio (`service.contract`, 156 archivos) todavía
+  no se sube desde Laravel.~~ Ya se sube y se abre desde la ficha del servicio y
+  el listado (`App\Support\ServiceFiles`, `GET /terceros/servicios/{id}/contrato`),
+  en la misma carpeta `uploads/services/{id}/pdf/` que dejó Yii2.
 - Las tres rarezas de arriba están donde se pueden cambiar en un solo lugar el día
   que se decida arreglarlas, y cada una tiene una prueba que avisará del cambio.

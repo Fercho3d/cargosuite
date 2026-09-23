@@ -15,7 +15,7 @@ que necesita redefinir un negocio nuevo:
 | | Qué es | Estado |
 |---|---|---|
 | `booking_continuity`, 14 columnas | los **hitos**: la fecha de cada paso del expediente | ✅ hecho |
-| `check_list`, 27 columnas `_chk_date` | la **verificación de campos** del booking: qué dato ya se confirmó y quién | ⬜ va detrás del punto 2 |
+| `check_list`, 27 columnas `_chk_date` | la **verificación de campos** del booking: qué dato ya se confirmó y quién | 🔄 las casillas de los hitos ya se marcan desde el detalle (ver «Planeado y cumplido» en `MARCA-BLANCA.md`); generalizarla campo por campo va detrás del punto 2 |
 
 Un taller no necesita «zarpe», necesita «diagnóstico» y «entrega»: eso son los
 hitos. La verificación, en cambio, va campo por campo del expediente, así que no

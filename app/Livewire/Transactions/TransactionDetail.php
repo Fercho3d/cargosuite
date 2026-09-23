@@ -3,17 +3,22 @@
 namespace App\Livewire\Transactions;
 
 use App\Actions\Transactions\CancelStamp;
+use App\Actions\Transactions\RefreshCancellationStatus;
 use App\Actions\Transactions\SendInvoice;
 use App\Actions\Transactions\StampTransaction;
+use App\Models\CfdiCancelacion;
 use App\Models\Core\Charge;
 use App\Models\Core\ChargeType;
 use App\Models\Core\Service;
 use App\Models\Core\Transaction;
+use App\Queries\PaymentRequestFilters;
+use App\Queries\PaymentRequestQuery;
 use App\Queries\TransactionFilters;
 use App\Queries\TransactionQuery;
 use App\Support\Cfdi\CfdiException;
 use App\Support\TransactionLock;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Validator;
 use Livewire\Component;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -52,7 +57,18 @@ class TransactionDetail extends Component
 
     public string $replacementUuid = '';
 
+    /** Lo último que contestó el SAT en esta pantalla, al pulsar Consultar. */
+    public ?string $satNotice = null;
+
+    /** Estado que dio el SAT en la última consulta de esta pantalla (Vigente, Cancelado…). */
+    public ?string $satEstado = null;
+
+    /** Estatus de la cancelación en esa misma consulta (En proceso, Solicitud rechazada…). */
+    public ?string $satEstatus = null;
+
     private ?object $headerCache = null;
+
+    private ?CfdiCancelacion $cancelacionCache = null;
 
     private ?Transaction $transactionCache = null;
 
@@ -115,6 +131,23 @@ class TransactionDetail extends Component
             ->where('transaction', $this->transactionId)
             ->orderBy('charge_id')
             ->get();
+    }
+
+    /**
+     * Solicitudes de pago en las que aparece esta transacción, con lo que cada
+     * una le aplicó en la moneda del documento (`transaction_payments.php` del
+     * original). Sin tipo de cambio ni signo: aquí se lee cuánto se pagó, no
+     * cuánto vale en pesos.
+     *
+     * @return Collection<int, object>
+     */
+    private function paymentRequests(): Collection
+    {
+        $filtros = PaymentRequestFilters::make(['transc_id' => $this->transactionId]);
+        $filtros->noExchange = true;
+        $filtros->noNegative = true;
+
+        return PaymentRequestQuery::make($filtros)->get();
     }
 
     /**
@@ -189,6 +222,10 @@ class TransactionDetail extends Component
     {
         $this->assertEditable();
 
+        // Se captura como se lee, con separador de miles: «2,929.91».
+        $this->quantity = str_replace(',', '', $this->quantity);
+        $this->price = str_replace(',', '', $this->price);
+
         $datos = $this->validate([
             'chargeType' => ['required', 'exists:charge_type,charge_type_id'],
             'serviceId' => ['required', 'exists:service,service_id'],
@@ -196,12 +233,26 @@ class TransactionDetail extends Component
             'price' => ['required', 'numeric', 'min:0'],
         ], attributes: [
             'chargeType' => __('tipo de cargo'),
-            'serviceId' => 'servicio',
-            'quantity' => 'cantidad',
-            'price' => 'precio',
+            'serviceId' => __('servicio'),
+            'quantity' => __('cantidad'),
+            'price' => __('precio'),
         ]);
 
         $servicio = Service::findOrFail($datos['serviceId']);
+
+        // `service.description` es varchar(255) y `charge.description` varchar(100):
+        // como en Yii2 (`Charge::rules`), se rechaza antes de que MySQL la trunque o falle.
+        $descripcion = Validator::make(
+            ['description' => $servicio->description],
+            ['description' => ['nullable', 'string', 'max:100']],
+            attributes: ['description' => __('descripción del servicio')],
+        );
+
+        if ($descripcion->fails()) {
+            $this->addError('serviceId', $descripcion->errors()->first('description'));
+
+            return;
+        }
 
         $modelo = $this->chargeId === null
             ? new Charge(['transaction' => $this->transactionId])
@@ -291,6 +342,16 @@ class TransactionDetail extends Component
             && $this->charges()->isNotEmpty();
     }
 
+    /**
+     * Aviso de que la factura no se podrá timbrar a nombre de su compañía (sin
+     * compañía o con datos fiscales incompletos), para verlo ANTES de pulsar
+     * Timbrar. Es el `fiscalWarning` que el original pintaba en el formulario.
+     */
+    public function emisorWarning(): ?string
+    {
+        return $this->canStamp() ? $this->transaction()->emisorError() : null;
+    }
+
     public function canCancel(): bool
     {
         $transaccion = $this->transaction();
@@ -298,9 +359,43 @@ class TransactionDetail extends Component
         // La cancelación sí se permite con el timbrado apagado si hay sello:
         // una instalación que dejó de facturar al SAT todavía puede tener que
         // cancelar lo que timbró antes.
+        //
+        // Con una solicitud en curso sí se puede volver a pedir: el PAC contesta
+        // «el UUID se encuentra en cola» y eso ahora se enseña tal cual, que es
+        // información útil y no un error.
         return (auth()->user()?->isAdmin() ?? false)
             && filled($transaccion->seal)
-            && ! $transaccion->cancelled;
+            && ($this->satEstado === 'Vigente'
+                || CfdiCancelacion::permiteSolicitar((bool) $transaccion->cancelled, $this->cancelacion()));
+    }
+
+    /** La solicitud de cancelación de esta factura, si alguna vez se pidió. */
+    public function cancelacion(): ?CfdiCancelacion
+    {
+        return $this->cancelacionCache ??= CfdiCancelacion::where('transc_id', $this->transactionId)->first();
+    }
+
+    /**
+     * Vuelve a preguntarle al SAT en qué quedó la cancelación.
+     *
+     * El resultado se pinta en la pantalla sin recargar: es una consulta de solo
+     * lectura y quien factura suele repetirla mientras espera al receptor.
+     */
+    public function refreshSatStatus(RefreshCancellationStatus $consultar): void
+    {
+        abort_unless(auth()->user()?->isAdmin() ?? false, 403);
+
+        $consulta = $consultar->handle($this->transaction());
+
+        $this->satEstado = $consulta->estado;
+        $this->satEstatus = $consulta->estatusCancelacion ?: null;
+        $this->satNotice = $consulta->seConsulto()
+            ? trim(__('El SAT dice: ').$consulta->estado.' '.$consulta->estatusCancelacion)
+            : (string) $consulta->motivo;
+
+        $this->transactionCache = null;
+        $this->headerCache = null;
+        $this->cancelacionCache = null;
     }
 
     public function stamp(StampTransaction $timbrar): void
@@ -320,7 +415,7 @@ class TransactionDetail extends Component
         $this->transactionCache = null;
         $this->headerCache = null;
 
-        session()->flash('status', __('Factura timbrada. Folio fiscal: ').$uuid.' '.$this->mailNote($timbrar->mailStatus));
+        session()->flash('status', __('Factura timbrada. Folio fiscal: ').$uuid.' '.SendInvoice::note($timbrar->mailStatus));
         $this->redirectRoute('transactions.show', $this->transactionId, navigate: true);
     }
 
@@ -336,19 +431,7 @@ class TransactionDetail extends Component
 
         $estado = $enviar->handle($this->transaction(), (string) ($this->header()->booking_number ?? ''));
 
-        session()->flash('status', trim($this->mailNote($estado)));
-    }
-
-    /** Cómo contarle al usuario qué pasó con el correo. */
-    private function mailNote(?string $estado): string
-    {
-        return match ($estado) {
-            SendInvoice::ENVIADA => __('La factura se le mandó al cliente.'),
-            SendInvoice::SIN_DOCUMENTOS => __('No se mandó por correo: la factura todavía no tiene documentos.'),
-            SendInvoice::SIN_DESTINATARIOS => __('No se mandó por correo: el cliente no tiene correos de notificación.'),
-            SendInvoice::ERROR => __('No se pudo mandar por correo; quedó anotado en la bitácora.'),
-            default => '',
-        };
+        session()->flash('status', trim(SendInvoice::note($estado)));
     }
 
     public function startCancel(): void
@@ -364,7 +447,7 @@ class TransactionDetail extends Component
         abort_unless($this->canCancel(), 403);
 
         try {
-            $cancelar->handle(
+            $resultado = $cancelar->handle(
                 $this->transaction(),
                 $this->cancelReason,
                 $this->replacementUuid ?: null,
@@ -375,7 +458,14 @@ class TransactionDetail extends Component
             return;
         }
 
-        session()->flash('status', __('Factura cancelada ante el SAT.'));
+        // El mensaje dice lo que de verdad pasó: casi nunca es «cancelada», y
+        // dar eso por hecho es lo que tenía al ERP diciendo una cosa y al SAT
+        // otra. El código del PAC va aparte, en letra chica.
+        session()->flash('status', $resultado->esCancelacionConfirmada()
+            ? __('Factura cancelada ante el SAT.')
+            : __($resultado->mensaje));
+        session()->flash('status_detail', $resultado->codigo);
+
         $this->redirectRoute('transactions.show', $this->transactionId, navigate: true);
     }
 
@@ -391,6 +481,7 @@ class TransactionDetail extends Component
             'fila' => $this->header(),
             'transaccion' => $transaccion,
             'cargos' => $this->charges(),
+            'solicitudes' => $this->paymentRequests(),
             'candado' => $this->lock(),
             'sePuedeBorrar' => TransactionLock::canDelete(
                 $this->header(),
@@ -398,6 +489,7 @@ class TransactionDetail extends Component
                 auth()->user(),
             ),
             'motivosCancelacion' => CancelStamp::MOTIVOS,
+            'cancelacion' => $this->cancelacion(),
             'tiposDeCargo' => ChargeType::optionsFor($contraparte, $tipoServicio),
             'servicios' => $this->chargeType === ''
                 ? collect()

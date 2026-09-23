@@ -151,6 +151,15 @@ class PerfilCamiones extends PerfilDemo
         ];
     }
 
+    /**
+     * Los tres selectores del expediente, en su orden: el sembrador reparte los
+     * tres primeros al primer selector, los cuatro siguientes al segundo y los
+     * tres de después al tercero. Aquí eso es diésel, transportistas externos y
+     * casetas, que es de quien recibe facturas una empresa de camiones.
+     *
+     * Del once en adelante no se asignan solos: están para que el catálogo se
+     * vea como el de una empresa de verdad, con su taller y su aseguradora.
+     */
     public function proveedores(): array
     {
         return [
@@ -159,11 +168,16 @@ class PerfilCamiones extends PerfilDemo
             ['nombre' => 'Estación de Servicio Bajío', 'tipo' => 1],
             ['nombre' => 'Fletes Asociados', 'tipo' => 2],
             ['nombre' => 'Transportes Complementarios', 'tipo' => 2],
-            ['nombre' => 'Grúas y Auxilio Vial', 'tipo' => 2],
-            ['nombre' => 'Taller Diésel Integral', 'tipo' => 2],
+            ['nombre' => 'Autolíneas del Bajío', 'tipo' => 2],
+            ['nombre' => 'Fletera del Pacífico', 'tipo' => 2],
+            ['nombre' => 'Casetas PASE', 'tipo' => 3],
+            ['nombre' => 'Peajes IAVE', 'tipo' => 3],
+            ['nombre' => 'Custodia y Monitoreo GPS', 'tipo' => 3],
+            ['nombre' => 'Taller Diésel Integral', 'tipo' => 3],
             ['nombre' => 'Llantera Industrial', 'tipo' => 3],
             ['nombre' => 'Refacciones Pesadas', 'tipo' => 3],
             ['nombre' => 'Seguros de Carga', 'tipo' => 3],
+            ['nombre' => 'Grúas y Auxilio Vial', 'tipo' => 3],
         ];
     }
 
@@ -190,11 +204,178 @@ class PerfilCamiones extends PerfilDemo
         ];
     }
 
+    /**
+     * El almacén de un taller de tractocamiones.
+     *
+     * Con el mínimo puesto en lo que de verdad se controla: dos llantas y unos
+     * filtros. Un almacén de ejemplo sin mínimos no enseña lo único que hace
+     * falta —qué está por acabarse—, que es para lo que se lleva.
+     */
+    public function refacciones(): array
+    {
+        return [
+            ['codigo' => 'LLA-1122', 'nombre' => 'Llanta 11R22.5 dirección', 'categoria' => 'Llantas', 'medida' => 'pza', 'minimo' => 4, 'costo' => 7850],
+            ['codigo' => 'LLA-2952', 'nombre' => 'Llanta 295/75R22.5 tracción', 'categoria' => 'Llantas', 'medida' => 'pza', 'minimo' => 6, 'costo' => 8420],
+            ['codigo' => 'FIL-ACE', 'nombre' => 'Filtro de aceite', 'categoria' => 'Filtros', 'medida' => 'pza', 'minimo' => 8, 'costo' => 385],
+            ['codigo' => 'FIL-AIR', 'nombre' => 'Filtro de aire primario', 'categoria' => 'Filtros', 'medida' => 'pza', 'minimo' => 6, 'costo' => 940],
+            ['codigo' => 'FIL-COM', 'nombre' => 'Filtro de combustible', 'categoria' => 'Filtros', 'medida' => 'pza', 'minimo' => 8, 'costo' => 520],
+            ['codigo' => 'ACE-15W40', 'nombre' => 'Aceite 15W40 motor diésel', 'categoria' => 'Lubricantes', 'medida' => 'litro', 'minimo' => 60, 'costo' => 96],
+            ['codigo' => 'ACE-85W140', 'nombre' => 'Aceite 85W140 diferencial', 'categoria' => 'Lubricantes', 'medida' => 'litro', 'minimo' => 20, 'costo' => 128],
+            ['codigo' => 'BAL-DEL', 'nombre' => 'Juego de balatas delanteras', 'categoria' => 'Frenos', 'medida' => 'juego', 'minimo' => 2, 'costo' => 3450],
+            ['codigo' => 'BAL-TRA', 'nombre' => 'Juego de balatas traseras', 'categoria' => 'Frenos', 'medida' => 'juego', 'minimo' => 2, 'costo' => 3980],
+            ['codigo' => 'CAM-FRE', 'nombre' => 'Cámara de freno tipo 30/30', 'categoria' => 'Frenos', 'medida' => 'pza', 'minimo' => 2, 'costo' => 2150],
+            ['codigo' => 'BAT-31T', 'nombre' => 'Batería 31T 950 CCA', 'categoria' => 'Eléctrico', 'medida' => 'pza', 'minimo' => 2, 'costo' => 4290],
+            ['codigo' => 'FAR-LED', 'nombre' => 'Faro LED delantero', 'categoria' => 'Eléctrico', 'medida' => 'pza', 'minimo' => 2, 'costo' => 1180],
+            ['codigo' => 'MAN-AIR', 'nombre' => 'Manguera de aire con conector', 'categoria' => 'Neumático', 'medida' => 'pza', 'minimo' => 3, 'costo' => 640],
+            ['codigo' => 'CLU-KIT', 'nombre' => 'Kit de clutch 15.5"', 'categoria' => 'Transmisión', 'medida' => 'juego', 'minimo' => 1, 'costo' => 18700],
+            ['codigo' => 'ANT-VER', 'nombre' => 'Anticongelante verde', 'categoria' => 'Lubricantes', 'medida' => 'litro', 'minimo' => 40, 'costo' => 74],
+        ];
+    }
+
+    /**
+     * Los pasos de un viaje por carretera.
+     *
+     * Nada de corte documental, VGM ni draft del BL: eso es de un embarque
+     * marítimo y en la pantalla de una empresa de camiones no significa nada.
+     * Aquí el viaje se asigna, se carga, se rueda, se entrega y se cobra.
+     *
+     * Cuatro de ellos siguen escribiendo su columna heredada —la que ya
+     * significaba lo mismo— para que el porcentaje de avance del listado y los
+     * avisos de tareas atrasadas sigan teniendo de dónde leer.
+     */
+    public function hitos(): array
+    {
+        return [
+            ['clave' => 'asignado', 'etiqueta' => 'Unidad y operador asignados', 'columna' => null, 'dias' => -2],
+            ['clave' => 'llegada_carga', 'etiqueta' => 'Llegada a carga', 'columna' => 'pickup_date', 'dias' => -1],
+            ['clave' => 'cargado', 'etiqueta' => 'Cargado', 'columna' => 'gated_IN', 'dias' => 0],
+            ['clave' => 'salida', 'etiqueta' => 'Salida del origen', 'columna' => 'departure', 'dias' => 0],
+            ['clave' => 'llegada_destino', 'etiqueta' => 'Llegada a destino', 'columna' => null, 'dias' => 0, 'desde' => 'arribo'],
+            ['clave' => 'descargado', 'etiqueta' => 'Descargado', 'columna' => 'gated_out', 'dias' => 0, 'desde' => 'arribo'],
+            ['clave' => 'evidencia', 'etiqueta' => 'Evidencia de entrega', 'columna' => 'delivered', 'dias' => 1, 'desde' => 'arribo'],
+            ['clave' => 'facturado', 'etiqueta' => 'Facturado al cliente', 'columna' => null, 'dias' => 3, 'desde' => 'arribo'],
+            ['clave' => 'liquidado', 'etiqueta' => 'Liquidado al operador', 'columna' => null, 'dias' => 6, 'desde' => 'arribo'],
+        ];
+    }
+
+    /**
+     * Las rutas que de verdad se corren, con sus kilómetros por carretera.
+     *
+     * Los índices son los del catálogo: origen sobre `origenes()`, destino sobre
+     * `destinos()` y punto de carga sobre `lugaresRecoleccion()`. Van declaradas
+     * y no combinadas porque «Patio Monterrey → Monterrey» es un viaje de cero
+     * kilómetros, y de los kilómetros cuelga TODO lo demás: los días de tránsito,
+     * la tarifa, el diésel y las casetas.
+     */
+    public function rutas(): array
+    {
+        return [
+            ['origen' => 1, 'destino' => 1, 'recoleccion' => 1, 'km' => 915],   // Monterrey → CDMX
+            ['origen' => 1, 'destino' => 3, 'recoleccion' => 1, 'km' => 785],   // Monterrey → Guadalajara
+            ['origen' => 1, 'destino' => 5, 'recoleccion' => 1, 'km' => 1010],  // Monterrey → Veracruz
+            ['origen' => 2, 'destino' => 1, 'recoleccion' => 2, 'km' => 540],   // Guadalajara → CDMX
+            ['origen' => 2, 'destino' => 4, 'recoleccion' => 2, 'km' => 2285],  // Guadalajara → Tijuana
+            ['origen' => 2, 'destino' => 2, 'recoleccion' => 2, 'km' => 785],   // Guadalajara → Monterrey
+            ['origen' => 3, 'destino' => 1, 'recoleccion' => 3, 'km' => 215],   // Querétaro → CDMX
+            ['origen' => 3, 'destino' => 6, 'recoleccion' => 3, 'km' => 1660],  // Querétaro → Mérida
+            ['origen' => 3, 'destino' => 2, 'recoleccion' => 3, 'km' => 715],   // Querétaro → Monterrey
+            ['origen' => 4, 'destino' => 1, 'recoleccion' => 4, 'km' => 1135],  // Laredo → CDMX
+            ['origen' => 4, 'destino' => 2, 'recoleccion' => 4, 'km' => 225],   // Laredo → Monterrey
+            ['origen' => 4, 'destino' => 3, 'recoleccion' => 4, 'km' => 1010],  // Laredo → Guadalajara
+        ];
+    }
+
+    /**
+     * Un día por cada 650 kilómetros, y nunca menos de uno.
+     *
+     * Son los kilómetros que hace un operador solo respetando las horas de
+     * conducción: no es la velocidad del camión, es la jornada.
+     */
+    public function diasDeTransito(array $viaje): int
+    {
+        return max(1, (int) ceil($viaje['km'] / 650));
+    }
+
+    /** Uno de cada seis viajes se subcontrata: temporada alta o ruta que no se cubre. */
+    public function conFlotaPropia(int $n): bool
+    {
+        return $n % 6 !== 0;
+    }
+
+    /**
+     * Lo que se le cobra al cliente, en pesos y por kilómetro.
+     *
+     * El flete lleva **IVA del 16 % y retención del 4 %**, que es lo que hace el
+     * autotransporte de carga en México cuando el cliente es persona moral. Sin
+     * esa retención, cualquiera que facture fletes ve la factura y sabe que la
+     * demostración no es de aquí.
+     */
+    public function facturaCliente(array $viaje): array
+    {
+        $c = $this->conceptos();
+        $km = max(1, $viaje['km']);
+
+        $lineas = [
+            // Tarifa por kilómetro con un mínimo por viaje: un tramo corto no se
+            // cobra a kilómetro, se cobra el viaje.
+            [$c['venta_principal']['descripcion'], $c['venta_principal']['cargo'], 1, max(6500, round($km * 28 / 50) * 50)],
+            [$c['maniobras']['descripcion'], $c['maniobras']['cargo'], 1, 650 + ($viaje['n'] % 4) * 100],
+        ];
+
+        // Estadía solo cuando la hubo: cobrarla en todos los viajes la volvería
+        // parte de la tarifa y dejaría de significar nada.
+        if ($viaje['n'] % 5 === 0) {
+            $lineas[] = [$c['sueltos'][0]['nombre'], $c['sueltos'][0]['cargo'], 1, 1800];
+        }
+
+        return ['divisa' => 1, 'lineas' => $lineas];
+    }
+
+    /**
+     * Lo que cuesta moverlo: diésel, casetas y, cuando se subcontrata, el flete
+     * del que lo movió.
+     *
+     * El diésel sale de los mismos kilómetros que el gasto de viaje —2.2 km por
+     * litro cargado, a 25.40 el litro— para que el módulo de gastos y la
+     * contabilidad cuenten lo mismo.
+     */
+    public function costosDelViaje(array $viaje): array
+    {
+        $c = $this->conceptos();
+        $km = max(1, $viaje['km']);
+        $costos = [];
+
+        if ($this->conFlotaPropia($viaje['n'])) {
+            $costos[] = ['proveedor' => 'naviera', 'divisa' => 1, 'lineas' => [
+                [$c['costo_principal']['descripcion'], $c['costo_principal']['cargo'], round($km / 2.2, 1), 25.4],
+            ]];
+        } else {
+            // Subcontratado: se paga el flete del tercero y no hay diésel que
+            // pagar, porque el camión no era nuestro.
+            $costos[] = ['proveedor' => 'transportista', 'divisa' => 1, 'lineas' => [
+                [$c['acarreo']['descripcion'], $c['acarreo']['cargo'], 1, round($km * 26 / 50) * 50],
+            ]];
+        }
+
+        $casetas = [[$c['tramite']['descripcion'], $c['tramite']['cargo'], 1, round($km * 2.9, 2)]];
+
+        // Custodia en las rutas largas, que es donde se contrata.
+        if ($km > 900) {
+            $casetas[] = [$c['sueltos'][1]['nombre'], $c['sueltos'][1]['cargo'], 1, 3500];
+        }
+
+        $casetas[] = [$c['terceros'], 6, 1, 600 + ($viaje['n'] % 6) * 150];
+
+        $costos[] = ['proveedor' => 'agente', 'divisa' => 1, 'lineas' => $casetas];
+
+        return $costos;
+    }
+
     public function conceptos(): array
     {
         return [
             'venta_principal' => ['nombre' => 'Flete', 'descripcion' => 'Flete de origen a destino', 'cargo' => 1],
-            'costo_principal' => ['nombre' => 'Costo combustible', 'descripcion' => 'Combustible del viaje', 'cargo' => 3],
+            'costo_principal' => ['nombre' => 'Diésel del viaje', 'descripcion' => 'Diésel del viaje', 'cargo' => 3],
             'acarreo' => ['nombre' => 'Flete subcontratado', 'descripcion' => 'Flete con transportista externo', 'cargo' => 1],
             'tramite' => ['nombre' => 'Casetas', 'descripcion' => 'Casetas de la ruta', 'cargo' => 4],
             'maniobras' => ['nombre' => 'Maniobras', 'descripcion' => 'Maniobras de carga y descarga', 'cargo' => 2],

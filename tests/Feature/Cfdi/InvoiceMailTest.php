@@ -4,6 +4,7 @@ namespace Tests\Feature\Cfdi;
 
 use App\Actions\Transactions\SendInvoice;
 use App\Livewire\Transactions\TransactionDetail;
+use App\Livewire\Transactions\TransactionTable;
 use App\Mail\InvoiceMail;
 use App\Models\Core\Transaction;
 use App\Models\User;
@@ -140,6 +141,31 @@ class InvoiceMailTest extends TestCase
             && $correo->hasBcc('copia@ejemplo.test'));
     }
 
+    /** Fuera de producción la copia interna es el destinatario: no se repite en copia oculta. */
+    public function test_fuera_de_produccion_la_copia_interna_no_va_repetida(): void
+    {
+        $this->detalle()->call('stamp');
+
+        Mail::assertSent(InvoiceMail::class, fn ($correo) => $correo->hasTo('copia@ejemplo.test')
+            && ! $correo->hasBcc('copia@ejemplo.test'));
+    }
+
+    /**
+     * Como `actionReenviar` del original, basta el PDF: una factura histórica
+     * con el PDF cargado a mano y sin sello también se reenvía.
+     */
+    public function test_una_factura_con_pdf_y_sin_sello_tambien_se_reenvia(): void
+    {
+        Storage::disk('documentos')->put('transactions/1/pdf/historica.pdf', '%PDF-falso');
+        Transaction::find(1)->forceFill(['invoice_type' => Transaction::INVOICE_TYPE_HISTORY, 'pdf_attach' => 'historica.pdf'])->save();
+
+        $this->detalle()
+            ->assertSee(__('Reenviar al cliente'))
+            ->call('resend');
+
+        Mail::assertSent(InvoiceMail::class, fn ($correo) => count($correo->attachments()) === 1);
+    }
+
     public function test_se_puede_volver_a_mandar_desde_el_detalle(): void
     {
         $this->timbrada();
@@ -162,7 +188,7 @@ class InvoiceMailTest extends TestCase
     public function test_sin_destinatarios_no_se_manda(): void
     {
         config(['timbrado.produccion' => true]);
-        DB::table('client')->where('client_id', 1)->update(['email' => null, 'email_notification' => null]);
+        DB::table('client')->where('client_id', 1)->update(['email' => '', 'email_notification' => null]);
         $this->timbrada();
 
         $this->assertSame(
@@ -180,5 +206,19 @@ class InvoiceMailTest extends TestCase
         $this->detalle(User::ROLE_USER)->call('resend')->assertForbidden();
 
         Mail::assertNothingSent();
+    }
+
+    /** Como el «Send Docs» del listado viejo: manda las facturas marcadas. */
+    public function test_el_listado_manda_los_documentos_de_las_marcadas(): void
+    {
+        $this->timbrada();
+        $this->actingAs($this->usuario());
+
+        Livewire::test(TransactionTable::class, ['screen' => 'invoice'])
+            ->set('selected', ['1'])
+            ->call('sendSelected')
+            ->assertSet('sendResult.sent', 1);
+
+        Mail::assertSent(InvoiceMail::class, 1);
     }
 }

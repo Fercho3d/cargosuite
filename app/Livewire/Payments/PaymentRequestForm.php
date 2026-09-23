@@ -4,10 +4,12 @@ namespace App\Livewire\Payments;
 
 use App\Actions\Payments\CreatePaymentRequest;
 use App\Models\Core\Bank;
+use App\Models\Core\Exchange;
 use App\Models\Core\Transaction;
 use App\Queries\TransactionFilters;
 use App\Queries\TransactionQuery;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -21,6 +23,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class PaymentRequestForm extends Component
 {
+    use ChecksPaymentAmounts;
+
     /** @var int[] */
     public array $ids = [];
 
@@ -29,6 +33,15 @@ class PaymentRequestForm extends Component
     public string $date = '';
 
     public string $bankId = '';
+
+    /**
+     * «Tipo de cambio propio»: la solicitud se valúa con el TC capturado en vez
+     * del registrado para su fecha. Es la casilla «Custom TC» del modal de Yii2.
+     */
+    public bool $customTc = false;
+
+    /** El TC propio, con cuatro decimales. */
+    public string $tcValue = '';
 
     /** @var array<int, string> transc_id => importe a aplicar */
     public array $amounts = [];
@@ -74,8 +87,17 @@ class PaymentRequestForm extends Component
         $filtros->noExchange = true;
         $filtros->invoiceMode = true;
         $filtros->paymentMode = true;
+        // Las canceladas se traen para rechazarlas con su motivo en el renglón;
+        // si se filtraran aquí desaparecerían de la pantalla sin explicación.
+        $filtros->showCancelled = 1;
 
         return TransactionQuery::make($filtros)->get();
+    }
+
+    /** Al crear, el tope es el saldo: lo que todavía se debe del documento. */
+    protected function payableLimit(object $transaccion): float
+    {
+        return round((float) $transaccion->left_to_pay, 2);
     }
 
     /**
@@ -119,6 +141,25 @@ class PaymentRequestForm extends Component
         return round(collect($this->amounts)->sum(fn ($v) => (float) $v), 2);
     }
 
+    /**
+     * El TC registrado para la fecha y divisa elegidas, como referencia junto a
+     * la casilla; si aún no está registrado se pide al guardar.
+     */
+    public function dayRate(): ?float
+    {
+        $primera = $this->transactions()->first();
+
+        if ($primera === null || ! strtotime($this->date)) {
+            return null;
+        }
+
+        $valor = Exchange::where('account', (int) $primera->account_id)
+            ->whereDate('date_exchange', $this->date)
+            ->value('exchange_value');
+
+        return $valor === null ? null : (float) $valor;
+    }
+
     public function save(CreatePaymentRequest $crear): void
     {
         abort_unless(auth()->user()?->isAdmin() ?? false, 403);
@@ -127,17 +168,31 @@ class PaymentRequestForm extends Component
             'number' => ['required', 'string', 'max:64'],
             'date' => ['required', 'date'],
             'bankId' => ['required', 'exists:bank,bank_id'],
+            'tcValue' => [Rule::requiredIf($this->customTc), 'nullable', 'numeric', 'gt:0'],
             'amounts.*' => ['required', 'numeric'],
         ], attributes: [
             'number' => __('número'),
-            'date' => 'fecha',
-            'bankId' => 'banco',
-            'amounts.*' => 'importe',
+            'date' => __('fecha'),
+            'bankId' => __('banco'),
+            'tcValue' => __('tipo de cambio'),
+            'amounts.*' => __('importe'),
         ]);
 
         $transacciones = $this->transactions();
 
-        $this->assertAmountsFit($transacciones);
+        // Saldadas y canceladas no entran a una solicitud nueva, diga lo que
+        // diga el importe; el motivo sale en el renglón.
+        foreach ($transacciones as $transaccion) {
+            if ($motivo = CreatePaymentRequest::rejectionReason($transaccion)) {
+                $this->addError('amounts.'.$transaccion->transc_id, $motivo);
+            }
+        }
+
+        if ($this->getErrorBag()->isNotEmpty()) {
+            return;
+        }
+
+        $this->assertAmountsFit($transacciones, 'left_to_pay');
 
         if ($this->getErrorBag()->isNotEmpty()) {
             return;
@@ -149,80 +204,23 @@ class PaymentRequestForm extends Component
 
         $solicitud = $crear->handle(
             $transacciones,
-            ['number' => $this->number, 'date' => $this->date, 'bank_id' => $this->bankId],
+            [
+                'number' => $this->number,
+                'date' => $this->date,
+                'bank_id' => $this->bankId,
+                'custom_tc' => $this->customTc,
+                'tc_value' => $this->tcValue,
+            ],
             $importes,
             auth()->user(),
         );
 
-        session()->flash('status', __('Solicitud ').str_pad((string) $solicitud->request_id, 4, '0', STR_PAD_LEFT).' creada.');
+        session()->flash('status', __('Solicitud :folio creada.', ['folio' => str_pad((string) $solicitud->request_id, 4, '0', STR_PAD_LEFT)]));
 
         $this->redirectRoute('payments.requests', [
             'num' => $solicitud->number,
             'nueva' => $solicitud->request_id,
         ], navigate: true);
-    }
-
-    /**
-     * Ningún renglón puede aplicar más de lo que la transacción admite.
-     *
-     * Porta `Transaction::validateAmountToPay()` de Yii2, que allá vivía en un
-     * campo virtual del modelo (`public $amount_to_pay`, que no es columna de la
-     * tabla) y se validaba por AJAX al teclear en la rejilla. Aquí se comprueba
-     * al guardar, que es cuando se escribe.
-     *
-     * ⚠️ El tope NO es el saldo sino `saldo + lo ya pagado`, o sea el total del
-     * documento. En Yii2 eso lo hace la rama `modeOpen` de la validación, y esta
-     * pantalla siempre la enciende: `views/payment-request/_transactions.php`
-     * arma el editable con `'modeopen' => 1` fijo. La idea es que, dentro de una
-     * solicitud, lo ya aplicado se puede volver a repartir; el efecto es que una
-     * transacción saldada sigue admitiendo importe. Sin esto, un renglón con
-     * saldo 0 quedaba trabado: el 0 lo rechaza la primera regla y cualquier otra
-     * cifra la segunda.
-     *
-     * Las notas de crédito van al revés porque restan: su saldo es negativo y el
-     * importe tiene que serlo también, sin pasarse por debajo. Ahí el 0 SÍ pasa
-     * (la regla del «mayor que cero» solo existe en la otra rama); comprobado
-     * corriendo la validación original contra la base real.
-     *
-     * @param  Collection<int, object>  $transacciones
-     */
-    private function assertAmountsFit(Collection $transacciones): void
-    {
-        foreach ($transacciones as $transaccion) {
-            $importe = round((float) ($this->amounts[$transaccion->transc_id] ?? 0), 2);
-            $tope = $this->payableLimit($transaccion);
-            $campo = 'amounts.'.$transaccion->transc_id;
-
-            // El renglón que se queda con el importe propuesto (su saldo) entra
-            // tal cual. En Yii2 esta validación solo corre al TECLEAR en la
-            // casilla, así que el valor por omisión nunca se comprueba y una
-            // transacción ya saldada se manda con 0 sin protestar.
-            if ($importe === round((float) $transaccion->left_to_pay, 2)) {
-                continue;
-            }
-
-            if ((int) $transaccion->tran_type === Transaction::TYPE_CREDIT_BILL) {
-                if ($importe > 0) {
-                    $this->addError($campo, __('Una nota de crédito resta: el importe tiene que ser negativo.'));
-                } elseif ($importe < $tope) {
-                    $this->addError($campo, __('No puede ser menor que ').number_format($tope, 2).'.');
-                }
-
-                continue;
-            }
-
-            if ($importe === 0.0) {
-                $this->addError($campo, __('El importe tiene que ser mayor que $0.00.'));
-            } elseif ($importe > $tope) {
-                $this->addError($campo, __('No puede ser mayor que ').number_format($tope, 2).'.');
-            }
-        }
-    }
-
-    /** Saldo + lo ya pagado: el `modeOpen` de `validateAmountToPay()` (ver arriba). */
-    public function payableLimit(object $transaccion): float
-    {
-        return round((float) $transaccion->left_to_pay + (float) $transaccion->tran_paid_amount, 2);
     }
 
     public function render()

@@ -17,6 +17,13 @@ use Tests\LegacyDatabaseTestCase;
  * usando el mismo motor de consulta, que ya está verificado contra Yii2 celda por
  * celda. Así lo que se compara es exactamente el cambio: mover la suma de PHP a
  * SQL, sin que se mueva ningún número.
+ *
+ * El original tenía dos cálculos que no coincidían: `buildProfitSummary()` del
+ * controlador (sumaba con signo, y restaba las notas de crédito al cliente) y
+ * la pantalla del booking (`views/transaction/index.php`, magnitud por renglón
+ * y sin las notas de crédito al cliente). Se unificó en el criterio de la
+ * pantalla del booking, que es el que el cliente veía junto a cada factura, y
+ * esta prueba codifica ese.
  */
 #[Group('parity')]
 class ProfitByBookingTest extends LegacyDatabaseTestCase
@@ -82,9 +89,11 @@ class ProfitByBookingTest extends LegacyDatabaseTestCase
     }
 
     /**
-     * Reimplementación literal de `buildProfitSummary()` del controlador de Yii2:
-     * trae todas las filas y acumula en PHP, con el respaldo «si no hay pago, usa
-     * el documento» aplicado transacción por transacción.
+     * Reimplementación literal del cálculo de `views/transaction/index.php` de
+     * Yii2 (con el respaldo «si no hay pago, usa el documento» de
+     * `buildProfitSummary()`, aplicado transacción por transacción): trae todas
+     * las filas y acumula en PHP, `abs()` por renglón, las notas de crédito al
+     * cliente fuera del ingreso y las de proveedor restando del costo.
      *
      * @return array<int, array<string, float>>
      */
@@ -116,29 +125,29 @@ class ProfitByBookingTest extends LegacyDatabaseTestCase
                     continue;
                 }
 
-                $doc = (float) $fila->amount_original_mxn;
-                $pago = (float) $fila->amount_original_paid_mxn;
+                if ((int) $fila->tran_type === Transaction::TYPE_INVOICE && (int) $fila->invoice_type === Transaction::INVOICE_TYPE_CREDIT) {
+                    continue;
+                }
 
-                $bookings[$id][$claveDoc] += $doc;
-                $bookings[$id][$clavePago] += ($pago != 0 ? $pago : $doc);
+                $signo = (int) $fila->tran_type === Transaction::TYPE_CREDIT_BILL ? -1 : 1;
+                $doc = abs((float) $fila->amount_original_mxn);
+                $pago = abs((float) $fila->amount_original_paid_mxn);
+
+                $bookings[$id][$claveDoc] += $signo * $doc;
+                $bookings[$id][$clavePago] += $signo * ($pago != 0 ? $pago : $doc);
             }
         };
 
         $acumular([Transaction::TYPE_INVOICE], 'inv_doc', 'inv_pago');
         $acumular([Transaction::TYPE_BILL, Transaction::TYPE_CREDIT_BILL], 'cost_doc', 'cost_pago');
 
-        return collect($bookings)->map(function (array $b) {
-            $costDoc = abs($b['cost_doc']);
-            $costPago = abs($b['cost_pago']);
-
-            return [
-                'inv_doc' => $b['inv_doc'],
-                'cost_doc' => $costDoc,
-                'profit_doc' => $b['inv_doc'] - $costDoc,
-                'inv_pago' => $b['inv_pago'],
-                'cost_pago' => $costPago,
-                'profit_pago' => $b['inv_pago'] - $costPago,
-            ];
-        })->all();
+        return collect($bookings)->map(fn (array $b) => [
+            'inv_doc' => $b['inv_doc'],
+            'cost_doc' => $b['cost_doc'],
+            'profit_doc' => $b['inv_doc'] - $b['cost_doc'],
+            'inv_pago' => $b['inv_pago'],
+            'cost_pago' => $b['cost_pago'],
+            'profit_pago' => $b['inv_pago'] - $b['cost_pago'],
+        ])->all();
     }
 }

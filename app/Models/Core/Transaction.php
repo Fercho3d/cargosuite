@@ -98,6 +98,20 @@ class Transaction extends CoreModel
     }
 
     /**
+     * Números de las solicitudes de pago que pidieron estas filas, por
+     * `request_id`, para pintar la columna «Solicitud» sin una consulta por renglón.
+     *
+     * @param  iterable<object>  $rows
+     * @return array<int, string>
+     */
+    public static function requestNumbersFor(iterable $rows): array
+    {
+        $ids = collect($rows)->pluck('request_id')->filter()->unique()->values();
+
+        return $ids->isEmpty() ? [] : PaymentRequest::whereIn('request_id', $ids)->pluck('number', 'request_id')->all();
+    }
+
+    /**
      * Etiqueta del tipo, igual que `Transaction::typeText()` en Yii2:
      * el prefijo lo pone `invoice_type` y el sustantivo `tran_type`.
      */
@@ -122,6 +136,41 @@ class Transaction extends CoreModel
     public function getTypeTextAttribute(): string
     {
         return static::typeText($this->invoice_type, $this->tran_type);
+    }
+
+    /**
+     * El tipo, para enseñarlo: es `typeText` traducido. Sin esta columna una
+     * nota de crédito de proveedor solo se distinguía de un costo por el signo.
+     */
+    public static function typeLabel(?int $invoiceType, ?int $tranType): string
+    {
+        return match (true) {
+            $tranType === self::TYPE_BILL => __('Costo'),
+            $tranType === self::TYPE_CREDIT_BILL => __('Nota de crédito prov.'),
+            $invoiceType === self::INVOICE_TYPE_HISTORY => __('Histórica'),
+            $invoiceType === self::INVOICE_TYPE_CREDIT => __('Nota de crédito cliente'),
+            default => __('Factura'),
+        };
+    }
+
+    /**
+     * Por qué esta factura no se puede timbrar a nombre de su compañía, o null
+     * si sí. Es `getEmisorError()` del original: sin compañía, o con una a la
+     * que le faltan datos fiscales, el PAC timbraría a nombre equivocado.
+     */
+    public function emisorError(): ?string
+    {
+        if (blank($this->company_id)) {
+            return __('Esta transacción no tiene compañía emisora, así que no se sabe con qué RFC timbrar. Asígnale una antes de timbrar.');
+        }
+
+        $compania = $this->company;
+
+        if ($compania === null) {
+            return __('La compañía emisora de esta transacción ya no existe. Asígnale una válida antes de timbrar.');
+        }
+
+        return $compania->fiscalWarning();
     }
 
     public function getFolioAttribute(): string

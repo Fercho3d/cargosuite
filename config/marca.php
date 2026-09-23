@@ -109,6 +109,69 @@ return [
     'modalidades' => env('MARCA_MODALIDADES', 'maritimo'),
 
     /**
+     * De dónde sale el porcentaje de avance del expediente.
+     *
+     * · `hitos`        → cuántos pasos del catálogo de hitos tienen fecha. Es lo
+     *                    que se enseña en el detalle y lo que entiende cualquiera.
+     * · `verificacion` → las 27 casillas `_chk_date` heredadas, con su divisor
+     *                    histórico de 26 (un expediente con las 27 marcadas da
+     *                    103.85 %). **Solo para la instalación original**, donde
+     *                    el cliente lleva años viendo ese número y cambiarlo se
+     *                    lo movería todo de golpe.
+     */
+    'avance' => env('MARCA_AVANCE', 'hitos'),
+
+    /**
+     * Esta instalación es de DEMOSTRACIÓN.
+     *
+     * Enciende en Ajustes el botón que **borra la base y la vuelve a llenar**
+     * con los datos de una vertical —marítimo o terrestre—, para enseñar el
+     * sistema con los datos del negocio que se tiene enfrente.
+     *
+     * ⚠️ Jamás en la instalación de un cliente: ahí el botón no existe y la
+     * acción se niega aunque se llame a mano.
+     */
+    'demo' => filter_var(env('MARCA_DEMO', false), FILTER_VALIDATE_BOOL),
+
+    /**
+     * Página pública de presentación (la portada con «Solicitar demostración»
+     * y el contacto).
+     *
+     * Encendida (por omisión) la raíz muestra esa portada; apagada, la raíz va
+     * directo al login. En la instalación de un cliente que entra por su propia
+     * dirección —sin vender nada— se apaga: no hay nada que promocionar.
+     */
+    'landing' => filter_var(env('MARCA_LANDING', true), FILTER_VALIDATE_BOOL),
+
+    /**
+     * Taller: mantenimiento de las unidades y almacén de refacciones.
+     *
+     * Solo tiene sentido con flota propia, y ni siquiera siempre: quien manda
+     * todo a un taller externo no lleva almacén. Se apaga entero —menú y
+     * catálogo de refacciones— sin dejar pantallas a medias.
+     */
+    'taller' => filter_var(env('MARCA_TALLER', true), FILTER_VALIDATE_BOOL),
+
+    /**
+     * Nómina interna: la plantilla y lo que se le paga a cada quien.
+     *
+     * Se apaga en las instalaciones que ya llevan la nómina en otro sistema —que
+     * son muchas—, porque una pantalla de nómina a medio usar es peor que no
+     * tenerla: se captura ahí y se paga desde el otro lado.
+     *
+     * Ojo con lo que **no** hace: no calcula IMSS, INFONAVIT ni ISR, ni timbra
+     * CFDI de nómina. Reúne lo que se paga y lo exporta al sistema fiscal.
+     */
+    'nomina' => filter_var(env('MARCA_NOMINA', true), FILTER_VALIDATE_BOOL),
+
+    /**
+     * Pantalla de Ajustes. Se apaga en la instalación de un cliente cuando lo
+     * configura el dueño del producto: ni en el menú ni por dirección, aunque
+     * quien entre sea super admin. Se vuelve a encender desde el `.env`.
+     */
+    'ajustes' => filter_var(env('MARCA_AJUSTES', true), FILTER_VALIDATE_BOOL),
+
+    /**
      * Y por si hace falta afinar dentro de una modalidad: campos sueltos que
      * esta instalación no pide, aunque su modalidad esté encendida.
      */

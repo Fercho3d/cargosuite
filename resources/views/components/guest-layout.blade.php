@@ -38,7 +38,7 @@
             </div>
 
             <p class="mt-6 text-center text-xs text-ink-faint">
-                &copy; {{ date('Y') }} {{ \App\Support\Marca::nombre() }}@if ($pie = \App\Support\Marca::pie()) — {{ $pie }} @endif
+                &copy; {{ date('Y') }} {{ \App\Support\Marca::nombre() }}@if ($pie = \App\Support\Marca::pie()) · {{ $pie }} @endif
             </p>
         </div>
     </div>

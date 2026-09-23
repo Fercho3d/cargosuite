@@ -1,17 +1,24 @@
 {{--
     Selector de tema (claro / oscuro / sistema). El valor se guarda en las
     preferencias del usuario y, sin sesión, en una cookie.
+
+    Las etiquetas salen de aquí y no de `themeSwitcher` (app.js), que las
+    trae escritas en español: así se traducen con la interfaz.
 --}}
+@php
+    $etiquetas = ['light' => __('Claro'), 'dark' => __('Oscuro'), 'system' => __('Sistema')];
+    $nombres = ['light' => __('Tema claro'), 'dark' => __('Tema oscuro'), 'system' => __('Tema del sistema')];
+@endphp
 <div x-data="themeSwitcher"
      class="inline-flex items-center gap-0.5 rounded-full border border-line bg-panel p-0.5"
      role="radiogroup"
-     aria-label="Tema de la interfaz">
+     aria-label="{{ __('Tema de la interfaz') }}">
     <template x-for="opcion in opciones" :key="opcion.valor">
         <button type="button"
                 role="radio"
                 :aria-checked="tema === opcion.valor"
-                :title="opcion.etiqueta"
-                :aria-label="'Tema ' + opcion.etiqueta"
+                :title="{{ Js::from($etiquetas) }}[opcion.valor]"
+                :aria-label="{{ Js::from($nombres) }}[opcion.valor]"
                 x-on:click="seleccionar(opcion.valor)"
                 class="relative flex h-7 w-7 items-center justify-center rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50"
                 :class="tema === opcion.valor

@@ -39,7 +39,7 @@ class ModalidadesTest extends TestCase
 
     private function pantalla(): Testable
     {
-        $usuario = User::create([
+        $usuario = User::forceCreate([
             'username' => 'jefa'.uniqid(), 'password' => 'secreto-de-prueba',
             'role' => User::ROLE_ADMIN, 'access' => User::ACCESS_INTERNAL, 'status' => 1,
         ]);

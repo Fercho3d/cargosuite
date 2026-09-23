@@ -40,7 +40,7 @@ class MilestoneCatalogTest extends TestCase
 
     private function admin(): User
     {
-        return User::create([
+        return User::forceCreate([
             'username' => 'jefa', 'password' => 'secreto-de-prueba',
             'role' => User::ROLE_ADMIN, 'status' => 1,
         ]);
@@ -154,13 +154,39 @@ class MilestoneCatalogTest extends TestCase
         $this->assertSame('2026-04-12', substr($fechas[2]['swb'], 0, 10));
     }
 
+    /**
+     * La maniobra de vacío («Empty Pass») entra al catálogo por migración
+     * aditiva, antes de la recolección, y se lleva las fechas que ya había en
+     * la columna, escritas como texto «dd-mm-aaaa hh:mm:ss» por el sistema viejo.
+     */
+    public function test_la_migracion_agrega_la_maniobra_de_vacio_antes_de_la_recoleccion(): void
+    {
+        DB::table('hito')->where('clave', 'vacuum_maneuver')->delete();
+        DB::table('booking_continuity')->insert(['cont_id' => 1, 'booking' => 1, 'vacuum_maneuver' => '18-01-2021 18:00:55']);
+        MilestoneCatalog::olvida();
+
+        (require base_path('database/migrations/2026_09_21_000001_agrega_maniobra_de_vacio_al_catalogo_de_hitos.php'))->up();
+        (require base_path('database/migrations/2026_09_21_000001_agrega_maniobra_de_vacio_al_catalogo_de_hitos.php'))->up();
+        MilestoneCatalog::olvida();
+
+        $this->assertSame(
+            ['vacuum_maneuver', 'pickup_date', 1, '2021-01-18 18:00:55'],
+            [
+                MilestoneCatalog::activos()[0]->clave,
+                MilestoneCatalog::activos()[1]->clave,
+                DB::table('hito')->where('clave', 'vacuum_maneuver')->count(),
+                BookingMilestones::de(1)['vacuum_maneuver'],
+            ],
+        );
+    }
+
     /** El catálogo se recuerda por petición, no entre pruebas. */
     public function test_el_catalogo_no_se_queda_pegado_entre_peticiones(): void
     {
-        $this->assertCount(14, MilestoneCatalog::activos());
+        $this->assertCount(15, MilestoneCatalog::activos());
 
         $this->hitoNuevo('entrega', 'Entrega final');
 
-        $this->assertCount(15, MilestoneCatalog::activos());
+        $this->assertCount(16, MilestoneCatalog::activos());
     }
 }

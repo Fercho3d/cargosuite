@@ -3,6 +3,8 @@
 
 @php
     $money = fn ($v) => $v === null ? '—' : number_format((float) $v, 2);
+    // Las tasas se guardan como fracción (0.16); sin tipo de cargo cuentan como 0, igual que el IFNULL de Yii2.
+    $percent = fn ($v) => rtrim(rtrim(number_format((float) $v * 100, 2), '0'), '.').' %';
     $estado = PaymentStatus::for($fila);
     $esFactura = (int) $fila->tran_type === Transaction::TYPE_INVOICE;
     $contraparte = $esFactura ? $fila->customerName : $fila->vendorName;
@@ -10,20 +12,20 @@
     // El desglose del pie se toma de las mismas columnas que alimentan la tabla,
     // para que los importes cuadren al centavo con el listado.
     $desglose = [
-        ['Subtotal 0 %', $fila->sub_0_mxn],
-        ['Subtotal 16 %', $fila->sub_16_mxn],
-        ['IVA 16 %', $fila->tax_16_mxn],
+        [__('Subtotal 0 %'), $fila->sub_0_mxn],
+        [__('Subtotal 16 %'), $fila->sub_16_mxn],
+        [__('IVA 16 %'), $fila->tax_16_mxn],
         [__('Retención IVA'), $fila->tax_ret_mxn],
     ];
 @endphp
 
 <div class="mx-auto max-w-5xl space-y-4">
 
-    {{-- Regreso al listado --}}
-    <a href="{{ route($esFactura ? 'transactions.invoice' : 'transactions.bill') }}" wire:navigate
+    {{-- Regreso a las transacciones de su booking, que es de donde se llega --}}
+    <a href="{{ route('transactions.booking', $fila->booking) }}" wire:navigate
        class="inline-flex items-center gap-1.5 text-sm text-ink-muted transition hover:text-ink">
         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-        Volver a {{ $esFactura ? __('Facturas') : __('Costos') }}
+        {{ __('Transacciones del booking') }} {{ trim((string) $fila->booking_number) }}
     </a>
 
     {{-- Encabezado --}}
@@ -31,7 +33,7 @@
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
                 <p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">
-                    {{ Transaction::typeText($fila->invoice_type, $fila->tran_type) }}
+                    {{ Transaction::typeLabel($fila->invoice_type, $fila->tran_type) }}
                 </p>
                 <h2 class="mt-0.5 truncate text-2xl font-semibold text-ink">
                     {{ $fila->tran_number ?: __('Sin número') }}
@@ -53,9 +55,13 @@
                         {{ __('Timbrar') }}
                     </button>
                 @endif
-                @if ($transaccion->seal && auth()->user()?->isAdmin())
+                {{-- Basta el PDF, como en el original: las facturas históricas con
+                     PDF cargado a mano y sin sello también se reenvían. --}}
+                @if ($esFactura && filled($transaccion->pdf_attach) && auth()->user()?->isAdmin())
                     <button type="button" wire:click="resend" wire:loading.attr="disabled" wire:target="resend"
-                            wire:confirm="{{ __('Se le volverá a mandar al cliente la factura con su PDF y su XML. ¿Continuar?') }}"
+                            wire:confirm="{{ filled($transaccion->seal)
+                                ? __('Se le volverá a mandar al cliente la factura con su PDF y su XML. ¿Continuar?')
+                                : __('Esta factura no tiene sello CFDI: se mandará el PDF cargado a mano. ¿Continuar?') }}"
                             class="btn-ghost px-3 py-1.5 text-xs">
                         <x-spinner wire:loading wire:target="resend" class="h-3.5 w-3.5" />
                         {{ __('Reenviar al cliente') }}
@@ -72,8 +78,22 @@
                             class="btn-ghost px-3 py-1.5 text-xs text-brand">{{ __('Borrar') }}</button>
                 @endif
                 <span class="{{ $estado->classes() }}">{{ $estado->label() }}</span>
-                @if ($fila->cancelled)
-                    <span class="badge badge-danger">{{ __('Cancelada') }}</span>
+                {{-- La insignia dice lo que ve el SAT, no solo la marca local: hay
+                     facturas marcadas como canceladas que siguen vigentes allá. --}}
+                @php
+                    $vista = $satEstado === 'Vigente' && ! $cancelacion?->estaPendiente()
+                        ? \App\Models\CfdiCancelacion::VISTA_VIGENTE
+                        : ($cancelacion?->estadoVisible() ?? ($fila->cancelled ? \App\Models\CfdiCancelacion::VISTA_CANCELADA : null));
+                    [$claseVista, $textoVista] = match ($vista) {
+                        \App\Models\CfdiCancelacion::VISTA_CANCELADA => ['badge-danger', __('Cancelada')],
+                        \App\Models\CfdiCancelacion::VISTA_PROCESO => ['badge-warn', __('Cancelación en proceso')],
+                        \App\Models\CfdiCancelacion::VISTA_RECHAZADA => ['badge-warn', __('Cancelación rechazada')],
+                        \App\Models\CfdiCancelacion::VISTA_VIGENTE => ['badge-warn', __('Vigente ante el SAT')],
+                        default => [null, null],
+                    };
+                @endphp
+                @if ($claseVista && ($fila->cancelled || $cancelacion))
+                    <span class="badge {{ $claseVista }}">{{ $textoVista }}</span>
                 @endif
                 @if (filled($fila->seal))
                     <span class="badge badge-ok">{{ __('Timbrada') }}</span>
@@ -84,6 +104,110 @@
         @error('cfdi')
             <p class="alert-danger mt-4">{{ $message }}</p>
         @enderror
+
+        @if ($avisoEmisor = $this->emisorWarning())
+            <p class="alert-danger mt-4">{{ $avisoEmisor }}</p>
+        @endif
+
+        {{-- Estatus ante el SAT de toda factura timbrada. Si está marcada como
+             cancelada o hay una solicitud, se consulta solo al abrir: es justo
+             el caso en que la marca local y el SAT pueden no coincidir. --}}
+        @if (filled($fila->seal) || $cancelacion)
+            <div class="mt-4 space-y-2 rounded-xl border border-line bg-raised/60 p-4"
+                 @if ($satEstado === null && ($fila->cancelled || $cancelacion)) wire:init="refreshSatStatus" @endif>
+                <p class="text-sm font-medium text-ink">{{ $cancelacion ? __('Cancelación solicitada') : __('Estatus ante el SAT') }}</p>
+                @if ($cancelacion)
+                    <p class="text-sm text-ink-muted">
+                        {{ __($cancelacion->mensaje) }}
+                        @if (filled($cancelacion->codigo))
+                            <span class="text-xs text-ink-faint">({{ $cancelacion->codigo }})</span>
+                        @endif
+                    </p>
+
+                    <p class="text-xs text-ink-faint">
+                        {{ __('Solicitada el :fecha', ['fecha' => $cancelacion->solicitado_at?->format('d/m/Y H:i') ?: '—']) }}
+                        @if ($cancelacion->verificado_at)
+                            · {{ __('Última consulta al SAT: :fecha', ['fecha' => $cancelacion->verificado_at->format('d/m/Y H:i')]) }}
+                            @if (filled($cancelacion->sat_estado))
+                                · <x-sat-badge :estado="$cancelacion->sat_estado" />
+                            @endif
+                            @if (filled($cancelacion->sat_estatus))
+                                <x-sat-badge :estado="$cancelacion->sat_estatus" />
+                            @endif
+                        @else
+                            · {{ __('Todavía sin consultar al SAT.') }}
+                        @endif
+                    </p>
+                @endif
+
+                {{-- Con solicitud, la línea de la última consulta ya trae este resultado. --}}
+                @if ($satEstado !== null && ! $cancelacion)
+                    <p class="flex flex-wrap items-center gap-1.5 text-sm text-ink">
+                        {{ __('El SAT dice: ') }}
+                        <x-sat-badge :estado="$satEstado" />
+                        @if ($satEstatus)
+                            <x-sat-badge :estado="$satEstatus" />
+                        @endif
+                    </p>
+                @elseif ($satEstado === null && $satNotice)
+                    <p class="text-sm text-ink">{{ $satNotice }}</p>
+                @elseif (! $cancelacion)
+                    <p class="text-xs text-ink-faint">
+                        <x-spinner wire:loading wire:target="refreshSatStatus" class="h-3.5 w-3.5" />
+                        {{ __('Todavía sin consultar al SAT.') }}
+                    </p>
+                @endif
+
+                {{-- Mientras el receptor no conteste, quien factura suele tener que
+                     explicarle cómo aceptarla: el texto va listo para copiar. --}}
+                @if ($cancelacion?->estadoVisible() === \App\Models\CfdiCancelacion::VISTA_PROCESO)
+                    @php
+                        $instrucciones = __('Les solicitamos la cancelación de la factura con folio fiscal :uuid. Para aceptarla:', ['uuid' => $cancelacion->uuid])."\n"
+                            .'1. '.__('Entrar a sat.gob.mx, sección Factura electrónica, opción de cancelación de facturas («Consultar, cancelar y recuperar»).')."\n"
+                            .'2. '.__('Iniciar sesión con RFC y contraseña o con e.firma de su empresa.')."\n"
+                            .'3. '.__('Buscar las solicitudes de cancelación pendientes (aceptación o rechazo, como receptor).')."\n"
+                            .'4. '.__('Seleccionar el folio y elegir Aceptar.')."\n"
+                            .__('Si no contestan en 72 horas, el SAT la cancela automáticamente.');
+                    @endphp
+                    @php
+                        $vence = $cancelacion->solicitado_at?->copy()->addHours(\App\Models\CfdiCancelacion::PLAZO_HORAS);
+                        // Consultado y el SAT la ve vigente sin solicitud: se quedó en el PAC.
+                        $noLlegoAlSat = $cancelacion->sat_estado === 'Vigente' && blank($cancelacion->sat_estatus);
+                    @endphp
+                    @if ($noLlegoAlSat)
+                        <p class="text-xs text-brand">{{ __('El SAT todavía no tiene registrada esta solicitud: sigue en el PAC. Normalmente llega en minutos; mientras no llegue, el receptor no puede aceptarla ni corre el plazo de 72 horas. Vuelva a consultar más tarde y, si sigue sin aparecer, cancélela desde el portal del SAT con la e.firma del emisor o reporte el folio al PAC.') }}</p>
+                    @elseif ($vence?->isFuture())
+                        <p class="text-xs text-ink">
+                            {{ __('Espere 72 horas: si el receptor no contesta, el SAT la cancela solo alrededor del :fecha (faltan :horas horas).', ['fecha' => $vence->format('d/m/Y H:i'), 'horas' => (int) ceil(now()->diffInHours($vence))]) }}
+                        </p>
+                    @endif
+
+                    {{-- Plegado por omisión; `wire:ignore.self` para que al volver a
+                         consultar al SAT no se cierre solo. --}}
+                    @unless ($noLlegoAlSat)
+                    <details wire:ignore.self x-data="{ copiado: false }" class="group rounded-lg border border-line bg-panel">
+                        <summary class="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-medium text-ink">
+                            <svg class="h-4 w-4 shrink-0 text-ink-faint transition group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                            {{ __('Cómo acepta la cancelación :cliente', ['cliente' => $contraparte]) }}
+                        </summary>
+                        <div class="space-y-2 border-t border-line p-3">
+                            <pre x-ref="texto" class="whitespace-pre-wrap font-sans text-xs text-ink-muted">{{ $instrucciones }}</pre>
+                            <button type="button" class="btn-ghost px-3 py-1.5 text-xs"
+                                    x-on:click="navigator.clipboard.writeText($refs.texto.innerText); copiado = true; setTimeout(() => copiado = false, 2000)">
+                                <span x-text="copiado ? @js(__('Copiado')) : @js(__('Copiar instrucciones para el cliente'))">{{ __('Copiar instrucciones para el cliente') }}</span>
+                            </button>
+                        </div>
+                    </details>
+                    @endunless
+                @endif
+
+                <button type="button" wire:click="refreshSatStatus" wire:loading.attr="disabled" wire:target="refreshSatStatus"
+                        class="btn-ghost px-3 py-1.5 text-xs">
+                    <x-spinner wire:loading wire:target="refreshSatStatus" class="h-3.5 w-3.5" />
+                    {{ __('Consultar estado en el SAT') }}
+                </button>
+            </div>
+        @endif
 
         @if ($cancelling)
             <form wire:submit="cancelStamp" class="mt-4 space-y-3 rounded-xl border border-line bg-raised/60 p-4">
@@ -113,7 +237,7 @@
                 </p>
 
                 <div class="flex flex-wrap justify-end gap-3">
-                    <button type="button" wire:click="$set('cancelling', false)" class="btn-ghost !px-3 !py-1.5 text-xs">Cerrar</button>
+                    <button type="button" wire:click="$set('cancelling', false)" class="btn-ghost !px-3 !py-1.5 text-xs">{{ __('Cerrar') }}</button>
                     <button type="submit" wire:loading.attr="disabled" wire:target="cancelStamp"
                             class="btn-accent !px-3 !py-1.5 text-xs">
                         <x-spinner wire:loading wire:target="cancelStamp" class="h-3.5 w-3.5" />
@@ -173,11 +297,15 @@
             <div class="mt-5 flex flex-wrap gap-2 border-t border-line pt-4">
                 @foreach ([['pdf', $fila->pdf_attach], ['xml', $fila->xml_attach]] as [$tipo, $archivo])
                     @if ($archivo)
-                        <a href="{{ route('transactions.file', [$fila->transc_id, $tipo]) }}" target="_blank"
-                           class="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs text-ink-muted transition hover:bg-raised hover:text-ink">
+                        @php $url = route('transactions.file', [$fila->transc_id, $tipo]); @endphp
+                        <div class="inline-flex max-w-full items-center gap-2 rounded-lg border border-line py-1 pl-3 pr-1 text-xs text-ink-muted">
                             <span class="font-semibold uppercase text-ink-faint">{{ $tipo }}</span>
-                            <span class="max-w-[14rem] truncate">{{ $archivo }}</span>
-                        </a>
+                            <span class="max-w-[12rem] truncate" title="{{ $archivo }}">{{ $archivo }}</span>
+                            <a href="{{ $url }}" target="_blank" rel="noopener" data-navigate-ignore
+                               class="rounded-md px-2 py-1 font-medium text-ink transition hover:bg-raised">{{ __('Ver') }}</a>
+                            <a href="{{ $url }}?descargar=1" download data-navigate-ignore
+                               class="rounded-md px-2 py-1 font-medium text-ink transition hover:bg-raised">{{ __('Descargar') }}</a>
+                        </div>
                     @endif
                 @endforeach
             </div>
@@ -191,7 +319,7 @@
 
             <div class="flex items-center gap-3">
                 <span class="text-xs text-ink-faint">
-                    {{ $cargos->count() }} {{ \Illuminate\Support\Str::plural('línea', $cargos->count()) }}
+                    {{ trans_choice(':n línea|:n líneas', $cargos->count(), ['n' => $cargos->count()]) }}
                 </span>
                 @unless ($candado->locked)
                     <button type="button" wire:click="addCharge" class="btn-ghost px-3 py-1.5 text-xs">
@@ -246,7 +374,7 @@
 
                     <label class="block">
                         <span class="field-label">{{ __('Cantidad') }}</span>
-                        <input type="number" step="0.0001" min="0" wire:model="quantity" value="{{ $quantity }}"
+                        <input type="text" inputmode="decimal" x-data="campoImporte" wire:model="quantity" value="{{ $quantity }}"
                                class="field-input mt-1.5" required>
                         @error('quantity') <span class="mt-1 block text-xs text-brand">{{ $message }}</span> @enderror
                     </label>
@@ -258,7 +386,7 @@
                                 <span class="font-normal text-ink-faint">{{ __('(lo fija el servicio)') }}</span>
                             @endif
                         </span>
-                        <input type="number" step="0.0001" min="0" wire:model="price" value="{{ $price }}"
+                        <input type="text" inputmode="decimal" x-data="campoImporte" wire:model="price" value="{{ $price }}"
                                @disabled($this->priceIsFixed()) class="field-input mt-1.5" required>
                         @error('price') <span class="mt-1 block text-xs text-brand">{{ $message }}</span> @enderror
                     </label>
@@ -287,14 +415,26 @@
                     </div>
                     <p class="text-xs text-ink-muted">
                         {{ number_format((float) $cargo->quantity, 2) }} × {{ $money($cargo->price) }}
-                        · IVA {{ $money($cargo->tax) }}
-                        @if ($cargo->retention > 0) · Ret. {{ $money($cargo->retention) }} @endif
+                        · {{ __('IVA') }} {{ $money($cargo->tax) }}
+                        @if ($cargo->retention > 0) · {{ __('Ret.') }} {{ $money($cargo->retention) }} @endif
                     </p>
                     @unless ($candado->locked)
-                        <div class="flex gap-3 text-xs">
-                            <button type="button" wire:click="editCharge({{ $cargo->charge_id }})" class="text-brand hover:underline">Editar</button>
-                            <button type="button" wire:click="deleteCharge({{ $cargo->charge_id }})"
-                                    wire:confirm="¿Quitar este concepto de la transacción?" class="text-ink-muted hover:text-brand">{{ __('Quitar') }}</button>
+                        {{-- Confirmación en la misma fila y no con confirm(): si el navegador
+                             tiene bloqueados los diálogos, confirm() contesta «no» sin mostrarse. --}}
+                        <div x-data="{ seguro: false }" class="flex gap-3 text-xs">
+                            <template x-if="! seguro">
+                                <div class="flex gap-3">
+                                    <button type="button" wire:click="editCharge({{ $cargo->charge_id }})" class="text-brand hover:underline">{{ __('Editar') }}</button>
+                                    <button type="button" x-on:click="seguro = true" class="text-ink-muted hover:text-brand">{{ __('Quitar') }}</button>
+                                </div>
+                            </template>
+                            <template x-if="seguro">
+                                <div class="flex gap-3">
+                                    <span class="text-ink-muted">{{ __('¿Quitar?') }}</span>
+                                    <button type="button" wire:click="deleteCharge({{ $cargo->charge_id }})" class="font-semibold text-brand hover:underline">{{ __('Sí') }}</button>
+                                    <button type="button" x-on:click="seguro = false" class="text-ink-muted hover:text-ink">{{ __('No') }}</button>
+                                </div>
+                            </template>
                         </div>
                     @endunless
                 </li>
@@ -309,11 +449,15 @@
                 <thead class="border-b border-line text-xs uppercase tracking-wide text-ink-muted">
                     <tr>
                         <th class="px-4 py-2.5 text-left font-semibold">{{ __('Tipo') }}</th>
+                        <th class="px-4 py-2.5 text-left font-semibold">{{ __('Prepagado') }}</th>
                         <th class="px-4 py-2.5 text-left font-semibold">{{ __('Descripción') }}</th>
                         <th class="px-4 py-2.5 text-right font-semibold">{{ __('Cantidad') }}</th>
+                        <th class="px-4 py-2.5 text-right font-semibold">{{ __('Unidad') }}</th>
                         <th class="px-4 py-2.5 text-right font-semibold">{{ __('Precio') }}</th>
                         <th class="px-4 py-2.5 text-right font-semibold">{{ __('Subtotal') }}</th>
+                        <th class="px-4 py-2.5 text-right font-semibold">{{ __('Tasa de IVA') }}</th>
                         <th class="px-4 py-2.5 text-right font-semibold">{{ __('IVA') }}</th>
+                        <th class="px-4 py-2.5 text-right font-semibold">{{ __('Tasa de retención') }}</th>
                         <th class="px-4 py-2.5 text-right font-semibold">{{ __('Retención') }}</th>
                         <th class="px-4 py-2.5 text-right font-semibold">{{ __('Total') }}</th>
                         @unless ($candado->locked)
@@ -325,26 +469,43 @@
                     @forelse ($cargos as $cargo)
                         <tr class="transition hover:bg-raised">
                             <td class="whitespace-nowrap px-4 py-2 text-ink-muted">{{ $cargo->chargeType?->charge_type_name ?: '—' }}</td>
+                            {{-- En Yii2 `prepaid` nulo se leía como «No» (IFNULL en ChargeSearch). --}}
+                            <td class="whitespace-nowrap px-4 py-2 text-ink-muted">{{ (int) $cargo->prepaid === 1 ? __('Sí') : __('No') }}</td>
                             <td class="max-w-[20rem] truncate px-4 py-2 text-ink" title="{{ $cargo->description }}">{{ $cargo->description ?: '—' }}</td>
                             <td class="whitespace-nowrap px-4 py-2 text-right tabular-nums text-ink-muted">{{ number_format((float) $cargo->quantity, 2) }}</td>
+                            <td class="whitespace-nowrap px-4 py-2 text-right tabular-nums text-ink-muted">{{ $cargo->unit === null ? '—' : number_format($cargo->unit, 2) }}</td>
                             <td class="whitespace-nowrap px-4 py-2 text-right tabular-nums text-ink-muted">{{ $money($cargo->price) }}</td>
                             <td class="whitespace-nowrap px-4 py-2 text-right tabular-nums text-ink-soft">{{ $money($cargo->subtotal) }}</td>
+                            <td class="whitespace-nowrap px-4 py-2 text-right tabular-nums text-ink-muted">{{ $percent($cargo->chargeType?->tax_rate) }}</td>
                             <td class="whitespace-nowrap px-4 py-2 text-right tabular-nums text-ink-muted">{{ $money($cargo->tax) }}</td>
+                            <td class="whitespace-nowrap px-4 py-2 text-right tabular-nums text-ink-muted">{{ $percent($cargo->chargeType?->tax_retention) }}</td>
                             <td class="whitespace-nowrap px-4 py-2 text-right tabular-nums text-ink-muted">{{ $money($cargo->retention) }}</td>
                             <td class="whitespace-nowrap px-4 py-2 text-right font-semibold tabular-nums text-ink">{{ $money($cargo->total) }}</td>
                             @unless ($candado->locked)
                                 <td class="whitespace-nowrap px-4 py-2 text-right">
-                                    <div class="flex justify-end gap-3 text-xs">
-                                        <button type="button" wire:click="editCharge({{ $cargo->charge_id }})" class="text-brand hover:underline">Editar</button>
-                                        <button type="button" wire:click="deleteCharge({{ $cargo->charge_id }})"
-                                                wire:confirm="¿Quitar este concepto de la transacción?" class="text-ink-muted transition hover:text-brand">{{ __('Quitar') }}</button>
+                                    {{-- Confirmación en la misma fila y no con confirm(): si el navegador
+                                         tiene bloqueados los diálogos, confirm() contesta «no» sin mostrarse. --}}
+                                    <div x-data="{ seguro: false }" class="flex justify-end gap-3 text-xs">
+                                        <template x-if="! seguro">
+                                            <div class="flex gap-3">
+                                                <button type="button" wire:click="editCharge({{ $cargo->charge_id }})" class="text-brand hover:underline">{{ __('Editar') }}</button>
+                                                <button type="button" x-on:click="seguro = true" class="text-ink-muted transition hover:text-brand">{{ __('Quitar') }}</button>
+                                            </div>
+                                        </template>
+                                        <template x-if="seguro">
+                                            <div class="flex gap-3">
+                                                <span class="text-ink-muted">{{ __('¿Quitar?') }}</span>
+                                                <button type="button" wire:click="deleteCharge({{ $cargo->charge_id }})" class="font-semibold text-brand hover:underline">{{ __('Sí') }}</button>
+                                                <button type="button" x-on:click="seguro = false" class="text-ink-muted hover:text-ink">{{ __('No') }}</button>
+                                            </div>
+                                        </template>
                                     </div>
                                 </td>
                             @endunless
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ $candado->locked ? 8 : 9 }}" class="px-4 py-10 text-center text-ink-faint">
+                            <td colspan="{{ $candado->locked ? 12 : 13 }}" class="px-4 py-10 text-center text-ink-faint">
                                 {{ __('Esta transacción no tiene conceptos.') }}
                             </td>
                         </tr>
@@ -352,6 +513,57 @@
                 </tbody>
             </table>
         </div>
+    </section>
+
+    {{-- Solicitudes de pago que cobran o pagan este documento. La etiqueta de
+         estado del listado apunta aquí (#solicitudes). --}}
+    <section id="solicitudes" class="card overflow-hidden">
+        <header class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
+            <h3 class="text-sm font-semibold text-ink">{{ __('Solicitudes de pago') }}</h3>
+            <span class="text-xs text-ink-faint">
+                {{ trans_choice(':n solicitud|:n solicitudes', $solicitudes->count(), ['n' => $solicitudes->count()]) }}
+            </span>
+        </header>
+
+        @if ($solicitudes->isEmpty())
+            <p class="px-5 py-6 text-center text-sm text-ink-faint">{{ __('Ninguna solicitud de pago incluye esta transacción.') }}</p>
+        @else
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="border-b border-line text-xs uppercase tracking-wide text-ink-muted">
+                        <tr>
+                            <th class="px-4 py-2.5 text-left font-semibold">{{ __('Número') }}</th>
+                            <th class="px-4 py-2.5 text-left font-semibold">{{ __('Fecha') }}</th>
+                            <th class="px-4 py-2.5 text-left font-semibold">{{ __('Banco') }}</th>
+                            <th class="px-4 py-2.5 text-right font-semibold">{{ __('Aplicado') }}</th>
+                            <th class="px-4 py-2.5 text-left font-semibold">{{ __('Estado') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-line">
+                        @foreach ($solicitudes as $solicitud)
+                            <tr class="transition hover:bg-raised">
+                                <td class="whitespace-nowrap px-4 py-2">
+                                    <a href="{{ route('payments.requests.show', $solicitud->request_id) }}" wire:navigate
+                                       class="font-medium text-brand hover:underline">{{ $solicitud->number ?: $solicitud->request_id }}</a>
+                                </td>
+                                <td class="whitespace-nowrap px-4 py-2 text-ink-muted">
+                                    {{ $solicitud->date ? \Illuminate\Support\Carbon::parse($solicitud->date)->format('d/m/Y') : '—' }}
+                                </td>
+                                <td class="whitespace-nowrap px-4 py-2 text-ink-muted">{{ $solicitud->bank_name ?: '—' }}</td>
+                                <td class="whitespace-nowrap px-4 py-2 text-right tabular-nums text-ink">
+                                    {{ $money($solicitud->amount_original_paid) }} <span class="text-xs text-ink-faint">{{ $solicitud->prefix }}</span>
+                                </td>
+                                <td class="whitespace-nowrap px-4 py-2">
+                                    <span class="{{ $solicitud->paid ? 'badge badge-ok' : 'badge badge-warn' }}">
+                                        {{ $solicitud->paid ? __('Pagada') : __('Pendiente') }}
+                                    </span>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
     </section>
 
     {{-- Totales --}}

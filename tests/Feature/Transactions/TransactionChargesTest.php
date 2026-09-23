@@ -103,6 +103,39 @@ class TransactionChargesTest extends TestCase
         $this->assertEqualsWithDelta(1972.0, (float) $detalle->viewData('fila')->total_amount, 0.01);
     }
 
+    /** `charge.description` es varchar(100); la del servicio puede llegar a 255. */
+    public function test_una_descripcion_de_servicio_de_mas_de_100_caracteres_no_se_guarda(): void
+    {
+        DB::table('service')->where('service_id', 10)->update(['description' => str_repeat('x', 101)]);
+
+        $this->detalle()
+            ->call('addCharge')
+            ->set('chargeType', '1')
+            ->set('serviceId', '10')
+            ->call('saveCharge')
+            ->assertHasErrors('serviceId');
+
+        $this->assertSame(0, Charge::count());
+    }
+
+    /** Las columnas del detalle de Yii2: Pre-Paid, unidad y las dos tasas. */
+    public function test_los_conceptos_enseñan_prepagado_unidad_y_tasas(): void
+    {
+        DB::table('charge_type')->where('charge_type_id', 1)->update(['tax_retention' => 0.04]);
+        DB::table('charge')->insert([[
+            'charge_id' => 1, 'transaction' => 1, 'type' => 1, 'service_id' => 10, 'quantity' => 1,
+            'unit' => 3, 'price' => 850, 'prepaid' => 1, 'description' => 'Flete Monterrey',
+        ]]);
+
+        $this->detalle()
+            ->assertSee(__('Prepagado'))
+            ->assertSee(__('Tasa de retención'))
+            ->assertSeeHtml('>'.__('Sí').'</td>')
+            ->assertSeeHtml('>3.00</td>')
+            ->assertSeeHtml('>16 %</td>')
+            ->assertSeeHtml('>4 %</td>');
+    }
+
     public function test_elegir_el_servicio_trae_su_precio(): void
     {
         $this->detalle()
@@ -124,6 +157,19 @@ class TransactionChargesTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertSame(333.50, Charge::first()->price);
+    }
+
+    public function test_el_importe_acepta_separador_de_miles(): void
+    {
+        $this->detalle()
+            ->call('addCharge')
+            ->set('chargeType', '2')
+            ->set('serviceId', '11')
+            ->set('price', '2,929.91')
+            ->set('quantity', '1')
+            ->call('saveCharge');
+
+        $this->assertSame(2929.91, Charge::first()->price);
     }
 
     public function test_cambiar_el_tipo_de_cargo_limpia_el_servicio(): void

@@ -159,10 +159,13 @@ class TransactionLockTest extends TestCase
 
     // ------------------------------------------------------- Cambio de fecha
 
-    public function test_la_fecha_solo_la_corrige_el_super_administrador_con_booking_abierto(): void
+    public function test_la_fecha_la_corrige_cualquier_administrador_con_booking_abierto(): void
     {
+        // Cualquier administrador (super o normal) puede corregir la fecha…
         $this->assertTrue(TransactionLock::canChangeDate(false, $this->usuario(User::ROLE_SUPER_ADMIN)));
+        $this->assertTrue(TransactionLock::canChangeDate(false, $this->usuario(User::ROLE_ADMIN)));
+        // …pero no con el booking cerrado, ni un usuario sin permisos.
         $this->assertFalse(TransactionLock::canChangeDate(true, $this->usuario(User::ROLE_SUPER_ADMIN)));
-        $this->assertFalse(TransactionLock::canChangeDate(false, $this->usuario(User::ROLE_ADMIN)));
+        $this->assertFalse(TransactionLock::canChangeDate(false, $this->usuario(User::ROLE_USER)));
     }
 }

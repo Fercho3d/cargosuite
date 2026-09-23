@@ -5,12 +5,14 @@ use App\Http\Controllers\BookingFileController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\PaymentRequestDocumentController;
 use App\Http\Controllers\PortalFileController;
+use App\Http\Controllers\ServiceContractController;
 use App\Http\Controllers\ThemeController;
 use App\Http\Controllers\TransactionExportController;
 use App\Http\Controllers\TransactionFileController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureUserIsInternal;
 use App\Http\Middleware\EnsureUserIsPortal;
+use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Livewire\Catalogs\CatalogManager;
 use App\Livewire\Dashboard;
 use App\Livewire\DemoRequests;
@@ -23,13 +25,17 @@ use App\Livewire\Operations\BookingForm;
 use App\Livewire\Operations\BookingHistory;
 use App\Livewire\Operations\BookingList;
 use App\Livewire\Operations\ContinuityReport;
+use App\Livewire\Parties\PartyForm;
 use App\Livewire\Parties\PartyManager;
+use App\Livewire\Payments\PaymentRequestDetail;
 use App\Livewire\Payments\PaymentRequestForm;
 use App\Livewire\Payments\PaymentRequestList;
 use App\Livewire\Payments\PaymentsReport;
+use App\Livewire\Payments\PayrollManager;
 use App\Livewire\Payments\SettlementManager;
 use App\Livewire\Portal\PortalDocument;
 use App\Livewire\Portal\PortalHome;
+use App\Livewire\Services\ServiceForm;
 use App\Livewire\Services\ServiceManager;
 use App\Livewire\Settings;
 use App\Livewire\Transactions\BookingReport;
@@ -37,6 +43,8 @@ use App\Livewire\Transactions\TransactionDetail;
 use App\Livewire\Transactions\TransactionForm;
 use App\Livewire\Transactions\TransactionTable;
 use App\Livewire\Users\UserManager;
+use App\Livewire\Workshop\InventoryManager;
+use App\Livewire\Workshop\MaintenanceManager;
 use Illuminate\Support\Facades\Route;
 
 // La raíz es la página pública. Quien ya tiene sesión no la ve: `Home::mount()`
@@ -55,6 +63,12 @@ Route::put('/preferencias/idioma', LocaleController::class)->name('preferences.l
 // es de cualquiera con sesión, incluidas las cuentas de portal. Las acciones las
 // expone Laravel Fortify.
 Route::view('/seguridad', 'security.show')->middleware('auth')->name('security.show');
+
+// Los códigos de recuperación del 2FA solo se enseñan tras volver a confirmar
+// la contraseña, como hace Jetstream: una sesión abierta en una computadora
+// ajena no debe bastar para copiarlos.
+Route::view('/seguridad/codigos-de-recuperacion', 'security.recovery-codes')
+    ->middleware(['auth', 'password.confirm'])->name('security.recovery-codes');
 
 /*
  * Portal de clientes y proveedores. Cada cuenta ve únicamente sus documentos y,
@@ -95,13 +109,16 @@ Route::middleware(['auth', EnsureUserIsInternal::class])->group(function () {
     });
 
     /*
-     * Usuarios y accesos. Solo el super administrador entra aquí, igual que el
-     * `UserController` de Yii2.
+     * Lo que es solo del dueño del software: los usuarios (igual que el
+     * `UserController` de Yii2), las solicitudes de demostración y los ajustes
+     * de la instalación (qué mueve la empresa, si factura con CFDI…). Un
+     * administrador normal recibe 403.
      */
-    Route::get('/usuarios', UserManager::class)->name('users');
-    Route::get('/solicitudes-demo', DemoRequests::class)->name('demo-requests');
-    // Ajustes de la instalación: qué mueve la empresa, si factura con CFDI…
-    Route::get('/ajustes', Settings::class)->name('settings');
+    Route::middleware(EnsureUserIsSuperAdmin::class)->group(function () {
+        Route::get('/usuarios', UserManager::class)->name('users');
+        Route::get('/solicitudes-demo', DemoRequests::class)->name('demo-requests');
+        Route::get('/ajustes', Settings::class)->name('settings');
+    });
 
     /*
      * Clientes y proveedores. No son catálogos planos: llevan datos fiscales y de
@@ -110,7 +127,14 @@ Route::middleware(['auth', EnsureUserIsInternal::class])->group(function () {
     Route::middleware(EnsureUserIsAdmin::class)->prefix('terceros')->name('parties.')->group(function () {
         Route::get('/clientes', PartyManager::class)->defaults('mode', 'client')->name('clients');
         Route::get('/proveedores', PartyManager::class)->defaults('mode', 'provider')->name('providers');
+        Route::get('/clientes/nuevo', PartyForm::class)->defaults('mode', 'client')->name('clients.create');
+        Route::get('/clientes/{party}/editar', PartyForm::class)->defaults('mode', 'client')->whereNumber('party')->name('clients.edit');
+        Route::get('/proveedores/nuevo', PartyForm::class)->defaults('mode', 'provider')->name('providers.create');
+        Route::get('/proveedores/{party}/editar', PartyForm::class)->defaults('mode', 'provider')->whereNumber('party')->name('providers.edit');
         Route::get('/servicios', ServiceManager::class)->name('services');
+        Route::get('/servicios/nuevo', ServiceForm::class)->name('services.create');
+        Route::get('/servicios/{service}/editar', ServiceForm::class)->whereNumber('service')->name('services.edit');
+        Route::get('/servicios/{service}/contrato', ServiceContractController::class)->whereNumber('service')->name('services.contract');
     });
 
     /*
@@ -137,12 +161,24 @@ Route::middleware(['auth', EnsureUserIsInternal::class])->group(function () {
         Route::get('/solicitudes', PaymentRequestList::class)->name('requests');
         // Liquidaciones de operadores: solo tienen sentido con flota propia.
         Route::get('/liquidaciones', SettlementManager::class)->name('settlements');
+        Route::get('/nomina', PayrollManager::class)->name('payroll');
         Route::get('/solicitudes/nueva', PaymentRequestForm::class)->name('requests.create');
         Route::get('/solicitudes/{request}/documento.pdf', PaymentRequestDocumentController::class)
             ->whereNumber('request')->name('requests.document');
+        Route::get('/solicitudes/{request}', PaymentRequestDetail::class)
+            ->whereNumber('request')->name('requests.show');
         Route::get('/reporte/clientes', PaymentsReport::class)->defaults('mode', 'customer')->name('report.customer');
         Route::get('/reporte/proveedores', PaymentsReport::class)->defaults('mode', 'vendor')->name('report.vendor');
         Route::get('/reporte/general', PaymentsReport::class)->defaults('mode', 'general')->name('report.general');
+    });
+
+    /*
+     * El taller: mantenimiento de la flota y su almacén de refacciones. Solo con
+     * flota propia; el menú no los enseña sin ella (`MARCA_TALLER`).
+     */
+    Route::middleware(EnsureUserIsAdmin::class)->prefix('taller')->name('workshop.')->group(function () {
+        Route::get('/mantenimiento', MaintenanceManager::class)->name('maintenance');
+        Route::get('/almacen', InventoryManager::class)->name('inventory');
     });
 
     /*

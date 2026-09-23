@@ -2,7 +2,9 @@
 
 namespace App\Queries;
 
+use App\Support\Milestones\MilestoneCatalog;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -50,7 +52,7 @@ class BookingQuery
     public function query(): Builder
     {
         $query = DB::table('booking as b')
-            ->leftJoin('booking_continuity as bc', 'bc.booking', '=', 'b.booking_id')
+            ->leftJoin('booking_continuity as bc', self::ultimaContinuidad(...))
             ->leftJoin('vessel as v', 'v.vessel_id', '=', 'b.vessel')
             ->leftJoin('client as c', 'c.client_id', '=', 'b.client')
             ->leftJoin('loading_ports as lp', 'lp.port_id', '=', 'b.loading_port')
@@ -68,6 +70,8 @@ class BookingQuery
                 b.dicharge_ETA,
                 b.booking_type,
                 b.locked,
+                b.is_draft,
+                b.mode,
                 b.arrival,
                 b.created_at,
                 v.vessel_name,
@@ -81,12 +85,30 @@ class BookingQuery
                 bc.cont_id,
                 IFNULL(progreso.total_completed, 0) AS total_completed
             SQL)
-            ->where('b.is_draft', 0)
+            ->when($this->filters->is_draft !== null, fn ($q) => $q->where('b.is_draft', $this->filters->is_draft))
             ->where('b.mode', $this->filters->mode);
 
         $this->applyFilters($query);
 
-        return $query->groupBy('b.booking_id')->orderByDesc('b.booking_id');
+        // Sin GROUP BY: cada JOIN trae a lo más una fila por booking (catálogos
+        // por llave primaria, avance ya agrupado y una sola fila de
+        // continuidad), así que el resultado es determinista sin depender de
+        // `strict => false`.
+        return $query->orderByDesc('b.booking_id');
+    }
+
+    /**
+     * Condición del JOIN a `booking_continuity`: solo la fila más reciente
+     * (mayor `cont_id`) de cada booking.
+     *
+     * En `frego` la columna `booking` es única, pero el esquema no lo exige en
+     * todas partes; si un booking llegara a tener dos filas, el listado y el
+     * reporte de continuidad lo enseñarían repetido o con fechas mezcladas.
+     */
+    public static function ultimaContinuidad(JoinClause $join): void
+    {
+        $join->on('bc.booking', '=', 'b.booking_id')
+            ->whereRaw('bc.cont_id = (SELECT MAX(ult.cont_id) FROM booking_continuity ult WHERE ult.booking = b.booking_id)');
     }
 
     /**
@@ -114,6 +136,10 @@ class BookingQuery
      */
     private function progress(): Builder
     {
+        if (config('marca.avance') !== 'verificacion') {
+            return $this->progresoPorHitos();
+        }
+
         $contadas = implode(' + ', array_map(
             fn (string $check) => "CASE WHEN `{$check}_chk_date` IS NOT NULL THEN 1 ELSE 0 END",
             self::CHECKS,
@@ -124,6 +150,27 @@ class BookingQuery
                 'booking AS booking_id, ROUND((100 / '.self::DIVISOR_HISTORICO.") * ({$contadas}), 2) AS total_completed"
             )
             ->groupBy('booking');
+    }
+
+    /**
+     * Avance por hitos: cuántos pasos del catálogo tienen fecha.
+     *
+     * Es el que ve cualquier instalación que no sea la original. El de las
+     * casillas heredadas cuenta 27 verificaciones de CAMPO —que el buque esté
+     * bien escrito, que el cliente sea el que es— y no pasos de la operación:
+     * en una empresa de camiones ese porcentaje no significa nada, y encima no
+     * cuadraba con la lista que se enseña en el detalle.
+     */
+    private function progresoPorHitos(): Builder
+    {
+        $total = max(1, MilestoneCatalog::activos()->count());
+
+        return DB::table('hito_por_expediente as hpe')
+            ->join('hito as h', 'h.hito_id', '=', 'hpe.hito_id')
+            ->where('h.activo', 1)
+            ->whereNotNull('hpe.fecha')
+            ->selectRaw("hpe.booking AS booking_id, ROUND(100 * COUNT(*) / {$total}, 2) AS total_completed")
+            ->groupBy('hpe.booking');
     }
 
     private function applyFilters(Builder $query): void
@@ -148,6 +195,7 @@ class BookingQuery
             'si_filter' => 'bc.SI_date',
             'loading_EDT' => 'b.loading_EDT',
             'dicharge_ETA' => 'b.dicharge_ETA',
+            'created' => 'b.created_at',
         ] as $propiedad => $columna) {
             if (($rango = $f->range($propiedad)) !== null) {
                 $query->whereBetween(DB::raw("DATE({$columna})"), $rango);

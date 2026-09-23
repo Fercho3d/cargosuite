@@ -20,6 +20,9 @@ class DemoRequests extends Component
 
     public function mount(): void
     {
+        // Sin portada pública no hay de dónde lleguen solicitudes: la pantalla
+        // no existe en la instalación de un cliente.
+        abort_unless(config('marca.landing'), 404);
         abort_unless(auth()->user()?->isSuperAdmin() ?? false, 403);
     }
 
