@@ -7,8 +7,11 @@ use App\Models\User;
 use App\Support\Ajustes;
 use App\Support\Catalogs\CatalogRegistry;
 use App\Support\Expediente;
+use App\Support\Marca;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\Support\CoreSchema;
@@ -136,5 +139,71 @@ class AjustesTest extends TestCase
         Ajustes::aplicar();
 
         $this->assertNotEmpty(Expediente::modalidades());
+    }
+
+    public function test_un_color_saca_los_seis_tonos_de_la_paleta(): void
+    {
+        $this->assertSame(
+            ['acento_400', 'acento_500', 'acento_600', 'acento_700', 'marca_claro', 'marca_oscuro'],
+            array_keys(Marca::paleta('#10b981')),
+        );
+    }
+
+    public function test_el_tono_700_es_mas_oscuro_que_el_elegido(): void
+    {
+        $paleta = Marca::paleta('#10b981');
+
+        $this->assertLessThan(hexdec(substr('#10b981', 3, 2)), hexdec(substr($paleta['acento_700'], 3, 2)));
+    }
+
+    public function test_el_color_se_cambia_desde_la_pantalla(): void
+    {
+        $this->pantalla()->set('color', '#7c3aed')->set('modalidades', ['maritimo'])->call('guardar');
+
+        config(['marca.colores.acento_500' => '#000000']);
+        Ajustes::aplicar();
+
+        $this->assertStringContainsString('--color-accent-500:#7c3aed;', Marca::estilos());
+    }
+
+    public function test_un_color_que_no_es_color_no_se_guarda(): void
+    {
+        $this->pantalla()->set('color', 'red;}body{display:none')->set('modalidades', ['maritimo'])
+            ->call('guardar')->assertHasErrors('color');
+    }
+
+    public function test_el_texto_del_logotipo_se_cambia_desde_la_pantalla(): void
+    {
+        $this->pantalla()->set('logoPrincipal', 'Trans')->set('logoAcento', 'Norte')
+            ->set('modalidades', ['maritimo'])->call('guardar');
+
+        $this->assertSame('Norte', config('marca.logo.texto.acento'));
+    }
+
+    public function test_el_logotipo_de_imagen_se_sube_desde_la_pantalla(): void
+    {
+        Storage::fake('public');
+
+        $this->pantalla()->set('logoClaro', UploadedFile::fake()->image('logo.png', 400, 100))
+            ->set('modalidades', ['maritimo'])->call('guardar');
+
+        $this->assertTrue(Marca::usaImagen());
+    }
+
+    public function test_quitar_la_imagen_vuelve_al_logotipo_de_letra(): void
+    {
+        config(['marca.logo.imagen.claro' => 'storage/marca/viejo.png']);
+
+        $this->pantalla()->set('quitarLogo', true)->set('modalidades', ['maritimo'])->call('guardar');
+
+        $this->assertFalse(Marca::usaImagen());
+    }
+
+    public function test_el_logotipo_no_acepta_svg(): void
+    {
+        Storage::fake('public');
+
+        $this->pantalla()->set('logoClaro', UploadedFile::fake()->create('logo.svg', 5, 'image/svg+xml'))
+            ->set('modalidades', ['maritimo'])->call('guardar')->assertHasErrors('logoClaro');
     }
 }

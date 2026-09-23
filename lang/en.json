@@ -1285,5 +1285,14 @@
     "Copiar instrucciones para el cliente": "Copy instructions for the customer",
     "Copiado": "Copied",
     "Espere 72 horas: si el receptor no contesta, el SAT la cancela solo alrededor del :fecha (faltan :horas horas).": "Wait 72 hours: if the recipient does not answer, the SAT cancels it automatically around :fecha (:horas hours left).",
-    "El SAT todavía no tiene registrada esta solicitud: sigue en el PAC. Normalmente llega en minutos; mientras no llegue, el receptor no puede aceptarla ni corre el plazo de 72 horas. Vuelva a consultar más tarde y, si sigue sin aparecer, cancélela desde el portal del SAT con la e.firma del emisor o reporte el folio al PAC.": "The SAT has not registered this request yet: it is still with the PAC. It usually arrives within minutes; until it does, the recipient cannot accept it and the 72-hour period does not start. Check again later and, if it still does not appear, cancel it from the SAT portal with the issuer's e.firma or report the folio to the PAC."
+    "El SAT todavía no tiene registrada esta solicitud: sigue en el PAC. Normalmente llega en minutos; mientras no llegue, el receptor no puede aceptarla ni corre el plazo de 72 horas. Vuelva a consultar más tarde y, si sigue sin aparecer, cancélela desde el portal del SAT con la e.firma del emisor o reporte el folio al PAC.": "The SAT has not registered this request yet: it is still with the PAC. It usually arrives within minutes; until it does, the recipient cannot accept it and the 72-hour period does not start. Check again later and, if it still does not appear, cancel it from the SAT portal with the issuer's e.firma or report the folio to the PAC.",
+    "Color de marca": "Brand colour",
+    "Elige un color y el sistema saca los tonos de botones, enlaces y resaltados.": "Pick a colour and the system derives the shades for buttons, links and highlights.",
+    "Logotipo en imagen (fondo claro)": "Logo image (light background)",
+    "Logotipo en imagen (fondo oscuro, opcional)": "Logo image (dark background, optional)",
+    "Logotipo y color": "Logo and colour",
+    "Logotipo: parte en color": "Logo: coloured part",
+    "Logotipo: primera parte": "Logo: first part",
+    "PNG, JPG o WebP de hasta 1 MB, mejor horizontal y con fondo transparente. Con imagen, el logotipo de letra deja de usarse.": "PNG, JPG or WebP up to 1 MB, ideally landscape with a transparent background. With an image, the text logo is no longer used.",
+    "Quitar la imagen y volver al logotipo de letra": "Remove the image and go back to the text logo"
 }

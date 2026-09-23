@@ -14,6 +14,67 @@
 
     <form wire:submit="guardar" class="space-y-5">
         <fieldset class="rounded-2xl border border-line bg-panel p-5">
+            <legend class="px-1 text-sm font-semibold text-ink">{{ __('Logotipo y color') }}</legend>
+            <p class="mt-1 text-sm text-ink-muted">
+                {{ __('Elige un color y el sistema saca los tonos de botones, enlaces y resaltados.') }}
+            </p>
+
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+                <input type="color" wire:model.live="color" aria-label="{{ __('Color de marca') }}"
+                       class="h-9 w-12 cursor-pointer rounded-lg border border-line bg-surface p-0.5">
+                @foreach (['#10b981', '#0ea5e9', '#2563eb', '#7c3aed', '#db2777', '#e11d2a', '#f97316', '#eab308', '#0f766e', '#475569'] as $muestra)
+                    <button type="button" wire:click="$set('color', '{{ $muestra }}')" title="{{ $muestra }}"
+                            class="h-7 w-7 rounded-full border-2 {{ strtolower($color) === $muestra ? 'border-ink' : 'border-transparent' }}"
+                            style="background-color: {{ $muestra }}"></button>
+                @endforeach
+            </div>
+
+            @if (preg_match('/^#[0-9a-fA-F]{6}$/', $color))
+                <div class="mt-3 flex overflow-hidden rounded-lg border border-line">
+                    @foreach (\App\Support\Marca::paleta($color) as $clave => $tono)
+                        @continue(str_starts_with($clave, 'marca_'))
+                        <span class="h-6 flex-1" style="background-color: {{ $tono }}" title="{{ $tono }}"></span>
+                    @endforeach
+                </div>
+            @endif
+
+            <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                <label class="block">
+                    <span class="field-label">{{ __('Logotipo: primera parte') }}</span>
+                    <input type="text" wire:model="logoPrincipal" maxlength="30" class="field-input mt-1.5">
+                </label>
+                <label class="block">
+                    <span class="field-label">{{ __('Logotipo: parte en color') }}</span>
+                    <input type="text" wire:model="logoAcento" maxlength="30" class="field-input mt-1.5">
+                </label>
+            </div>
+
+            <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                <label class="block">
+                    <span class="field-label">{{ __('Logotipo en imagen (fondo claro)') }}</span>
+                    <input type="file" wire:model="logoClaro" accept="image/png,image/jpeg,image/webp" class="field-input mt-1.5 text-xs">
+                </label>
+                <label class="block">
+                    <span class="field-label">{{ __('Logotipo en imagen (fondo oscuro, opcional)') }}</span>
+                    <input type="file" wire:model="logoOscuro" accept="image/png,image/jpeg,image/webp" class="field-input mt-1.5 text-xs">
+                </label>
+            </div>
+            <p class="mt-1 text-xs text-ink-faint">
+                {{ __('PNG, JPG o WebP de hasta 1 MB, mejor horizontal y con fondo transparente. Con imagen, el logotipo de letra deja de usarse.') }}
+            </p>
+
+            @if (\App\Support\Marca::usaImagen())
+                <div class="mt-4 flex flex-wrap items-center gap-4 rounded-xl border border-line bg-surface p-3">
+                    <img src="{{ \App\Support\Marca::logo('claro') }}" alt="" class="h-8 w-auto">
+                    <label class="flex cursor-pointer items-center gap-2 text-sm text-ink">
+                        <input type="checkbox" wire:model="quitarLogo" class="h-4 w-4 rounded border-line">
+                        {{ __('Quitar la imagen y volver al logotipo de letra') }}
+                    </label>
+                </div>
+            @endif
+        </fieldset>
+
+        <fieldset class="rounded-2xl border border-line bg-panel p-5">
             <legend class="px-1 text-sm font-semibold text-ink">{{ __('Forma de transporte') }}</legend>
             <p class="mt-1 text-sm text-ink-muted">
                 {{ __('Decide qué campos y qué catálogos se enseñan. Si la empresa hace las dos cosas, marca las dos.') }}

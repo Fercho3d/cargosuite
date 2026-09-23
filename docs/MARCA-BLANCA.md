@@ -22,6 +22,16 @@ MARCA_LEMA="Su lema aquí"             # bajo el logotipo en la pantalla de acce
 MARCA_PIE="Sistema interno confidencial"
 ```
 
+### Logotipo y color desde Ajustes
+
+El super administrador los cambia en **Ajustes → Logotipo y color**, sin tocar
+el `.env`: elige **un** color (el sistema saca los otros tonos con
+`Marca::paleta()`), escribe las dos mitades del logotipo de letra o sube la
+imagen (PNG, JPG o WebP de hasta 1 MB; **SVG no**, porque puede llevar código).
+Lo guardado en Ajustes **manda sobre el `.env`**, que queda como valor de
+arranque. Las imágenes van al disco `public` (`storage/app/public/marca/`), así
+que la instalación necesita `php artisan storage:link`.
+
 ### Logotipo
 
 Hay dos modos y **los elige la configuración, no el código**:

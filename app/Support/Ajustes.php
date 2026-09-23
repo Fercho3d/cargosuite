@@ -14,8 +14,8 @@ use Throwable;
  * arranque, que es lo que espera cualquiera que abra una pantalla de ajustes.
  *
  * La lista es corta y cerrada a propósito: son los interruptores que cambian
- * **cómo se comporta** la instalación, no un editor de `config/` por la puerta
- * de atrás.
+ * **cómo se comporta y cómo se ve** la instalación, no un editor de `config/`
+ * por la puerta de atrás.
  */
 class Ajustes
 {
@@ -31,6 +31,16 @@ class Ajustes
         'timbrado.habilitado' => ['tipo' => 'booleano'],
         'marca.vocabulario' => ['tipo' => 'texto'],
         'marca.idioma_documentos' => ['tipo' => 'opcion', 'opciones' => ['es', 'en']],
+        'marca.colores.acento_400' => ['tipo' => 'texto'],
+        'marca.colores.acento_500' => ['tipo' => 'texto'],
+        'marca.colores.acento_600' => ['tipo' => 'texto'],
+        'marca.colores.acento_700' => ['tipo' => 'texto'],
+        'marca.colores.marca_claro' => ['tipo' => 'texto'],
+        'marca.colores.marca_oscuro' => ['tipo' => 'texto'],
+        'marca.logo.texto.principal' => ['tipo' => 'texto'],
+        'marca.logo.texto.acento' => ['tipo' => 'texto'],
+        'marca.logo.imagen.claro' => ['tipo' => 'texto'],
+        'marca.logo.imagen.oscuro' => ['tipo' => 'texto'],
     ];
 
     /**
