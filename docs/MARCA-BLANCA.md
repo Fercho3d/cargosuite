@@ -411,6 +411,12 @@ MARCA_AVISOS_CORREO=false
 ⚠️ `MARCA_AVISOS_CORREO=true` en una instalación con historial manda **todo lo
 vencido acumulado** en la primera corrida. Encenderlo después de limpiar.
 
+En una **instalación de demostración**, `MAIL_SIEMPRE_A=buzon@propio.com` manda
+**todo** correo del sistema a ese solo buzón, se haya dirigido a quien se haya
+dirigido (facturas timbradas, confirmaciones, avisos). Así los clientes inventados
+de la demo —ni nadie de fuera— reciben nada por accidente. Nunca ponerlo en la
+instalación de un cliente real: sus clientes dejarían de recibir sus facturas.
+
 Al terminar:
 
 ```bash

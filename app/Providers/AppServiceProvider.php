@@ -8,6 +8,7 @@ use App\Support\Cfdi\PacClient;
 use App\Support\Expediente;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Translation\FileLoader;
 use Illuminate\Translation\Translator;
@@ -111,5 +112,10 @@ class AppServiceProvider extends ServiceProvider
         Ajustes::aplicar();
 
         $this->registraVocabulario();
+
+        // Demostración: todo correo a un solo buzón (MAIL_SIEMPRE_A).
+        if ($destino = trim((string) config('marca.correo.siempre_a'))) {
+            Mail::alwaysTo($destino);
+        }
     }
 }

@@ -352,6 +352,14 @@ return [
             explode(',', (string) env('MARCA_MAIL_FACTURAS_BCC', env('FREGO_MAIL_FACTURAS_BCC', ''))),
         ))),
 
+        /**
+         * Destino único: con esto puesto, TODO correo del sistema llega solo a
+         * esta dirección, se haya dirigido a quien se haya dirigido. Es para
+         * las instalaciones de demostración, donde los clientes son inventados
+         * y nada debe salir a nadie de fuera.
+         */
+        'siempre_a' => env('MAIL_SIEMPRE_A', ''),
+
         /** A dónde llegan los avisos de tareas atrasadas de operación. */
         'avisos_operacion' => array_values(array_filter(array_map(
             'trim',
