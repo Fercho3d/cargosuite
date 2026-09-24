@@ -101,7 +101,7 @@
                     {{ __('Enviarme una copia') }}
                 </button>
                 <a href="{{ route('transactions.booking', $booking->booking_id) }}" wire:navigate class="btn-ghost px-3 py-1.5 text-xs">
-                    {{ __('Movimientos contables') }}
+                    {{ __('Ingresos y egresos') }}
                 </a>
             </div>
         </div>

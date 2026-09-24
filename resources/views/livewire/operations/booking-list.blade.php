@@ -300,7 +300,7 @@
                             </svg>
                         </a>
                         <a href="{{ route('transactions.booking', $fila->booking_id) }}" wire:navigate
-                           title="{{ __('Movimientos contables') }}" class="booking-accion">
+                           title="{{ __('Ingresos y egresos') }}" class="booking-accion">
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16v12H4z"/>
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
@@ -417,7 +417,7 @@
                                         </svg>
                                     </a>
                                     <a href="{{ route('transactions.booking', $fila->booking_id) }}" wire:navigate
-                                       title="{{ __('Movimientos contables') }}" class="booking-accion">
+                                       title="{{ __('Ingresos y egresos') }}" class="booking-accion">
                                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16v12H4z"/>
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>

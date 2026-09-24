@@ -63,7 +63,7 @@
     "Sin tipo no aparece en el booking": "Sin tipo no aparece en el embarque",
     "Son los campos donde operación sube papeles en cada booking de este cliente. Si no marcas ninguno, su booking no ofrecerá dónde subirlos.": "Son los campos donde operación sube papeles en cada embarque de este cliente. Si no marcas ninguno, su embarque no ofrecerá dónde subirlos.",
     "Tipo de booking": "Tipo de embarque",
-    "Movimientos del booking": "Movimientos del embarque",
+    "Ingresos y egresos del booking": "Ingresos y egresos del embarque",
     "Utilidad del booking": "Utilidad del embarque",
     "Utilidad por booking": "Utilidad por embarque",
     "Volver a bookings": "Volver a embarques",

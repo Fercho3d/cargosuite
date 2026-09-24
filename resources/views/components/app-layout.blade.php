@@ -41,7 +41,7 @@
         $esAdmin ? [
             [__('Ingresos'), route('transactions.invoice'), request()->routeIs('transactions.invoice'), 'factura'],
             [__('Gastos'), route('transactions.bill'), request()->routeIs('transactions.bill'), 'costo'],
-            [__('Movimientos contables'), route('transactions.all'), request()->routeIs('transactions.all', 'transactions.booking'), 'transaccion'],
+            [__('Ingresos y egresos'), route('transactions.all'), request()->routeIs('transactions.all', 'transactions.booking'), 'transaccion'],
             [__('Solicitudes de pago'), route('payments.requests'), request()->routeIs('payments.requests'), 'dolar'],
             // Solo con flota propia: quien subcontrata no liquida operadores.
             ...(\App\Support\Expediente::visible('operadorId')

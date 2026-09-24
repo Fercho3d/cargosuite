@@ -63,7 +63,7 @@
     "Sin tipo no aparece en el booking": "Without a type it does not show in the booking",
     "Son los campos donde operación sube papeles en cada booking de este cliente. Si no marcas ninguno, su booking no ofrecerá dónde subirlos.": "These are the fields where operations uploads paperwork on every booking for this customer. If you tick none, their booking will offer nowhere to upload.",
     "Tipo de booking": "Booking type",
-    "Movimientos del booking": "Booking transactions",
+    "Ingresos y egresos del booking": "Booking income and expenses",
     "Utilidad del booking": "Booking profit",
     "Utilidad por booking": "Profit by booking",
     "Volver a bookings": "Back to bookings",

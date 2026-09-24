@@ -832,8 +832,8 @@ class TransactionTable extends Component
         return match ($this->screen) {
             'invoice' => __('Ingresos'),
             'bill' => __('Gastos'),
-            'booking' => __('Movimientos del booking'),
-            default => __('Movimientos contables'),
+            'booking' => __('Ingresos y egresos del booking'),
+            default => __('Ingresos y egresos'),
         };
     }
 }
