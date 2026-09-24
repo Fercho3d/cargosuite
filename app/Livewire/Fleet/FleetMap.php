@@ -19,7 +19,7 @@ class FleetMap extends Component
 {
     public string $buscar = '';
 
-    /** '' | movimiento | detenida | sin_senal */
+    /** '' | movimiento | detenida | sin_senal | fuera_de_ruta */
     public string $estado = '';
 
     public bool $soloEnViaje = false;
@@ -83,6 +83,7 @@ class FleetMap extends Component
     private function unidades(): array
     {
         $viajes = $this->viajesEnCurso();
+        $alertas = DB::table('gps_alerta')->whereNull('fin')->pluck('distancia_km', 'unidad_id');
 
         $limite = now()->subMinutes((int) config('gps.sin_senal_minutos'));
 
@@ -91,7 +92,7 @@ class FleetMap extends Component
             ->where('d.activo', 1)->whereNotNull('d.ultima_lat')->whereNotNull('d.ultima_senal')
             ->orderBy('u.numero')
             ->get(['u.unidad_id', 'u.numero', 'u.placas', 'd.ultima_lat', 'd.ultima_lng', 'd.ultima_velocidad', 'd.ultimo_rumbo', 'd.ultima_senal'])
-            ->map(function (object $f) use ($viajes, $limite) {
+            ->map(function (object $f) use ($viajes, $limite, $alertas) {
                 $senal = Carbon::parse($f->ultima_senal);
                 $velocidad = (float) $f->ultima_velocidad;
                 $viaje = $viajes->get($f->unidad_id);
@@ -114,6 +115,8 @@ class FleetMap extends Component
                     'viajeUrl' => $viaje ? route('operations.bookings.show', $viaje->booking_id) : null,
                     'operador' => $viaje?->operador,
                     'cliente' => $viaje?->cliente,
+                    'fueraDeRuta' => $alertas->has($f->unidad_id),
+                    'desvioKm' => $alertas->has($f->unidad_id) ? (float) $alertas->get($f->unidad_id) : null,
                 ];
             })
             ->all();
@@ -130,13 +133,15 @@ class FleetMap extends Component
         $buscar = mb_strtolower(trim($this->buscar));
 
         $this->puntos = $todas
-            ->when($this->estado !== '', fn ($c) => $c->where('estado', $this->estado))
+            ->when($this->estado === 'fuera_de_ruta', fn ($c) => $c->where('fueraDeRuta', true))
+            ->when(! in_array($this->estado, ['', 'fuera_de_ruta'], true), fn ($c) => $c->where('estado', $this->estado))
             ->when($this->soloEnViaje, fn ($c) => $c->whereNotNull('viaje'))
             ->when($buscar !== '', fn ($c) => $c->filter(fn ($u) => str_contains(mb_strtolower($u['numero'].' '.$u['placas'].' '.$u['operador'].' '.$u['viaje']), $buscar)))
             ->values()->all();
 
         return view('livewire.fleet.fleet-map', [
-            'cuenta' => $todas->countBy('estado'),
+            'cuenta' => $todas->countBy('estado')->put('fuera_de_ruta', $todas->where('fueraDeRuta', true)->count()),
+            'desviadas' => $todas->where('fueraDeRuta', true)->values(),
             'total' => $todas->count(),
         ])->layout('components.app-layout', ['title' => __('Mapa de la flota')]);
     }

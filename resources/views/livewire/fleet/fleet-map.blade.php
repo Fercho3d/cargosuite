@@ -8,6 +8,7 @@
             <h1 class="text-lg font-semibold text-ink">{{ __('Mapa de la flota') }}</h1>
             <p class="mt-0.5 text-sm text-ink-muted">
                 {{ __('La última posición que reportó el GPS de cada unidad. Se actualiza sola cada 30 segundos.') }}
+                {{ __('Toque una unidad en viaje para ver su ruta.') }}
             </p>
         </div>
         <a href="{{ route('catalogs.show', 'gps') }}" wire:navigate class="text-xs text-brand hover:underline">{{ __('Dispositivos GPS') }}</a>
@@ -26,6 +27,7 @@
                 <option value="movimiento">{{ __('En movimiento') }} ({{ $cuenta['movimiento'] ?? 0 }})</option>
                 <option value="detenida">{{ __('Detenidas') }} ({{ $cuenta['detenida'] ?? 0 }})</option>
                 <option value="sin_senal">{{ __('Sin señal') }} ({{ $cuenta['sin_senal'] ?? 0 }})</option>
+                <option value="fuera_de_ruta">{{ __('Fuera de ruta') }} ({{ $cuenta['fuera_de_ruta'] ?? 0 }})</option>
             </select>
         </label>
         <label class="flex cursor-pointer items-center gap-2 pb-2 text-sm text-ink">
@@ -33,6 +35,17 @@
             {{ __('Solo en viaje') }}
         </label>
     </div>
+
+    @if ($desviadas->isNotEmpty())
+        <div class="alert-danger flex flex-wrap items-center gap-x-4 gap-y-1">
+            <strong>{{ trans_choice('{1}:n unidad fuera de ruta|[2,*]:n unidades fuera de ruta', $desviadas->count(), ['n' => $desviadas->count()]) }}</strong>
+            @foreach ($desviadas as $d)
+                <button type="button" wire:click="verRuta({{ $d['id'] }})" class="underline">
+                    {{ $d['numero'] }} · {{ $d['viaje'] }} · {{ __('a :km km', ['km' => number_format($d['desvioKm'], 1)]) }}
+                </button>
+            @endforeach
+        </div>
+    @endif
 
     @if ($ruta)
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-panel px-4 py-2.5 text-sm">
@@ -63,7 +76,9 @@
         <ul class="max-h-[32rem] space-y-2 overflow-y-auto">
             @forelse ($puntos as $u)
                 <li wire:key="u{{ $u['id'] }}">
-                    <button type="button" x-on:click="$dispatch('enfocar-unidad', { id: {{ $u['id'] }} })"
+                    {{-- Con viaje, tocar la unidad dibuja su ruta; sin viaje, la centra. --}}
+                    <button type="button"
+                            @if ($u['viaje']) wire:click="verRuta({{ $u['id'] }})" @else x-on:click="$dispatch('enfocar-unidad', { id: {{ $u['id'] }} })" @endif
                             class="w-full rounded-xl border border-line bg-panel px-3 py-2 text-left transition hover:bg-raised">
                         <span class="flex items-center justify-between gap-2">
                             <span class="font-semibold text-ink">{{ $u['numero'] }}</span>
@@ -74,6 +89,11 @@
                                 'badge-danger' => $u['estado'] === 'sin_senal',
                             ])>{{ ['movimiento' => __('En movimiento'), 'detenida' => __('Detenida'), 'sin_senal' => __('Sin señal')][$u['estado']] }}</span>
                         </span>
+                        @if ($u['fueraDeRuta'])
+                            <span class="badge-danger mt-1 inline-block rounded px-1.5 py-0.5 text-[10px]">
+                                {{ __('Fuera de ruta') }} · {{ __('a :km km', ['km' => number_format($u['desvioKm'], 1)]) }}
+                            </span>
+                        @endif
                         <span class="mt-0.5 block text-xs text-ink-muted">
                             {{ $u['velocidad'] }} km/h · {{ $u['senal'] }}
                             @if ($u['viaje'])
@@ -83,7 +103,7 @@
                     </button>
                     @if ($u['viaje'])
                         <button type="button" wire:click="verRuta({{ $u['id'] }})"
-                                class="mt-1 text-xs text-brand hover:underline">{{ __('Ver ruta del viaje') }}</button>
+                                class="mt-1 text-xs text-brand hover:underline {{ ($ruta['unidad'] ?? null) === $u['id'] ? 'font-semibold' : '' }}">{{ __('Ver ruta del viaje') }}</button>
                     @endif
                 </li>
             @empty
@@ -97,12 +117,20 @@
 
 @script
 <script>
-    const colores = { movimiento: '#16a34a', detenida: '#d97706', sin_senal: '#94a3b8' };
+    const colores = { movimiento: '#16a34a', detenida: '#d97706', sin_senal: '#94a3b8', fuera_de_ruta: '#dc2626' };
     const mapa = L.map('mapa-flota', { zoomControl: true }).setView([23.6, -102.5], 5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18,
+        // En pantallas de alta densidad pide el mosaico del siguiente nivel:
+        // si no, el texto del mapa sale borroso y enorme.
+        detectRetina: true,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(mapa);
+
+    // El mapa nace antes de que la página termine de acomodarse: sin esto,
+    // Leaflet se queda con un tamaño viejo y los mosaicos salen estirados.
+    setTimeout(() => mapa.invalidateSize(), 150);
+    window.addEventListener('resize', () => mapa.invalidateSize());
 
     const capa = L.layerGroup().addTo(mapa);
     const marcadores = {};
@@ -114,7 +142,7 @@
         for (const u of puntos) {
             const icono = L.divIcon({
                 className: '',
-                html: `<div style="background:${colores[u.estado]};color:#fff;border:2px solid #fff;border-radius:9999px;padding:2px 7px;font:600 11px system-ui;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.35)">${texto(u.numero)}</div>`,
+                html: `<div style="background:${colores[u.fueraDeRuta ? 'fuera_de_ruta' : u.estado]};color:#fff;border:2px solid #fff;border-radius:9999px;padding:2px 7px;font:600 11px system-ui;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.35)">${u.fueraDeRuta ? '⚠ ' : ''}${texto(u.numero)}</div>`,
                 // Sin tamaño fijo: la etiqueta crece con el número de la unidad.
                 iconSize: null,
                 iconAnchor: [18, 10],
@@ -155,10 +183,16 @@
         });
 
         // Encuadra solo al escoger otra ruta: el refresco no debe mover el mapa.
+        // Se espera al siguiente cuadro: al aparecer la barra de la ruta, la
+        // página se reacomoda y encuadrar antes usaría medidas viejas.
         if (rutaVista !== r.booking && lineas.length) {
-            mapa.fitBounds(L.featureGroup(lineas).getBounds(), { padding: [40, 40] });
+            rutaVista = r.booking;
+            const caja = L.featureGroup(lineas).getBounds();
+            requestAnimationFrame(() => {
+                mapa.invalidateSize();
+                mapa.fitBounds(caja, { padding: [40, 40] });
+            });
         }
-        rutaVista = r.booking;
     };
 
     dibujaRuta($wire.ruta);

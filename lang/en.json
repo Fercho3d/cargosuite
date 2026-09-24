@@ -1365,5 +1365,17 @@
     "Planeada": "Planned",
     "Recorrido": "Travelled",
     "Quitar ruta": "Remove route",
-    "Ver ruta del viaje": "Show trip route"
+    "Ver ruta del viaje": "Show trip route",
+    "Toque una unidad en viaje para ver su ruta.": "Tap a unit on a trip to see its route.",
+    ":unidad fuera de ruta (:viaje)": ":unidad off route (:viaje)",
+    "Unidades fuera de ruta": "Units off route",
+    ":unidad fuera de ruta": ":unidad off route",
+    "a :km km de la ruta": ":km km from the route",
+    "La unidad :unidad del viaje :viaje se salió de su ruta planeada: está a :km km de ella.": "Unit :unidad on trip :viaje left its planned route: it is :km km away from it.",
+    "Ver dónde está": "See where it is",
+    "Abrir el mapa de la flota": "Open the fleet map",
+    "Este aviso se manda una vez por desvío. Cuando la unidad vuelve a la ruta, la alerta se cierra sola.": "This notice is sent once per deviation. When the unit gets back on route, the alert closes by itself.",
+    "Fuera de ruta": "Off route",
+    "a :km km": ":km km away",
+    "{1}:n unidad fuera de ruta|[2,*]:n unidades fuera de ruta": "{1}:n unit off route|[2,*]:n units off route"
 }

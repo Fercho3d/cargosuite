@@ -408,6 +408,7 @@ class CoreSchema
         (require database_path('migrations/2026_09_23_000001_agrega_impuestos_a_la_nomina.php'))->up();
         (require database_path('migrations/2026_09_24_000001_create_gps.php'))->up();
         (require database_path('migrations/2026_09_24_000002_create_ruta_viaje.php'))->up();
+        (require database_path('migrations/2026_09_24_000003_create_gps_alerta.php'))->up();
 
         // Bitácora de cancelaciones de CFDI (migración `create_cfdi_cancelacion`).
         Schema::create('cfdi_cancelacion', function ($table) {

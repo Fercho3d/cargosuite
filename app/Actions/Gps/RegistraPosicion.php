@@ -2,6 +2,7 @@
 
 namespace App\Actions\Gps;
 
+use App\Support\Gps\VigilaRuta;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\DB;
  */
 class RegistraPosicion
 {
+    public function __construct(private VigilaRuta $vigila) {}
+
     /** @return bool Si se guardó (false: equipo desconocido o dado de baja). */
     public function __invoke(string $identificador, float $lat, float $lng, ?float $kmh, ?int $rumbo, Carbon $fecha): bool
     {
@@ -45,6 +48,10 @@ class RegistraPosicion
                 'ultimo_rumbo' => $rumbo,
                 'ultima_senal' => $fecha,
             ]);
+
+        if ($equipo->unidad_id !== null) {
+            $this->vigila->revisa((int) $equipo->unidad_id, $lat, $lng, $fecha);
+        }
 
         return true;
     }

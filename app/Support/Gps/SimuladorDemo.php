@@ -46,6 +46,12 @@ class SimuladorDemo
 
             if ($ruta !== null) {
                 [$lat, $lng, $kmh, $rumbo] = $this->sobreLaRuta($ruta, $lat, $lng, 62.0 + ($n % 4) * 7);
+
+                // La de n % 4 == 0 se sale unos 12 km de su ruta los últimos 20
+                // minutos de cada hora: así se ve la alerta abrirse y cerrarse.
+                if ($n % 4 === 0 && (int) now()->format('i') >= 40) {
+                    $lng += 0.12;
+                }
             } elseif ($n % 5 !== 2) { // las demás avanzan; las de n % 5 == 2 están detenidas
                 [$destLat, $destLng] = self::CIUDADES[($n + intdiv(time(), 10800)) % count(self::CIUDADES)];
                 $kmh = 62.0 + ($n % 4) * 7;

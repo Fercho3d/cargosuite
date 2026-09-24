@@ -7,6 +7,7 @@ use App\Mail\ContinuityAlertMail;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Lo que está esperando a que alguien lo atienda, junto y con un clic para ir.
@@ -66,6 +67,7 @@ class NoticeFeed
             ->merge($this->sinFacturar())
             ->merge($this->sinContenedores())
             ->merge($this->solicitudesAbiertas())
+            ->merge($this->fueraDeRuta())
             ->map(fn (Notice $aviso) => $aviso->toArray())
             ->all();
     }
@@ -202,6 +204,31 @@ class NoticeFeed
             detalle: (string) ($fila->proveedor ?? ''),
             ruta: route('payments.requests'),
             fecha: $fila->date,
+        ));
+    }
+
+    /** Unidades que se salieron de la ruta de su viaje y no han vuelto. */
+    private function fueraDeRuta(): Collection
+    {
+        if (! Schema::hasTable('gps_alerta')) {
+            return collect();
+        }
+
+        return collect(
+            DB::table('gps_alerta as a')
+                ->join('unidad as u', 'u.unidad_id', '=', 'a.unidad_id')
+                ->leftJoin('booking as b', 'b.booking_id', '=', 'a.booking_id')
+                ->whereNull('a.fin')
+                ->orderByDesc('a.inicio')
+                ->limit(self::POR_GRUPO)
+                ->get(['u.numero', 'b.booking_number', 'a.distancia_km', 'a.inicio'])
+        )->map(fn ($fila) => new Notice(
+            grupo: 'fuera_de_ruta',
+            titulo: __(':unidad fuera de ruta', ['unidad' => $fila->numero]),
+            detalle: trim($fila->booking_number.' · '.__('a :km km de la ruta', ['km' => number_format((float) $fila->distancia_km, 1)]), ' ·'),
+            ruta: route('fleet.map'),
+            nivel: Notice::URGENTE,
+            fecha: $fila->inicio,
         ));
     }
 }

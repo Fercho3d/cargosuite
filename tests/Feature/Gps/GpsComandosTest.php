@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Gps;
 
+use App\Support\Gps\VigilaRuta;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\CoreSchema;
 use Tests\TestCase;
@@ -71,5 +72,30 @@ class GpsComandosTest extends TestCase
         $this->assertContains([round((float) $posicion->ultima_lat, 4), round((float) $posicion->ultima_lng, 4)], array_map(
             fn ($p) => [round($p[0], 4), round($p[1], 4)], $ruta,
         ));
+    }
+
+    /**
+     * En la demostración, T-104 se sale de su ruta los últimos 20 minutos de
+     * cada hora: así la alerta de «fuera de ruta» se ve abrirse y cerrarse.
+     */
+    public function test_en_la_demostracion_una_unidad_se_desvia_a_ratos(): void
+    {
+        config(['marca.demo' => true, 'gps.rutas.proveedor' => 'ninguno']);
+        $this->travelTo(now()->setTime(10, 45));
+        $ruta = [[25.6866, -100.3161], [25.60, -100.35], [25.50, -100.40], [25.40, -100.45]];
+        DB::table('unidad')->insert(['unidad_id' => 4, 'numero' => 'T-104', 'tipo' => 'tractor', 'activo' => 1]);
+        DB::table('gps_dispositivo')->insert([
+            'dispositivo_id' => 4, 'identificador' => 'DEMO-4', 'unidad_id' => 4, 'activo' => 1,
+            'ultima_lat' => 25.6866, 'ultima_lng' => -100.3161, 'ultima_senal' => now()->subMinute(),
+        ]);
+        DB::table('booking')->insert(['booking_id' => 43, 'booking_number' => 'VJ-01043', 'unidad_id' => 4, 'is_draft' => 0, 'locked' => 0]);
+        DB::table('ruta_viaje')->insert([
+            'booking_id' => 43, 'firma' => 'x', 'proveedor' => 'osrm', 'geometria' => json_encode($ruta), 'calculada_en' => now(),
+        ]);
+
+        $this->artisan('gps:simula-demo');
+
+        $p = DB::table('gps_dispositivo')->where('dispositivo_id', 4)->first();
+        $this->assertGreaterThan(5, VigilaRuta::distanciaKm($ruta, (float) $p->ultima_lat, (float) $p->ultima_lng));
     }
 }

@@ -125,4 +125,24 @@ class FleetMapTest extends TestCase
     {
         $this->assertNull($this->mapa()->call('verRuta', 1)->call('quitarRuta')->get('ruta'));
     }
+
+    public function test_una_unidad_fuera_de_ruta_se_marca_en_el_mapa(): void
+    {
+        DB::table('gps_alerta')->insert([
+            'unidad_id' => 1, 'booking_id' => 10, 'inicio' => now(), 'lat' => 25.6, 'lng' => -100.2, 'distancia_km' => 12.4,
+        ]);
+
+        $t101 = collect($this->mapa()->get('puntos'))->firstWhere('numero', 'T-101');
+
+        $this->assertSame([true, 12.4], [$t101['fueraDeRuta'], $t101['desvioKm']]);
+    }
+
+    public function test_el_filtro_de_fuera_de_ruta_trae_solo_esas(): void
+    {
+        DB::table('gps_alerta')->insert([
+            'unidad_id' => 2, 'booking_id' => 10, 'inicio' => now(), 'lat' => 25.6, 'lng' => -100.2, 'distancia_km' => 8,
+        ]);
+
+        $this->assertSame(['T-102'], $this->numeros($this->mapa()->set('estado', 'fuera_de_ruta')));
+    }
 }

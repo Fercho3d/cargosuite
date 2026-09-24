@@ -35,6 +35,14 @@ return [
         'osrm_url' => env('OSRM_URL', 'https://router.project-osrm.org'),
     ],
 
+    /*
+     * Fuera de ruta: a partir de cuántos km de la ruta planeada, y cuántas
+     * lecturas seguidas hacen falta para avisar (una sola puede ser un mal dato
+     * del GPS).
+     */
+    'desvio_km' => (float) env('GPS_DESVIO_KM', 5),
+    'desvio_lecturas' => 2,
+
     /* Días que se guarda el historial de posiciones. */
     'retencion_dias' => (int) env('GPS_RETENCION_DIAS', 90),
 

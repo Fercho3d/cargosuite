@@ -38,6 +38,7 @@ class Notifications extends Component
             'sin_facturar' => __('Embarques sin facturar'),
             'sin_carga' => __('Embarques sin contenedores'),
             'pagos' => __('Solicitudes de pago abiertas'),
+            'fuera_de_ruta' => __('Unidades fuera de ruta'),
         ];
     }
 
