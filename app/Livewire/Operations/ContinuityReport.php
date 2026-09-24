@@ -146,6 +146,6 @@ class ContinuityReport extends Component
         return view('livewire.operations.continuity-report', [
             'filas' => $filas,
             'fechas' => $fechas,
-        ])->layout('components.app-layout', ['title' => __('Continuidad')]);
+        ])->layout('components.app-layout', ['title' => __('Reporte lista de verificación')]);
     }
 }

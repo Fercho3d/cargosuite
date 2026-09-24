@@ -107,12 +107,12 @@
     // Reportes, agrupados.
     $reportes = array_merge(
         $esAdmin ? [
-            [__('Reporte por booking'), route('transactions.report.booking'), request()->routeIs('transactions.report.*'), 'reporte'],
-            [__('Pagos: general'), route('payments.report.general'), request()->routeIs('payments.report.general'), 'balance'],
-            [__('Pagos por cliente'), route('payments.report.customer'), request()->routeIs('payments.report.customer'), 'cobrar'],
-            [__('Pagos por proveedor'), route('payments.report.vendor'), request()->routeIs('payments.report.vendor'), 'pagar'],
+            [__('Reporte de ganancias por booking'), route('transactions.report.booking'), request()->routeIs('transactions.report.*'), 'reporte'],
+            [__('Reporte de pagos'), route('payments.report.general'), request()->routeIs('payments.report.general'), 'balance'],
+            [__('Reporte de pagos por cliente'), route('payments.report.customer'), request()->routeIs('payments.report.customer'), 'cobrar'],
+            [__('Reporte de pagos por proveedor'), route('payments.report.vendor'), request()->routeIs('payments.report.vendor'), 'pagar'],
         ] : [],
-        [[__('Reporte de continuidad'), route('operations.continuity'), request()->routeIs('operations.continuity'), 'continuidad']],
+        [[__('Reporte lista de verificación'), route('operations.continuity'), request()->routeIs('operations.continuity'), 'continuidad']],
     );
 @endphp
 

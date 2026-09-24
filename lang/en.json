@@ -1412,5 +1412,10 @@
     "Pago registrado.": "Payment recorded.",
     "Esta nómina ya tiene empleados pagados y no se puede borrar.": "This payroll already has paid employees and cannot be deleted.",
     "La nómina no existe.": "The payroll does not exist.",
-    "Solo se timbra lo que ya se pagó.": "Only what has been paid can be stamped."
+    "Solo se timbra lo que ya se pagó.": "Only what has been paid can be stamped.",
+    "Reporte de ganancias por booking": "Profit report by booking",
+    "Reporte de pagos": "Payments report",
+    "Reporte de pagos por cliente": "Payments report by customer",
+    "Reporte de pagos por proveedor": "Payments report by vendor",
+    "Reporte lista de verificación": "Checklist report"
 }

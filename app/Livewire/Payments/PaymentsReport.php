@@ -86,9 +86,9 @@ class PaymentsReport extends Component
     public function title(): string
     {
         return match ($this->mode) {
-            'vendor' => __('Pagos por proveedor'),
-            'general' => __('Cobros y pagos, general'),
-            default => __('Cobros por cliente'),
+            'vendor' => __('Reporte de pagos por proveedor'),
+            'general' => __('Reporte de pagos'),
+            default => __('Reporte de pagos por cliente'),
         };
     }
 

@@ -89,5 +89,6 @@
     "{1}Este booking ya tiene :count transacción sin cancelar|[2,*]Este booking ya tiene :count transacciones sin cancelar": "{1}This trip already has :count uncancelled transaction|[2,*]This trip already has :count uncancelled transactions",
     "{1}No se puede borrar: el booking tiene :count transacción sin cancelar.|[2,*]No se puede borrar: el booking tiene :count transacciones sin cancelar.": "{1}It cannot be deleted: the trip has :count transaction that is not cancelled.|[2,*]It cannot be deleted: the trip has :count transactions that are not cancelled.",
     "¿Quitar este contenedor del booking?": "Remove this container from the trip?",
-    "¿Quitar este documento del booking?": "Remove this document from the trip?"
+    "¿Quitar este documento del booking?": "Remove this document from the trip?",
+    "Reporte de ganancias por booking": "Profit report by trip"
 }

@@ -74,5 +74,6 @@
     "{1}Este booking ya tiene :count transacción sin cancelar|[2,*]Este booking ya tiene :count transacciones sin cancelar": "{1}Este embarque ya tiene :count transacción sin cancelar|[2,*]Este embarque ya tiene :count transacciones sin cancelar",
     "{1}No se puede borrar: el booking tiene :count transacción sin cancelar.|[2,*]No se puede borrar: el booking tiene :count transacciones sin cancelar.": "{1}No se puede borrar: el embarque tiene :count transacción sin cancelar.|[2,*]No se puede borrar: el embarque tiene :count transacciones sin cancelar.",
     "¿Quitar este contenedor del booking?": "¿Quitar este contenedor del embarque?",
-    "¿Quitar este documento del booking?": "¿Quitar este documento del embarque?"
+    "¿Quitar este documento del booking?": "¿Quitar este documento del embarque?",
+    "Reporte de ganancias por booking": "Reporte de ganancias por embarque"
 }

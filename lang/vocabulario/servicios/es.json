@@ -49,5 +49,6 @@
     "tipo de contenedor": "tipo de equipo",
     "¿Quitar este contenedor del booking?": "¿Quitar este equipo de la orden?",
     "¿Quitar este documento del booking?": "¿Quitar este documento de la orden?",
-    "…o un buque nuevo": "…o una máquina nueva"
+    "…o un buque nuevo": "…o una máquina nueva",
+    "Reporte de ganancias por booking": "Reporte de ganancias por orden"
 }

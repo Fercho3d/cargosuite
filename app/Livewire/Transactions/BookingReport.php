@@ -169,6 +169,6 @@ class BookingReport extends Component
 
         return view('livewire.transactions.booking-report', [
             'rows' => $rows,
-        ])->layout('components.app-layout', ['title' => __('Reporte por booking')]);
+        ])->layout('components.app-layout', ['title' => __('Reporte de ganancias por booking')]);
     }
 }

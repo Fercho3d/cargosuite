@@ -59,7 +59,7 @@ class BookingReportTest extends LegacyDatabaseTestCase
         $this->actingAs($this->admin())
             ->get(route('transactions.report.booking'))
             ->assertOk()
-            ->assertSee(__('Reporte por booking'));
+            ->assertSee(__('Reporte de ganancias por booking'));
     }
 
     public function test_ver_todos_los_anios_y_limpiar_dejan_el_reporte_sin_rango(): void

@@ -49,5 +49,6 @@
     "tipo de contenedor": "unit type",
     "¿Quitar este contenedor del booking?": "Remove this unit from the order?",
     "¿Quitar este documento del booking?": "Remove this document from the order?",
-    "…o un buque nuevo": "…or a new machine"
+    "…o un buque nuevo": "…or a new machine",
+    "Reporte de ganancias por booking": "Profit report by order"
 }

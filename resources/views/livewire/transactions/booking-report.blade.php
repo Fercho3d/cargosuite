@@ -15,7 +15,7 @@
 
     <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
-            <h2 class="text-lg font-semibold text-ink">{{ __('Reporte por booking') }}</h2>
+            <h2 class="text-lg font-semibold text-ink">{{ __('Reporte de ganancias por booking') }}</h2>
             <p class="text-sm text-ink-muted">{{ __('Ingreso, egreso y utilidad de cada embarque, sin IVA y en pesos.') }}</p>
         </div>
         <span class="text-xs text-ink-faint">

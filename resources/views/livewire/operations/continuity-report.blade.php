@@ -12,7 +12,7 @@
 
     <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
-            <h2 class="text-lg font-semibold text-ink">{{ __('Continuidad') }}</h2>
+            <h2 class="text-lg font-semibold text-ink">{{ __('Reporte lista de verificación') }}</h2>
             <p class="text-sm text-ink-muted">
                 {{ $verCumplidas
                     ? __('Cuándo se cumplió cada hito y no cuándo se planeó. Se marcan desde el detalle del booking.')
