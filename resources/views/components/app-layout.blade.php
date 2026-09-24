@@ -85,8 +85,12 @@
     $enListado = request()->routeIs('operations.bookings');
     $operacion = [
         [__('Bookings'), route('operations.bookings'), request()->routeIs('operations.bookings*') && ! in_array($tipo, ['1', '2'], true) && ! request()->routeIs('operations.bookings.create'), 'operacion'],
-        [__('Importaciones'), route('operations.bookings', ['tipo' => 1]), $enListado && $tipo === '1', 'importacion'],
-        [__('Exportaciones'), route('operations.bookings', ['tipo' => 2]), $enListado && $tipo === '2', 'exportacion'],
+        ...(\App\Support\Expediente::visible('bookingType')
+            ? [
+                [__('Importaciones'), route('operations.bookings', ['tipo' => 1]), $enListado && $tipo === '1', 'importacion'],
+                [__('Exportaciones'), route('operations.bookings', ['tipo' => 2]), $enListado && $tipo === '2', 'exportacion'],
+            ]
+            : []),
         [__('Nuevo booking'), route('operations.bookings.create'), request()->routeIs('operations.bookings.create'), 'nuevo'],
         // El rastreo GPS es de flota propia.
         ...(\App\Support\Expediente::usa('terrestre')

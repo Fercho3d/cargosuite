@@ -67,6 +67,22 @@ class ModalidadesTest extends TestCase
         $this->assertTrue(Expediente::visible('unidadId'));
     }
 
+    /**
+     * Importación y exportación son de comercio exterior: un transportista
+     * terrestre no las ve ni en el menú ni en el alta.
+     */
+    public function test_terrestre_esconde_importaciones_y_exportaciones(): void
+    {
+        config(['marca.modalidades' => 'terrestre']);
+        $this->actingAs(User::forceCreate([
+            'username' => 'jefa'.uniqid(), 'password' => 'secreto-de-prueba',
+            'role' => User::ROLE_ADMIN, 'access' => User::ACCESS_INTERNAL, 'status' => 1,
+        ]));
+
+        $this->get(route('operations.bookings'))->assertOk()
+            ->assertDontSee(__('Importaciones'))->assertDontSee(__('Exportaciones'))->assertDontSee(__('¿De qué tipo?'));
+    }
+
     /** Una empresa mixta las enciende las dos y ve todo. */
     public function test_las_dos_a_la_vez_ensenan_todo(): void
     {

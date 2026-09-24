@@ -97,7 +97,9 @@ class Expediente
      * enseña. Una empresa mixta enciende las dos y ve todo.
      */
     public const POR_MODALIDAD = [
-        'maritimo' => ['vesselId'],
+        // Importación y exportación son de comercio exterior: un transportista
+        // terrestre mueve viajes, no los clasifica así.
+        'maritimo' => ['vesselId', 'bookingType'],
         'terrestre' => ['operadorId', 'unidadId', 'cajaId'],
     ];
 
