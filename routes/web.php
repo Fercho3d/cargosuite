@@ -17,6 +17,7 @@ use App\Livewire\Catalogs\CatalogManager;
 use App\Livewire\Dashboard;
 use App\Livewire\DemoRequests;
 use App\Livewire\Exchange\ExchangeManager;
+use App\Livewire\Fleet\FleetMap;
 use App\Livewire\Home;
 use App\Livewire\Notifications;
 use App\Livewire\Operations\BillingGenerator;
@@ -89,6 +90,7 @@ Route::middleware(['auth', EnsureUserIsPortal::class])->prefix('portal')->group(
 Route::middleware(['auth', EnsureUserIsInternal::class])->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
     Route::get('/avisos', Notifications::class)->name('notifications');
+    Route::get('/flota/mapa', FleetMap::class)->name('fleet.map');
 
     /*
      * Operación: los embarques y lo que cuelga de ellos.

@@ -1327,5 +1327,22 @@
     "Ingresos": "Income",
     "Gastos": "Expenses",
     "El siguiente correo contiene las facturas relacionadas del booking:": "This email contains the invoices related to booking:",
-    "¿De qué tipo?": "Which type?"
+    "¿De qué tipo?": "Which type?",
+    "Mapa de la flota": "Fleet map",
+    "Dispositivo GPS": "GPS device",
+    "Dispositivos GPS": "GPS devices",
+    "Identificador (IMEI)": "Identifier (IMEI)",
+    "Marca / protocolo": "Brand / protocol",
+    "Configure cada equipo hacia :servidor en el puerto de su marca: Teltonika 5027, Queclink 5004, Concox GT06 5023, Suntech 5011, Ruptela 5046, Meitrack 5020. La app del celular va directo a :api.": "Point each device to :servidor on its brand port: Teltonika 5027, Queclink 5004, Concox GT06 5023, Suntech 5011, Ruptela 5046, Meitrack 5020. The phone app goes straight to :api.",
+    "Pagos: general": "Payments: general",
+    "Pagos por cliente": "Payments by customer",
+    "Reporte de continuidad": "Continuity report",
+    "La última posición que reportó el GPS de cada unidad. Se actualiza sola cada 30 segundos.": "The last position reported by each unit GPS. It refreshes every 30 seconds.",
+    "Unidad, placas, operador o viaje": "Unit, plates, driver or trip",
+    "En movimiento": "Moving",
+    "Detenidas": "Stopped",
+    "Sin señal": "No signal",
+    "Solo en viaje": "On a trip only",
+    "Detenida": "Stopped",
+    "Ninguna unidad con posición para estos filtros.": "No unit with a position for these filters."
 }

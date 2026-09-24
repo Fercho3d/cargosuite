@@ -68,3 +68,9 @@ if (config('marca.correo.avisos_por_correo')) {
         ->withoutOverlapping()
         ->description('Tareas del booking que ya se pasaron de fecha');
 }
+
+// Historial de posiciones GPS: se borra lo que pasó la retención.
+Schedule::command('gps:depura')->dailyAt('03:15');
+
+// En la demostración las unidades se mueven solas; en un cliente no corre.
+Schedule::command('gps:simula-demo')->everyMinute()->when(fn () => (bool) config('marca.demo'));

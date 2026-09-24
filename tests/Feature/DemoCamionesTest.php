@@ -79,7 +79,7 @@ class DemoCamionesTest extends DemoDatabaseTestCase
             '/terceros/clientes', '/terceros/clientes/nuevo', '/terceros/proveedores', '/terceros/servicios', '/terceros/servicios/nuevo',
             '/transacciones', '/transacciones/costos', '/transacciones/todas', '/transacciones/nueva', '/transacciones/reporte/booking',
             "/transacciones/booking/{$viaje}", "/transacciones/{$factura}", "/transacciones/{$factura}/editar",
-            '/catalogos/empleados', '/catalogos/operadores', '/tipos-de-cambio', '/usuarios',
+            '/catalogos/empleados', '/catalogos/operadores', '/catalogos/gps', '/flota/mapa', '/tipos-de-cambio', '/usuarios',
         ] as $ruta) {
             $html = (string) $this->get($ruta)->getContent();
             $texto = strip_tags((string) preg_replace('#<(script|style)\b.*?</\1>#si', '', $html));

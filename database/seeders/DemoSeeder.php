@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Core\Service;
+use App\Support\Gps\SimuladorDemo;
 use App\Support\Workshop\Inventory;
 use Database\Seeders\Perfiles\PerfilDemo;
 use Illuminate\Database\Seeder;
@@ -154,7 +155,8 @@ class DemoSeeder extends Seeder
             'payments_by_transaction', 'payment_request', 'charge', 'transaction',
             'check_list', 'booking_continuity', 'hito_por_expediente', 'containers', 'gasto_viaje', 'files_by_booking', 'booking',
             'movimiento_refaccion', 'mantenimiento_refaccion', 'mantenimiento', 'refaccion',
-            'nomina_renglon', 'nomina', 'empleado', 'liquidacion_renglon', 'liquidacion', 'operador', 'unidad',
+            'nomina_renglon', 'nomina', 'empleado', 'liquidacion_renglon', 'liquidacion', 'operador',
+            'gps_posicion', 'gps_dispositivo', 'unidad',
             // El catálogo de hitos cambia con la vertical: un camión no pasa por
             // el corte documental de un embarque marítimo.
             'hito',
@@ -520,6 +522,24 @@ class DemoSeeder extends Seeder
                 'kilometraje' => 180000 + $i * 42000,
                 'activo' => 1,
             ]);
+
+            // Cada tractor con su GPS, de marcas distintas: así se ve que una
+            // flota puede mezclarlas. `gps:simula-demo` los mueve cada minuto;
+            // el de n % 7 == 3 se queda sin señal a propósito.
+            if ($unidad['tipo'] === 'tractor') {
+                $n = $i + 1;
+                [$lat, $lng] = SimuladorDemo::CIUDADES[$n % count(SimuladorDemo::CIUDADES)];
+                DB::table('gps_dispositivo')->insert([
+                    'identificador' => 'DEMO-'.$n,
+                    'unidad_id' => $n,
+                    'protocolo' => ['teltonika', 'queclink', 'gt06', 'suntech'][$n % 4],
+                    'activo' => 1,
+                    'ultima_lat' => $lat,
+                    'ultima_lng' => $lng,
+                    'ultima_velocidad' => 0,
+                    'ultima_senal' => $n % 7 === 3 ? Carbon::now()->subHours(2) : Carbon::now(),
+                ]);
+            }
         }
     }
 

@@ -87,6 +87,10 @@
         [__('Importaciones'), route('operations.bookings', ['tipo' => 1]), $enListado && $tipo === '1', 'importacion'],
         [__('Exportaciones'), route('operations.bookings', ['tipo' => 2]), $enListado && $tipo === '2', 'exportacion'],
         [__('Nuevo booking'), route('operations.bookings.create'), request()->routeIs('operations.bookings.create'), 'nuevo'],
+        // El rastreo GPS es de flota propia.
+        ...(\App\Support\Expediente::usa('terrestre')
+            ? [[__('Mapa de la flota'), route('fleet.map'), request()->routeIs('fleet.map'), 'mapa']]
+            : []),
     ];
 
     // Los ajustes van al final: se entra una vez a configurarlos y casi
@@ -95,16 +99,15 @@
         ? [[__('Ajustes'), route('settings'), request()->routeIs('settings'), 'ajustes']]
         : [];
 
-    // Reportes, agrupados y con el nombre que tenían en el sistema original
-    // (sin traducir: así los conoce la gente).
+    // Reportes, agrupados.
     $reportes = array_merge(
         $esAdmin ? [
             [__('Reporte por booking'), route('transactions.report.booking'), request()->routeIs('transactions.report.*'), 'reporte'],
-            ['Transaction Payments General', route('payments.report.general'), request()->routeIs('payments.report.general'), 'balance'],
-            ['Transaction Payments by Customer', route('payments.report.customer'), request()->routeIs('payments.report.customer'), 'cobrar'],
-            ['Transaction Payments by Vendor', route('payments.report.vendor'), request()->routeIs('payments.report.vendor'), 'pagar'],
+            [__('Pagos: general'), route('payments.report.general'), request()->routeIs('payments.report.general'), 'balance'],
+            [__('Pagos por cliente'), route('payments.report.customer'), request()->routeIs('payments.report.customer'), 'cobrar'],
+            [__('Pagos por proveedor'), route('payments.report.vendor'), request()->routeIs('payments.report.vendor'), 'pagar'],
         ] : [],
-        [['Continuity Report', route('operations.continuity'), request()->routeIs('operations.continuity'), 'continuidad']],
+        [[__('Reporte de continuidad'), route('operations.continuity'), request()->routeIs('operations.continuity'), 'continuidad']],
     );
 @endphp
 

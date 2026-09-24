@@ -5,6 +5,7 @@ namespace App\Support\Catalogs;
 use App\Models\Core\Company;
 use App\Support\Cfdi\RegimenesFiscales;
 use App\Support\Expediente;
+use App\Support\Gps\Protocolos;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
@@ -314,6 +315,46 @@ class CatalogRegistry
                 note: __('UMA, salario mínimo, subsidio al empleo y porcentajes del IMSS. Verifique cada año con su contador; para un año nuevo, copie las claves con el año nuevo.'),
             ),
             /*
+             * Los equipos GPS de la flota. Cada uno se liga a una unidad por su
+             * identificador (el IMEI) y dice qué protocolo habla: una flota
+             * puede mezclar marcas. Las posiciones llegan por la API, casi
+             * siempre reenviadas por Traccar. Ver `docs/GPS.md`.
+             */
+            new CatalogDefinition(
+                slug: 'gps',
+                table: 'gps_dispositivo',
+                key: 'dispositivo_id',
+                singular: __('Dispositivo GPS'),
+                plural: __('Dispositivos GPS'),
+                fields: [
+                    new CatalogField('identificador', __('Identificador (IMEI)'), rules: ['required', 'string', 'max:60'], unique: true),
+                    new CatalogField(
+                        'unidad_id',
+                        __('Unidad'),
+                        type: 'select',
+                        rules: ['nullable', 'integer', 'exists:unidad,unidad_id'],
+                        options: fn () => Schema::hasTable('unidad')
+                            ? DB::table('unidad')->where('activo', 1)->orderBy('numero')->pluck('numero', 'unidad_id')->all()
+                            : [],
+                    ),
+                    new CatalogField(
+                        'protocolo',
+                        __('Marca / protocolo'),
+                        type: 'select',
+                        rules: ['required', 'in:'.implode(',', array_keys(Protocolos::TODOS))],
+                        options: fn () => Protocolos::opciones(),
+                        default: 'teltonika',
+                    ),
+                    new CatalogField('modelo', __('Modelo'), rules: ['nullable', 'string', 'max:60']),
+                    new CatalogField('activo', __('Activo'), type: 'boolean', rules: ['boolean']),
+                ],
+                orderBy: 'identificador',
+                note: __('Configure cada equipo hacia :servidor en el puerto de su marca: Teltonika 5027, Queclink 5004, Concox GT06 5023, Suntech 5011, Ruptela 5046, Meitrack 5020. La app del celular va directo a :api.', [
+                    'servidor' => (string) config('gps.servidor'),
+                    'api' => rtrim((string) config('app.url'), '/').'/api/gps/osmand',
+                ]),
+            ),
+            /*
              * Los hitos del expediente. Antes eran catorce columnas de
              * `booking_continuity` y cambiarlos exigía una migración; ahora se
              * capturan aquí, que es lo que permite que el módulo de continuidad
@@ -567,7 +608,7 @@ class CatalogRegistry
     /** Catálogos que solo tienen sentido en una modalidad de transporte. */
     private const POR_MODALIDAD = [
         'maritimo' => ['buques'],
-        'terrestre' => ['operadores', 'unidades', 'refacciones'],
+        'terrestre' => ['operadores', 'unidades', 'refacciones', 'gps'],
     ];
 
     public static function visibles(): array
