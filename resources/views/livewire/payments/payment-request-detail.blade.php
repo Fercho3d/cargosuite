@@ -116,10 +116,10 @@
         </dl>
     </div>
 
-    {{-- Transacciones que agrupa --}}
+    {{-- Movimientos que agrupa --}}
     <div class="rounded-xl border border-line bg-panel">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
-            <h3 class="text-sm font-semibold text-ink">{{ __('Transacciones que agrupa') }}</h3>
+            <h3 class="text-sm font-semibold text-ink">{{ __('Movimientos que agrupa') }}</h3>
             @if ($editable)
                 <button type="button" wire:click="toggleAdd" class="btn-ghost !px-3 !py-1.5 text-sm">
                     {{ $showAdd ? __('Cerrar') : __('Agregar transacción') }}

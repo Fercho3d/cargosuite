@@ -99,10 +99,10 @@ class TransactionTableTest extends LegacyDatabaseTestCase
         // del componente; si eso se rompiera, las tres rutas mostrarían lo mismo.
         $this->get(route('transactions.invoice'))->assertOk()->assertSee(__('Ingresos'));
         $this->get(route('transactions.bill'))->assertOk()->assertSee('<title>'.__('Gastos'), false);
-        $this->get(route('transactions.all'))->assertOk()->assertSee('<title>'.__('Todas las transacciones'), false);
+        $this->get(route('transactions.all'))->assertOk()->assertSee('<title>'.__('Movimientos contables'), false);
         $this->get(route('transactions.booking', $booking))
             ->assertOk()
-            ->assertSee('<title>'.__('Transacciones del booking'), false);
+            ->assertSee('<title>'.__('Movimientos del booking'), false);
     }
 
     /** Desde las transacciones de un booking se vuelve a él con un clic. */
