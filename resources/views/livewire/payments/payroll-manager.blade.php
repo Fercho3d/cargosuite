@@ -5,7 +5,7 @@
         <div>
             <h1 class="text-lg font-semibold text-ink">{{ __('Nómina') }}</h1>
             <p class="mt-0.5 text-sm text-ink-muted">
-                {{ __('Lo que se le paga a la plantilla en el periodo, con impuestos y cuotas según el régimen de cada empleado. No timbra: se exporta.') }}
+                {{ __('Lo que se le paga a la plantilla en el periodo, con impuestos y cuotas según el régimen de cada empleado. Ya pagada, se timbra el recibo de cada empleado.') }}
             </p>
             <p class="mt-1 flex flex-wrap gap-x-4 text-xs">
                 <a href="{{ route('catalogs.show', 'empleados') }}" wire:navigate class="text-brand hover:underline">{{ __('Empleados') }}</a>
@@ -151,6 +151,25 @@
                                                             </span>
                                                         @endforeach
                                                     </span>
+
+                                                    @php $recibo = $recibos[$e->empleado_id] ?? null; @endphp
+                                                    @if ($recibo?->estado === 'timbrado')
+                                                        <span class="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                                                            <span class="badge-ok rounded px-2 py-0.5">{{ __('Timbrado') }}</span>
+                                                            <span class="font-mono text-ink-faint">{{ $recibo->uuid }}</span>
+                                                            <button wire:click="descargarRecibo({{ $recibo->recibo_id }}, 'xml')" class="text-brand hover:underline">XML</button>
+                                                            <button wire:click="descargarRecibo({{ $recibo->recibo_id }}, 'pdf')" class="text-brand hover:underline">PDF</button>
+                                                            <button wire:click="cancelarRecibo({{ $recibo->recibo_id }})"
+                                                                    wire:confirm="{{ __('¿Cancelar este recibo ante el SAT?') }}"
+                                                                    class="text-ink-faint hover:text-brand">{{ __('Cancelar') }}</button>
+                                                        </span>
+                                                    @elseif ($recibo?->estado === 'error')
+                                                        <span class="mt-1 block text-xs text-(--danger-ink)">{{ __('No se timbró') }}: {{ $recibo->mensaje }}</span>
+                                                    @elseif ($recibo?->estado === 'cancelado')
+                                                        <span class="mt-1 block text-xs text-ink-faint">{{ __('Recibo cancelado') }} · <span class="font-mono">{{ $recibo->uuid }}</span></span>
+                                                    @elseif ($n->estado === 'pagada' && ! $timbrable->has($e->empleado_id))
+                                                        <span class="mt-1 block text-xs text-ink-faint">{{ __('Sin régimen de nómina: no se timbra.') }}</span>
+                                                    @endif
                                                 </td>
                                                 <td class="py-1.5 pr-3 text-right tabular-nums text-ink">{{ $dinero($e->percepciones) }}</td>
                                                 <td class="py-1.5 pr-3 text-right tabular-nums {{ $e->deducciones > 0 ? 'text-(--danger-ink)' : 'text-ink-faint' }}">{{ $dinero($e->deducciones) }}</td>
@@ -171,6 +190,23 @@
                                         </tr>
                                     </tfoot>
                                 </table>
+
+                                @if ($n->estado === 'pagada' && config('timbrado.habilitado'))
+                                    <div class="mt-4 flex flex-wrap items-end gap-2">
+                                        @if ($n->company_id === null)
+                                            <label class="block">
+                                                <span class="field-label">{{ __('Compañía que timbra') }}</span>
+                                                <select wire:model="emisor" class="field-input mt-1.5">
+                                                    <option value="">{{ __('Elige…') }}</option>
+                                                    @foreach ($companias as $id => $nombre)
+                                                        <option value="{{ $id }}" @selected((string) $id === $emisor)>{{ $nombre }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </label>
+                                        @endif
+                                        <x-submit-button wire:click="timbrar({{ $n->nomina_id }})">{{ __('Timbrar recibos') }}</x-submit-button>
+                                    </div>
+                                @endif
 
                                 @if ($n->estado === 'abierta')
                                     <div class="mt-4 grid gap-2 sm:grid-cols-5">

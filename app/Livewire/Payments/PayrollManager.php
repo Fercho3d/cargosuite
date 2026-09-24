@@ -2,8 +2,13 @@
 
 namespace App\Livewire\Payments;
 
+use App\Actions\Payroll\StampPayslip;
+use App\Models\Core\Company;
+use App\Support\Cfdi\CfdiException;
+use App\Support\Cfdi\PacClient;
 use App\Support\Payroll\Payroll;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -12,9 +17,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * Nómina interna.
  *
  * Reúne lo que se paga —sueldos, viajes, bonos, descuentos—, calcula impuestos
- * y cuotas según el régimen de cada empleado y saca el neto. **No timbra el
- * CFDI de nómina**: eso se hace en el sistema fiscal de la empresa, con el
- * archivo que se exporta aquí.
+ * y cuotas según el régimen de cada empleado y saca el neto. Ya pagada, timbra
+ * el CFDI de nómina de cada empleado de sueldos o asimilados (`StampPayslip`).
  */
 class PayrollManager extends Component
 {
@@ -38,6 +42,9 @@ class PayrollManager extends Component
     public string $tipo = 'percepcion';
 
     public string $importe = '';
+
+    /** Compañía con la que se timbra una nómina que aún no tiene una. */
+    public string $emisor = '';
 
     public function mount(): void
     {
@@ -159,9 +166,70 @@ class PayrollManager extends Component
         session()->flash('status', __('Nómina marcada como pagada.'));
     }
 
+    public function timbrar(int $id, StampPayslip $timbrado): void
+    {
+        $this->assertAdmin();
+
+        try {
+            $cuenta = $timbrado->handle($id, $this->emisor === '' ? null : (int) $this->emisor);
+        } catch (CfdiException $e) {
+            $this->addError('timbrado', $e->getMessage());
+
+            return;
+        }
+
+        $this->abierta = $id;
+        session()->flash('status', __(':timbrados recibos timbrados, :errores con error.', $cuenta));
+    }
+
+    /**
+     * Los recibos de nómina se cancelan sin que el empleado tenga que aceptar,
+     * así que el acuse del PAC basta para darlo por cancelado y volver a timbrar.
+     */
+    public function cancelarRecibo(int $recibo, PacClient $pac): void
+    {
+        $this->assertAdmin();
+
+        $fila = DB::table('nomina_recibo')->where('recibo_id', $recibo)->where('estado', 'timbrado')->first();
+        abort_if($fila === null, 404);
+
+        try {
+            $acuse = $pac->cancel($fila->uuid, $fila->rfc_emisor, '02');
+        } catch (CfdiException $e) {
+            $this->addError('timbrado', $e->getMessage());
+
+            return;
+        }
+
+        DB::table('nomina_recibo')->where('recibo_id', $recibo)->update([
+            'estado' => 'cancelado', 'mensaje' => mb_substr((string) $acuse->mensaje, 0, 500), 'cancelado_en' => now(),
+        ]);
+        session()->flash('status', __('Recibo cancelado ante el SAT. Ya se puede volver a timbrar.'));
+    }
+
+    public function descargarRecibo(int $recibo, string $formato)
+    {
+        $this->assertAdmin();
+        abort_unless(in_array($formato, ['xml', 'pdf'], true), 404);
+
+        $fila = DB::table('nomina_recibo as r')->join('nomina as n', 'n.nomina_id', '=', 'r.nomina_id')
+            ->where('r.recibo_id', $recibo)->whereNotNull('r.uuid')->first(['r.uuid', 'n.numero']);
+        abort_if($fila === null, 404);
+
+        $ruta = StampPayslip::carpeta($fila)."/{$fila->uuid}.{$formato}";
+        abort_unless(Storage::disk('documentos')->exists($ruta), 404);
+
+        return Storage::disk('documentos')->download($ruta);
+    }
+
     public function reabrir(int $id): void
     {
         abort_unless(auth()->user()?->isSuperAdmin() ?? false, 403);
+
+        // Con recibos vigentes ante el SAT, cambiar los importes dejaría el CFDI
+        // diciendo otra cosa que la nómina: primero se cancelan.
+        abort_if(DB::table('nomina_recibo')->where('nomina_id', $id)->where('estado', 'timbrado')->exists(), 422,
+            __('Esta nómina tiene recibos timbrados: cancélalos antes de reabrirla.'));
 
         DB::table('nomina')->where('nomina_id', $id)->update(['estado' => 'abierta', 'pagada_en' => null]);
     }
@@ -184,9 +252,8 @@ class PayrollManager extends Component
     }
 
     /**
-     * El puente con el sistema fiscal: un renglón por empleado con su neto y su
-     * CLABE. Es lo que se sube a la dispersión bancaria y lo que alimenta el
-     * timbrado, que ocurre allá y no aquí.
+     * Un renglón por empleado con su neto y su CLABE: lo que se sube a la
+     * dispersión bancaria.
      */
     public function exportar(int $id): StreamedResponse
     {
@@ -232,6 +299,13 @@ class PayrollManager extends Component
                 ? collect()
                 : DB::table('nomina_renglon')->where('nomina_id', $this->abierta)->get()->groupBy('empleado_id'),
             'totales' => $this->abierta === null ? null : Payroll::totales($this->abierta),
+            'recibos' => $this->abierta === null
+                ? collect()
+                : DB::table('nomina_recibo')->where('nomina_id', $this->abierta)->get()->keyBy('empleado_id'),
+            'timbrable' => config('timbrado.habilitado')
+                ? DB::table('empleado')->whereIn('regimen', ['sueldos', 'asimilados'])->pluck('empleado_id')->flip()
+                : collect(),
+            'companias' => Company::where('active', 1)->orderBy('name')->pluck('name', 'company_id')->all(),
             'empleados' => DB::table('empleado')->where('activo', 1)->orderBy('nombre')->pluck('nombre', 'empleado_id')->all(),
         ])->layout('components.app-layout', ['title' => __('Nómina')]);
     }

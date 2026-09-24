@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
  * - **Honorarios**: IVA trasladado y retenciones de ISR e IVA.
  *
  * ⚠️ Toda percepción se toma gravada (no separa exentos de horas extra,
- * aguinaldo, etc.) y no timbra el CFDI de nómina.
+ * aguinaldo, etc.). El CFDI de nómina se timbra en `StampPayslip`.
  *
  * La tarifa es la mensual, proporcional por días (base / días × 30.4): así
  * salen las del Anexo 8 para 7, 10 y 15 días, y un solo juego de tablas sirve
@@ -34,13 +34,11 @@ class Impuestos
      */
     public static function renglones(object $empleado, float $gravado, int $dias, string $hasta): array
     {
-        $anio = (int) DB::table('parametro_fiscal')->where('anio', '<=', (int) substr($hasta, 0, 4))->max('anio');
+        [$anio, $p] = self::parametros($hasta);
 
         if ($anio === 0 || $gravado <= 0 || $dias <= 0) {
             return [];
         }
-
-        $p = DB::table('parametro_fiscal')->where('anio', $anio)->pluck('valor', 'clave')->map(fn ($v) => (float) $v);
 
         $renglones = match ($empleado->regimen ?? 'ninguno') {
             'sueldos' => [
@@ -58,6 +56,45 @@ class Impuestos
         };
 
         return array_values(array_filter($renglones, fn (array $r) => $r['importe'] > 0));
+    }
+
+    /**
+     * Subsidio al empleo que le corresponde al periodo, lo alcance o no a usar
+     * contra el ISR. El CFDI de nómina lo declara como «subsidio causado».
+     */
+    public static function subsidioCausado(float $gravado, int $dias, string $hasta): float
+    {
+        [$anio, $p] = self::parametros($hasta);
+
+        if ($anio === 0 || $dias <= 0 || $gravado / $dias * self::MES > $p['subsidio_limite']) {
+            return 0;
+        }
+
+        return round($p['uma_diaria'] * $dias * $p['subsidio_porcentaje'] / 100, 2);
+    }
+
+    /**
+     * Salario diario integrado con el que cotiza al IMSS, ya topado. Es el que
+     * pide el CFDI de nómina en `SalarioBaseCotApor` y `SalarioDiarioIntegrado`.
+     */
+    public static function salarioIntegrado(object $empleado, string $hasta): float
+    {
+        [$anio, $p] = self::parametros($hasta);
+        $salario = (float) ($empleado->salario_diario ?? 0);
+
+        if ($anio === 0 || $salario <= 0) {
+            return round($salario, 2);
+        }
+
+        return round(min($salario * self::factorDeIntegracion($p, $empleado->ingreso ?? null, $hasta), $p['tope_sbc_umas'] * $p['uma_diaria']), 2);
+    }
+
+    /** Año de tablas vigente para la fecha y sus parámetros. */
+    private static function parametros(string $hasta): array
+    {
+        $anio = (int) DB::table('parametro_fiscal')->where('anio', '<=', (int) substr($hasta, 0, 4))->max('anio');
+
+        return [$anio, DB::table('parametro_fiscal')->where('anio', $anio)->pluck('valor', 'clave')->map(fn ($v) => (float) $v)];
     }
 
     private static function isr(int $anio, $p, float $gravado, int $dias, bool $subsidio): float

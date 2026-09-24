@@ -3,6 +3,7 @@
 namespace App\Support\Catalogs;
 
 use App\Models\Core\Company;
+use App\Support\Cfdi\NominaLayout;
 use App\Support\Cfdi\RegimenesFiscales;
 use App\Support\Expediente;
 use App\Support\Gps\Protocolos;
@@ -146,6 +147,16 @@ class CatalogRegistry
                     new CatalogField('rfc', __('RFC'), rules: ['nullable', 'string', 'max:20'], inList: false),
                     new CatalogField('curp', __('CURP'), rules: ['nullable', 'string', 'max:20'], inList: false),
                     new CatalogField('nss', __('NSS'), rules: ['nullable', 'string', 'max:20'], inList: false),
+                    // Los dos que pide el CFDI de nómina además de RFC y CURP.
+                    new CatalogField('codigo_postal', __('C.P. fiscal'), rules: ['nullable', 'string', 'regex:/^\d{5}$/'], inList: false),
+                    new CatalogField(
+                        'entidad',
+                        __('Estado donde labora'),
+                        type: 'select',
+                        rules: ['nullable', Rule::in(array_keys(NominaLayout::ENTIDADES))],
+                        inList: false,
+                        options: fn () => NominaLayout::ENTIDADES,
+                    ),
                     new CatalogField('ingreso', __('Ingreso'), type: 'date', rules: ['nullable', 'date'], inList: false),
                     new CatalogField('notas', __('Notas'), rules: ['nullable', 'string', 'max:255'], inList: false),
                     new CatalogField('activo', __('Activo'), type: 'boolean', rules: ['boolean']),
@@ -262,6 +273,16 @@ class CatalogRegistry
                     new CatalogField('rfc', __('RFC'), rules: ['nullable', 'string', 'max:20'], inList: false),
                     new CatalogField('curp', __('CURP'), rules: ['nullable', 'string', 'max:20'], inList: false),
                     new CatalogField('nss', __('NSS'), rules: ['nullable', 'string', 'max:20'], inList: false),
+                    // Los dos que pide el CFDI de nómina además de RFC y CURP.
+                    new CatalogField('codigo_postal', __('C.P. fiscal'), rules: ['nullable', 'string', 'regex:/^\d{5}$/'], inList: false),
+                    new CatalogField(
+                        'entidad',
+                        __('Estado donde labora'),
+                        type: 'select',
+                        rules: ['nullable', Rule::in(array_keys(NominaLayout::ENTIDADES))],
+                        inList: false,
+                        options: fn () => NominaLayout::ENTIDADES,
+                    ),
                     new CatalogField('banco', __('Banco'), rules: ['nullable', 'string', 'max:40'], inList: false),
                     new CatalogField('clabe', __('CLABE'), rules: ['nullable', 'string', 'max:20'], inList: false),
                     new CatalogField('notas', __('Notas'), rules: ['nullable', 'string', 'max:255'], inList: false),
@@ -500,6 +521,16 @@ class CatalogRegistry
                     ),
                     new CatalogField('postal_code', __('Código postal'), rules: ['nullable', 'string', 'max:10', 'regex:/^\d{5}$/'], inList: false),
                     new CatalogField('address', __('Dirección'), rules: $textoOpcional, inList: false),
+                    // Solo para timbrar nómina de sueldos y salarios.
+                    new CatalogField('registro_patronal', __('Registro patronal IMSS'), rules: ['nullable', 'string', 'max:20'], inList: false),
+                    new CatalogField(
+                        'riesgo_puesto',
+                        __('Clase de riesgo IMSS'),
+                        type: 'select',
+                        rules: ['nullable', 'in:1,2,3,4,5'],
+                        inList: false,
+                        options: fn () => ['1' => 'I', '2' => 'II', '3' => 'III', '4' => 'IV', '5' => 'V'],
+                    ),
                     // Nace activa, como en el original: si no, no aparece en ningún selector.
                     new CatalogField('active', __('Activa'), type: 'boolean', rules: ['boolean'], default: true),
                 ],
