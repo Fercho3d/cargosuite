@@ -109,6 +109,17 @@ class FueraDeRutaTest extends TestCase
         $this->assertSame(0, $this->abiertas());
     }
 
+    /** Si el correo falla (servidor caído, llave sin permiso), la posición y la alerta se guardan igual. */
+    public function test_un_correo_que_falla_no_tumba_la_entrada_de_posiciones(): void
+    {
+        Mail::shouldReceive('to')->andThrow(new \RuntimeException('550 no autorizado'));
+
+        $this->reporta(25.5, -100.2, 0);
+        $this->reporta(25.45, -100.19, 1);
+
+        $this->assertSame([2, 1], [DB::table('gps_posicion')->count(), $this->abiertas()]);
+    }
+
     public function test_la_alerta_sale_en_la_campana(): void
     {
         Cache::flush();

@@ -6,6 +6,7 @@ use App\Mail\FueraDeRutaMail;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 /**
  * Avisa cuando una unidad se sale de la ruta planeada de su viaje.
@@ -73,7 +74,13 @@ class VigilaRuta
 
         $destinos = (array) config('marca.correo.avisos_operacion');
 
-        if ($destinos !== []) {
+        if ($destinos === []) {
+            return;
+        }
+
+        // El correo es un extra: si falla, la posición y la alerta ya quedaron
+        // guardadas y la API del GPS no puede responder con error por eso.
+        try {
             Mail::to($destinos)->send(new FueraDeRutaMail(
                 (string) DB::table('unidad')->where('unidad_id', $unidad)->value('numero'),
                 (string) $viaje->booking_number,
@@ -81,6 +88,8 @@ class VigilaRuta
                 $lat,
                 $lng,
             ));
+        } catch (Throwable $e) {
+            report($e);
         }
     }
 
