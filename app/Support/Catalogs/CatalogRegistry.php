@@ -353,6 +353,7 @@ class CatalogRegistry
                     'servidor' => (string) config('gps.servidor'),
                     'api' => rtrim((string) config('app.url'), '/').'/api/gps/osmand',
                 ]),
+                ayuda: 'partials.ayuda-gps',
             ),
             /*
              * Los hitos del expediente. Antes eran catorce columnas de

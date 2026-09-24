@@ -17,6 +17,9 @@
             @if ($definicion->note)
                 <p class="text-sm text-ink-muted">{{ $definicion->note }}</p>
             @endif
+            @if ($definicion->ayuda)
+                @include($definicion->ayuda)
+            @endif
         </div>
 
         <div class="flex items-center gap-2">
@@ -165,6 +168,13 @@
                     </tr>
                 </thead>
 
+                {{-- Los selectores se enseñan por su etiqueta («T-103»), no por el
+                     valor que guardan («3»). Una consulta por campo, no por renglón. --}}
+                @php
+                    $etiquetas = collect($definicion->listFields())
+                        ->filter(fn ($c) => $c->type === 'select')
+                        ->mapWithKeys(fn ($c) => [$c->name => $c->opciones()]);
+                @endphp
                 <tbody class="divide-y divide-line">
                     @forelse ($filas as $fila)
                         <tr class="transition hover:bg-raised {{ $editing === (int) $fila->{$definicion->key} ? 'bg-raised' : '' }}">
@@ -175,7 +185,7 @@
                                             {{ $fila->{$campo->name} ? __('Sí') : __('No') }}
                                         </span>
                                     @else
-                                        {{ $fila->{$campo->name} === null || $fila->{$campo->name} === '' ? '—' : $fila->{$campo->name} }}
+                                        {{ $fila->{$campo->name} === null || $fila->{$campo->name} === '' ? '—' : ($etiquetas[$campo->name][$fila->{$campo->name}] ?? $fila->{$campo->name}) }}
                                     @endif
                                 </td>
                             @endforeach

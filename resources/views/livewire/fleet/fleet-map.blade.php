@@ -34,6 +34,26 @@
         </label>
     </div>
 
+    @if ($ruta)
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-panel px-4 py-2.5 text-sm">
+            <span class="text-ink">
+                <span class="font-semibold">{{ __('Ruta de :viaje', ['viaje' => $ruta['viaje']]) }}</span>
+                @if ($ruta['paradas'] === [])
+                    <span class="text-ink-muted">· {{ __('El origen o el destino no tienen coordenadas en su catálogo.') }}</span>
+                @elseif ($ruta['aproximada'])
+                    <span class="text-ink-muted">· {{ __('Aproximada (línea recta): el servicio de rutas no respondió.') }}</span>
+                @elseif ($ruta['km'])
+                    <span class="text-ink-muted">· {{ number_format($ruta['km']) }} km · {{ __(':h h :m min de manejo', ['h' => intdiv((int) $ruta['minutos'], 60), 'm' => (int) $ruta['minutos'] % 60]) }}</span>
+                @endif
+                <span class="ml-2 inline-flex items-center gap-3 text-xs text-ink-muted">
+                    <span><span class="inline-block h-0.5 w-5 bg-[#2563eb] align-middle"></span> {{ __('Planeada') }}</span>
+                    <span><span class="inline-block h-1 w-5 bg-[#16a34a] align-middle"></span> {{ __('Recorrido') }}</span>
+                </span>
+            </span>
+            <button type="button" wire:click="quitarRuta" class="btn-ghost !px-3 !py-1 text-xs">{{ __('Quitar ruta') }}</button>
+        </div>
+    @endif
+
     <div class="grid gap-4 lg:grid-cols-[1fr_18rem]">
         {{-- El mapa lo maneja Leaflet: Livewire no debe tocar ese nodo. --}}
         <div wire:ignore class="h-[32rem] overflow-hidden rounded-2xl border border-line">
@@ -61,6 +81,10 @@
                             @endif
                         </span>
                     </button>
+                    @if ($u['viaje'])
+                        <button type="button" wire:click="verRuta({{ $u['id'] }})"
+                                class="mt-1 text-xs text-brand hover:underline">{{ __('Ver ruta del viaje') }}</button>
+                    @endif
                 </li>
             @empty
                 <li class="rounded-xl border border-dashed border-line px-3 py-8 text-center text-sm text-ink-faint">
@@ -95,7 +119,7 @@
                 iconSize: null,
                 iconAnchor: [18, 10],
             });
-            const viaje = u.viaje ? `<br><a href="${u.viajeUrl}">${texto(u.viaje)}</a>${u.cliente ? ' · ' + texto(u.cliente) : ''}${u.operador ? '<br>' + texto(u.operador) : ''}` : '';
+            const viaje = u.viaje ? `<br><a href="${u.viajeUrl}">${texto(u.viaje)}</a>${u.cliente ? ' · ' + texto(u.cliente) : ''}${u.operador ? '<br>' + texto(u.operador) : ''}<br><a href="#" data-ruta="${u.id}">${texto(@js(__('Ver ruta del viaje')))}</a>` : '';
             marcadores[u.id] = L.marker([u.lat, u.lng], { icon: icono })
                 .bindPopup(`<strong>${texto(u.numero)}</strong> ${texto(u.placas)}<br>${u.velocidad} km/h · ${texto(u.senal)}${viaje}`)
                 .addTo(capa);
@@ -108,6 +132,42 @@
 
     pinta($wire.puntos);
     $wire.$watch('puntos', pinta);
+
+    // La ruta del viaje escogido: planeada (azul) y recorrido real (verde).
+    const capaRuta = L.layerGroup().addTo(mapa);
+    let rutaVista = null;
+
+    const dibujaRuta = (r) => {
+        capaRuta.clearLayers();
+        if (!r) { rutaVista = null; return; }
+
+        const lineas = [];
+        if (r.planeada.length > 1) {
+            lineas.push(L.polyline(r.planeada, { color: '#2563eb', weight: 4, opacity: 0.75, dashArray: r.aproximada ? '8 8' : null }).addTo(capaRuta));
+        }
+        if (r.recorrido.length > 1) {
+            lineas.push(L.polyline(r.recorrido, { color: '#16a34a', weight: 5, opacity: 0.9 }).addTo(capaRuta));
+        }
+        r.paradas.forEach((p, i) => {
+            L.circleMarker([p.lat, p.lng], { radius: 7, color: '#1e293b', weight: 2, fillColor: '#fff', fillOpacity: 1 })
+                .bindTooltip(`${i + 1}. ${texto(p.nombre)}`, { permanent: true, direction: 'top', offset: [0, -8] })
+                .addTo(capaRuta);
+        });
+
+        // Encuadra solo al escoger otra ruta: el refresco no debe mover el mapa.
+        if (rutaVista !== r.booking && lineas.length) {
+            mapa.fitBounds(L.featureGroup(lineas).getBounds(), { padding: [40, 40] });
+        }
+        rutaVista = r.booking;
+    };
+
+    dibujaRuta($wire.ruta);
+    $wire.$watch('ruta', dibujaRuta);
+
+    document.getElementById('mapa-flota').addEventListener('click', (e) => {
+        const enlace = e.target.closest('[data-ruta]');
+        if (enlace) { e.preventDefault(); $wire.verRuta(Number(enlace.dataset.ruta)); }
+    });
 
     window.addEventListener('enfocar-unidad', (e) => {
         const m = marcadores[e.detail.id];

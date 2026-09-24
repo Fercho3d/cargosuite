@@ -46,6 +46,8 @@ final class CatalogDefinition
         public readonly ?Closure $insertDefaults = null,
         public readonly bool $superAdmin = false,
         public readonly array $badges = [],
+        /** Vista con instrucciones largas, plegadas bajo el título (la `note` es de una línea). */
+        public readonly ?string $ayuda = null,
     ) {}
 
     /** @return array<string, mixed> */

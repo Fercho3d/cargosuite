@@ -39,10 +39,14 @@ class FleetMapTest extends TestCase
             // Nunca ha reportado: no se puede dibujar.
             ['identificador' => 'D', 'unidad_id' => 4, 'activo' => 1, 'ultima_lat' => null, 'ultima_lng' => null, 'ultima_velocidad' => null, 'ultima_senal' => null],
         ]);
+        DB::table('loading_ports')->insert(['port_id' => 1, 'port_name' => 'Patio Monterrey', 'latitud' => 25.686, 'longitud' => -100.316]);
+        DB::table('dicharge_port')->insert(['dicharge_port_id' => 1, 'name' => 'Ciudad de México', 'latitud' => 19.432, 'longitud' => -99.133]);
         DB::table('booking')->insert([
             'booking_id' => 10, 'booking_number' => 'VJ-01010', 'client' => 1, 'unidad_id' => 1, 'operador_id' => 1,
-            'is_draft' => 0, 'locked' => 0,
+            'is_draft' => 0, 'locked' => 0, 'loading_port' => 1, 'dicharge_port_id' => 1,
         ]);
+        // Sin salir a internet: la ruta planeada es la línea recta entre paradas.
+        config(['gps.rutas.proveedor' => 'ninguno']);
     }
 
     private function mapa(): Testable
@@ -102,5 +106,23 @@ class FleetMapTest extends TestCase
         config(['marca.modalidades' => 'maritimo']);
 
         $this->mapa()->assertNotFound();
+    }
+
+    /** Al escoger una unidad en viaje se dibuja su ruta: la planeada, de origen a destino. */
+    public function test_la_ruta_de_una_unidad_en_viaje_va_de_su_origen_a_su_destino(): void
+    {
+        $ruta = $this->mapa()->call('verRuta', 1)->get('ruta');
+
+        $this->assertSame(['Patio Monterrey', 'Ciudad de México'], array_column($ruta['paradas'], 'nombre'));
+    }
+
+    public function test_una_unidad_sin_viaje_no_tiene_ruta(): void
+    {
+        $this->assertNull($this->mapa()->call('verRuta', 2)->get('ruta'));
+    }
+
+    public function test_la_ruta_se_quita(): void
+    {
+        $this->assertNull($this->mapa()->call('verRuta', 1)->call('quitarRuta')->get('ruta'));
     }
 }

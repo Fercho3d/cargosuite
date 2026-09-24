@@ -58,6 +58,32 @@ y como identificador el mismo que se capture en el catálogo.
 ⚠️ Los GPS hablan TCP, no HTTP: el subdominio de Traccar va **sin el proxy de
 Cloudflare** (nube gris) y con los puertos abiertos en el firewall del servidor.
 
+## Ruta del viaje
+
+En el mapa, **Ver ruta del viaje** (en la ficha de la unidad o en la lista)
+dibuja:
+
+- **La ruta planeada** (azul): por carretera, del origen al destino pasando por
+  el punto de carga y el de entrega, los que tengan coordenadas en su catálogo.
+  Se calcula una vez por viaje y se guarda en `ruta_viaje`; se recalcula sola si
+  cambian las paradas.
+- **El recorrido real** (verde): las posiciones del GPS desde el día de la carga.
+
+Servicio de rutas (`.env`):
+
+```dotenv
+ORS_API_KEY=...            # OpenRouteService, perfil de camión de carga (driving-hgv)
+RUTAS_PROVEEDOR=ors        # ors | osrm | ninguno
+OSRM_URL=https://...       # OSRM propio, si se usa osrm
+```
+
+Sin `ORS_API_KEY` se usa OSRM; el servidor público de OSRM es **solo para
+pruebas** (no se permite uso comercial intensivo). La clave de OpenRouteService
+es gratuita con límite diario (openrouteservice.org); para casetas y
+restricciones de camión precisas están HERE, TomTom o Google Routes, de pago. Si
+el servicio no responde, la ruta sale como línea recta marcada «aproximada» y
+no se guarda.
+
 ## API
 
 - `POST /api/gps/posiciones` — JSON de Traccar: `device.uniqueId`,
@@ -75,4 +101,4 @@ sistema.
 
 - `gps:depura` (diario, 03:15) borra el historial más viejo que la retención.
 - `gps:simula-demo` (cada minuto, solo con `MARCA_DEMO=true`) mueve las unidades
-  de la demostración para que no salgan «sin señal».
+  de la demostración sobre la ruta de su viaje, para que no salgan «sin señal».

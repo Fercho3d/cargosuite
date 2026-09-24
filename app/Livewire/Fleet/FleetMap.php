@@ -3,7 +3,9 @@
 namespace App\Livewire\Fleet;
 
 use App\Support\Expediente;
+use App\Support\Gps\RutaDelViaje;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -25,22 +27,62 @@ class FleetMap extends Component
     /** @var list<array<string, mixed>> */
     public array $puntos = [];
 
+    /**
+     * La ruta del viaje de la unidad escogida: planeada, paradas y recorrido.
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $ruta = null;
+
     public function mount(): void
     {
         abort_unless(Expediente::usa('terrestre'), 404);
     }
 
-    /** @return list<array<string, mixed>> */
-    private function unidades(): array
+    /**
+     * El viaje en curso de cada unidad: el más reciente que no esté cerrado.
+     *
+     * @return Collection<int, object>
+     */
+    private function viajesEnCurso()
     {
-        // El viaje en curso de cada unidad: el más reciente que no esté cerrado.
-        $viajes = DB::table('booking as b')
+        return DB::table('booking as b')
             ->leftJoin('operador as o', 'o.operador_id', '=', 'b.operador_id')
             ->leftJoin('client as c', 'c.client_id', '=', 'b.client')
             ->whereNotNull('b.unidad_id')->where('b.is_draft', 0)->where('b.locked', 0)
             ->orderByDesc('b.booking_id')
             ->get(['b.booking_id', 'b.unidad_id', 'b.booking_number', 'o.nombre as operador', 'c.fullName as cliente'])
             ->unique('unidad_id')->keyBy('unidad_id');
+    }
+
+    /** Dibuja la ruta del viaje en curso de la unidad. Sin viaje, no hay ruta. */
+    public function verRuta(int $unidad, RutaDelViaje $rutas): void
+    {
+        $viaje = $this->viajesEnCurso()->get($unidad);
+        $planeada = $viaje === null ? null : $rutas->planeada((int) $viaje->booking_id);
+
+        $this->ruta = $viaje === null ? null : [
+            'unidad' => $unidad,
+            'booking' => (int) $viaje->booking_id,
+            'viaje' => (string) $viaje->booking_number,
+            'planeada' => $planeada['puntos'] ?? [],
+            'paradas' => $planeada['paradas'] ?? [],
+            'km' => $planeada['km'] ?? null,
+            'minutos' => $planeada['minutos'] ?? null,
+            'aproximada' => $planeada['aproximada'] ?? false,
+            'recorrido' => $rutas->recorrido((int) $viaje->booking_id),
+        ];
+    }
+
+    public function quitarRuta(): void
+    {
+        $this->ruta = null;
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function unidades(): array
+    {
+        $viajes = $this->viajesEnCurso();
 
         $limite = now()->subMinutes((int) config('gps.sin_senal_minutos'));
 
@@ -79,6 +121,11 @@ class FleetMap extends Component
 
     public function render()
     {
+        // Con cada refresco, el recorrido crece con lo último que mandó el GPS.
+        if ($this->ruta !== null) {
+            $this->ruta['recorrido'] = app(RutaDelViaje::class)->recorrido((int) $this->ruta['booking']);
+        }
+
         $todas = collect($this->unidades());
         $buscar = mb_strtolower(trim($this->buscar));
 

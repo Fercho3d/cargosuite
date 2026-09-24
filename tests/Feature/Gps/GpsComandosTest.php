@@ -54,4 +54,22 @@ class GpsComandosTest extends TestCase
 
         $this->assertSame(0, DB::table('gps_posicion')->count());
     }
+
+    /** Con viaje, la unidad de la demostración avanza sobre la carretera de su ruta. */
+    public function test_el_simulador_mueve_la_unidad_sobre_la_ruta_de_su_viaje(): void
+    {
+        config(['marca.demo' => true, 'gps.rutas.proveedor' => 'ninguno']);
+        $ruta = [[25.6866, -100.3161], [25.60, -100.35], [25.50, -100.40], [25.40, -100.45]];
+        DB::table('booking')->insert(['booking_id' => 44, 'booking_number' => 'VJ-01044', 'unidad_id' => 1, 'is_draft' => 0, 'locked' => 0]);
+        DB::table('ruta_viaje')->insert([
+            'booking_id' => 44, 'firma' => 'x', 'proveedor' => 'osrm', 'geometria' => json_encode($ruta), 'calculada_en' => now(),
+        ]);
+
+        $this->artisan('gps:simula-demo');
+
+        $posicion = DB::table('gps_dispositivo')->first(['ultima_lat', 'ultima_lng']);
+        $this->assertContains([round((float) $posicion->ultima_lat, 4), round((float) $posicion->ultima_lng, 4)], array_map(
+            fn ($p) => [round($p[0], 4), round($p[1], 4)], $ruta,
+        ));
+    }
 }
