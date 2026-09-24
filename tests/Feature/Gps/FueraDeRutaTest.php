@@ -26,7 +26,7 @@ class FueraDeRutaTest extends TestCase
 
         CoreSchema::create();
         Mail::fake();
-        config(['gps.desvio_km' => 5, 'gps.desvio_lecturas' => 2, 'marca.correo.avisos_operacion' => ['trafico@empresa.test']]);
+        config(['gps.desvio_km' => 5, 'gps.desvio_lecturas' => 2, 'gps.alertas_correo' => true, 'marca.correo.avisos_operacion' => ['trafico@empresa.test']]);
 
         DB::table('unidad')->insert(['unidad_id' => 1, 'numero' => 'T-101', 'tipo' => 'tractor', 'activo' => 1]);
         DB::table('gps_dispositivo')->insert(['dispositivo_id' => 1, 'identificador' => 'A', 'unidad_id' => 1, 'activo' => 1]);
@@ -78,6 +78,18 @@ class FueraDeRutaTest extends TestCase
         }
 
         Mail::assertSent(FueraDeRutaMail::class, 1);
+    }
+
+    /** El correo se puede apagar en Ajustes: la alerta sigue en el mapa y la campana. */
+    public function test_con_el_correo_apagado_la_alerta_se_abre_sin_mandar_correo(): void
+    {
+        config(['gps.alertas_correo' => false]);
+
+        $this->reporta(25.5, -100.2, 0);
+        $this->reporta(25.45, -100.19, 1);
+
+        Mail::assertNothingSent();
+        $this->assertSame(1, $this->abiertas());
     }
 
     public function test_al_volver_a_la_ruta_la_alerta_se_cierra(): void

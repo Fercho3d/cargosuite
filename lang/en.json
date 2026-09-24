@@ -1377,5 +1377,8 @@
     "Este aviso se manda una vez por desvío. Cuando la unidad vuelve a la ruta, la alerta se cierra sola.": "This notice is sent once per deviation. When the unit gets back on route, the alert closes by itself.",
     "Fuera de ruta": "Off route",
     "a :km km": ":km km away",
-    "{1}:n unidad fuera de ruta|[2,*]:n unidades fuera de ruta": "{1}:n unit off route|[2,*]:n units off route"
+    "{1}:n unidad fuera de ruta|[2,*]:n unidades fuera de ruta": "{1}:n unit off route|[2,*]:n units off route",
+    "Rastreo GPS": "GPS tracking",
+    "Mandar por correo las alertas de fuera de ruta": "Email off-route alerts",
+    "Las alertas siempre se ven en el mapa de la flota y en la campana. Encendido, además llega un correo por cada desvío a los avisos de operación.": "Alerts always show on the fleet map and in the bell. When on, an email is also sent to the operations notice address for every deviation."
 }

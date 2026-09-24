@@ -31,6 +31,8 @@ class Settings extends Component
 
     public bool $timbrado = false;
 
+    public bool $alertasCorreo = false;
+
     public string $vocabulario = '';
 
     public string $idiomaDocumentos = 'en';
@@ -57,6 +59,7 @@ class Settings extends Component
         $this->taller = (bool) config('marca.taller');
         $this->nomina = (bool) config('marca.nomina');
         $this->timbrado = (bool) config('timbrado.habilitado');
+        $this->alertasCorreo = (bool) config('gps.alertas_correo');
         $this->vocabulario = (string) config('marca.vocabulario');
         $this->idiomaDocumentos = (string) config('marca.idioma_documentos');
         $this->color = (string) config('marca.colores.acento_500');
@@ -124,6 +127,7 @@ class Settings extends Component
             'marca.taller' => $this->taller,
             'marca.nomina' => $this->nomina,
             'timbrado.habilitado' => $this->timbrado,
+            'gps.alertas_correo' => $this->alertasCorreo,
             'marca.vocabulario' => $this->vocabulario,
             'marca.idioma_documentos' => $this->idiomaDocumentos,
             // Sin el apartado a la vista no se guarda: si no, se pisarían los

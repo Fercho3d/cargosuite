@@ -29,6 +29,7 @@ class Ajustes
         'marca.nomina' => ['tipo' => 'booleano'],
         'marca.taller' => ['tipo' => 'booleano'],
         'timbrado.habilitado' => ['tipo' => 'booleano'],
+        'gps.alertas_correo' => ['tipo' => 'booleano'],
         'marca.vocabulario' => ['tipo' => 'texto'],
         'marca.idioma_documentos' => ['tipo' => 'opcion', 'opciones' => ['es', 'en']],
         'marca.colores.acento_400' => ['tipo' => 'texto'],

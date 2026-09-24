@@ -141,6 +141,23 @@
             </label>
         </fieldset>
 
+        {{-- El rastreo GPS es de flota propia. --}}
+        @if (in_array('terrestre', $disponibles))
+            <fieldset class="rounded-2xl border border-line bg-panel p-5">
+                <legend class="px-1 text-sm font-semibold text-ink">{{ __('Rastreo GPS') }}</legend>
+
+                <label class="mt-3 flex cursor-pointer gap-3">
+                    <input type="checkbox" wire:model="alertasCorreo" class="mt-0.5 h-4 w-4 shrink-0 rounded border-line">
+                    <span class="min-w-0">
+                        <span class="block text-sm font-medium text-ink">{{ __('Mandar por correo las alertas de fuera de ruta') }}</span>
+                        <span class="mt-1 block text-xs leading-relaxed text-ink-muted">
+                            {{ __('Las alertas siempre se ven en el mapa de la flota y en la campana. Encendido, además llega un correo por cada desvío a los avisos de operación.') }}
+                        </span>
+                    </span>
+                </label>
+            </fieldset>
+        @endif
+
         <fieldset class="rounded-2xl border border-line bg-panel p-5">
             <legend class="px-1 text-sm font-semibold text-ink">{{ __('Vocabulario e idioma') }}</legend>
 

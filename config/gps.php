@@ -43,6 +43,12 @@ return [
     'desvio_km' => (float) env('GPS_DESVIO_KM', 5),
     'desvio_lecturas' => 2,
 
+    /*
+     * ¿Las alertas de fuera de ruta se mandan además por correo? Apagado de
+     * fábrica: con una flota en movimiento pueden ser muchas. Se cambia en Ajustes.
+     */
+    'alertas_correo' => filter_var(env('GPS_ALERTAS_CORREO', false), FILTER_VALIDATE_BOOL),
+
     /* Días que se guarda el historial de posiciones. */
     'retencion_dias' => (int) env('GPS_RETENCION_DIAS', 90),
 

@@ -74,7 +74,7 @@ class VigilaRuta
 
         $destinos = (array) config('marca.correo.avisos_operacion');
 
-        if ($destinos === []) {
+        if (! config('gps.alertas_correo') || $destinos === []) {
             return;
         }
 

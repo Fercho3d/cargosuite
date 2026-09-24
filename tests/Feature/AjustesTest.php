@@ -239,4 +239,22 @@ class AjustesTest extends TestCase
             ->assertDontSee(__('El de origen (carga marítima)'))
             ->assertDontSee(__('Agente de carga marítima'));
     }
+
+    /** El correo de las alertas de fuera de ruta se prende y apaga desde aquí. */
+    public function test_el_correo_de_alertas_de_ruta_se_enciende_desde_la_pantalla(): void
+    {
+        config(['gps.alertas_correo' => false]);
+
+        $this->pantalla()->set('alertasCorreo', true)->set('modalidades', ['terrestre'])->call('guardar');
+
+        config(['gps.alertas_correo' => false]);
+        Ajustes::aplicar();
+
+        $this->assertTrue(config('gps.alertas_correo'));
+    }
+
+    public function test_de_fabrica_el_correo_de_alertas_de_ruta_esta_apagado(): void
+    {
+        $this->assertFalse(config('gps.alertas_correo'));
+    }
 }
