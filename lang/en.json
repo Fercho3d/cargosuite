@@ -1392,7 +1392,6 @@
     "clase de riesgo": "risk class",
     "la compañía no tiene :dato": "the company has no :dato",
     "El recibo no tiene percepciones que timbrar.": "The payslip has no earnings to stamp.",
-    "Solo se timbra una nómina ya pagada.": "Only a paid payroll can be stamped.",
     "Elige la compañía que timbra la nómina.": "Choose the company that stamps the payroll.",
     "Falta: :campos": "Missing: :campos",
     "Lo que se le paga a la plantilla en el periodo, con impuestos y cuotas según el régimen de cada empleado. Ya pagada, se timbra el recibo de cada empleado.": "What the staff is paid in the period, with taxes and contributions according to each employee's regime. Once paid, each employee's payslip is stamped.",
@@ -1403,5 +1402,16 @@
     "Sin régimen de nómina: no se timbra.": "No payroll regime: not stamped.",
     "Compañía que timbra": "Stamping company",
     "Elige…": "Choose…",
-    "Timbrar recibos": "Stamp payslips"
+    "Timbrar recibos": "Stamp payslips",
+    "Pagados :n de :total": "Paid :n of :total",
+    "Marcar toda pagada": "Mark all as paid",
+    "Timbrar todo lo pagado": "Stamp everything paid",
+    "Pago": "Payment",
+    "¿Registrar el pago de :nombre? Después su recibo ya no se podrá modificar.": "Record the payment to :nombre? Their payslip can no longer be changed afterwards.",
+    "Agregar percepción o deducción": "Add earning or deduction",
+    "A este empleado ya se le pagó: su recibo no se puede modificar.": "This employee has already been paid: their payslip cannot be changed.",
+    "Pago registrado.": "Payment recorded.",
+    "Esta nómina ya tiene empleados pagados y no se puede borrar.": "This payroll already has paid employees and cannot be deleted.",
+    "La nómina no existe.": "The payroll does not exist.",
+    "Solo se timbra lo que ya se pagó.": "Only what has been paid can be stamped."
 }

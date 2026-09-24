@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Schema;
  * Reúne sueldos, viajes, bonos y descuentos y, según el régimen de cada
  * empleado, sus impuestos y cuotas (ver `Impuestos`). Lo patronal se guarda
  * con tipo `patronal`: es costo de la empresa y no toca el neto. El CFDI de
- * nómina no se timbra aquí: se **exporta** al sistema fiscal de la empresa.
+ * nómina lo timbra `StampPayslip`.
  */
 class Payroll
 {
@@ -37,9 +37,14 @@ class Payroll
     {
         $fila = DB::table('nomina')->where('nomina_id', $nomina)->first();
 
-        DB::table('nomina_renglon')->where('nomina_id', $nomina)->where('automatico', 1)->delete();
+        // A quien ya se le pagó no se le mueve nada: su dinero ya salió.
+        $pagados = self::pagados($nomina);
+
+        DB::table('nomina_renglon')->where('nomina_id', $nomina)->where('automatico', 1)
+            ->whereNotIn('empleado_id', $pagados)->delete();
 
         $gravados = DB::table('nomina_renglon')->where('nomina_id', $nomina)->where('tipo', 'percepcion')
+            ->whereNotIn('empleado_id', $pagados)
             ->groupBy('empleado_id')->selectRaw('empleado_id, SUM(importe) as total')->pluck('total', 'empleado_id');
 
         foreach (DB::table('empleado')->whereIn('empleado_id', $gravados->keys())->get() as $empleado) {
@@ -51,6 +56,16 @@ class Payroll
                 ]);
             }
         }
+    }
+
+    /**
+     * Empleados de la nómina a los que ya se les pagó por separado.
+     *
+     * @return Collection<int, int>
+     */
+    public static function pagados(int $nomina): Collection
+    {
+        return DB::table('nomina_recibo')->where('nomina_id', $nomina)->whereNotNull('pagado_en')->pluck('empleado_id');
     }
 
     /**

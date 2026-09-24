@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Payments;
 
+use App\Livewire\Payments\PayrollDetail;
 use App\Livewire\Payments\PayrollManager;
 use App\Models\User;
 use App\Support\Ajustes;
@@ -54,6 +55,11 @@ class NominaTest extends TestCase
     private function pantalla(int $rol = User::ROLE_ADMIN): Testable
     {
         return Livewire::actingAs($this->admin($rol))->test(PayrollManager::class);
+    }
+
+    private function detalle(int $nomina = 1): Testable
+    {
+        return Livewire::actingAs($this->admin())->test(PayrollDetail::class, ['nomina' => $nomina]);
     }
 
     private function crear(string $desde = '2026-06-01', string $hasta = '2026-06-15'): Testable
@@ -136,7 +142,7 @@ class NominaTest extends TestCase
         $this->liquidacion(3500);
 
         $this->crear();
-        $this->pantalla()->call('borrar', 1);
+        $this->detalle()->call('borrar');
         $this->crear();
 
         $this->assertCount(1, DB::table('nomina_renglon')->whereNotNull('liquidacion_id')->get());
@@ -147,8 +153,7 @@ class NominaTest extends TestCase
     {
         $this->crear();
 
-        $this->pantalla()
-            ->set('abierta', 1)
+        $this->detalle()
             ->set('empleado', '2')->set('concepto', 'Préstamo')->set('tipo', 'deduccion')->set('importe', '1500')
             ->call('agregarRenglon')
             ->assertHasNoErrors();
@@ -165,7 +170,7 @@ class NominaTest extends TestCase
         $this->liquidacion(3500);
         $this->crear();
 
-        $this->pantalla()->set('abierta', 1)
+        $this->detalle()
             ->assertSee('Miguel Ramírez')
             ->assertSee('Ana Torres')
             ->assertDontSee('Quien ya no está')
@@ -177,10 +182,9 @@ class NominaTest extends TestCase
     public function test_una_nomina_pagada_no_se_puede_modificar(): void
     {
         $this->crear();
-        $this->pantalla()->call('pagar', 1);
+        $this->detalle()->call('pagar');
 
-        $this->pantalla()
-            ->set('abierta', 1)
+        $this->detalle()
             ->set('empleado', '2')->set('concepto', 'Bono')->set('importe', '100')
             ->call('agregarRenglon')
             ->assertStatus(422);
@@ -210,7 +214,7 @@ class NominaTest extends TestCase
     {
         $this->crear();
 
-        $descarga = $this->pantalla()->call('exportar', 1)->assertFileDownloaded();
+        $descarga = $this->detalle()->call('exportar')->assertFileDownloaded();
 
         $csv = base64_decode($descarga->effects['download']['content']);
 

@@ -1,5 +1,3 @@
-@php $dinero = fn ($v) => '$'.number_format((float) $v, 2); @endphp
-
 <div class="space-y-4">
     <header class="flex flex-wrap items-baseline justify-between gap-3">
         <div>
@@ -69,10 +67,14 @@
             </thead>
             <tbody class="divide-y divide-line">
                 @forelse ($nominas as $n)
+                    @php
+                        $pagadosN = (int) ($pagados[$n->nomina_id] ?? 0);
+                        $totalN = (int) ($empleadosPorNomina[$n->nomina_id] ?? 0);
+                    @endphp
                     <tr class="transition hover:bg-raised">
                         <td class="px-3 py-2">
-                            <button wire:click="ver({{ $n->nomina_id }})"
-                                    class="font-medium text-brand hover:underline">{{ $n->numero }}</button>
+                            <a href="{{ route('payments.payroll.show', $n->nomina_id) }}" wire:navigate
+                               class="font-medium text-brand hover:underline">{{ $n->numero }}</a>
                         </td>
                         <td class="whitespace-nowrap px-3 py-2 text-ink-muted">
                             {{ \Illuminate\Support\Carbon::parse($n->desde)->format('d/m/Y') }}
@@ -82,159 +84,21 @@
                             {{ __(ucfirst($n->periodicidad)) }}
                         </td>
                         <td class="px-3 py-2">
-                            <span class="{{ $n->estado === 'pagada' ? 'badge-ok' : 'badge-warn' }} rounded px-2 py-0.5 text-xs">
-                                {{ $n->estado === 'pagada' ? __('Pagada') : __('Abierta') }}
-                            </span>
-                        </td>
-                        <td class="whitespace-nowrap px-3 py-2 text-right">
-                            <button wire:click="exportar({{ $n->nomina_id }})"
-                                    class="rounded-lg border border-line px-2.5 py-1 text-xs text-ink-soft transition hover:bg-raised">
-                                {{ __('Exportar') }}
-                            </button>
-                            @if ($n->estado === 'abierta')
-                                <button wire:click="pagar({{ $n->nomina_id }})"
-                                        wire:confirm="{{ __('¿Marcar esta nómina como pagada? Después ya no se podrá modificar.') }}"
-                                        class="rounded-lg border border-line px-2.5 py-1 text-xs text-ink-soft transition hover:bg-raised">
-                                    {{ __('Marcar pagada') }}
-                                </button>
-                                <button wire:click="borrar({{ $n->nomina_id }})"
-                                        wire:confirm="{{ __('¿Borrar esta nómina y todos sus renglones?') }}"
-                                        class="rounded-lg border border-line px-2.5 py-1 text-xs text-ink-soft transition hover:bg-raised">
-                                    {{ __('Borrar') }}
-                                </button>
-                            @elseif (auth()->user()?->isSuperAdmin())
-                                <button wire:click="reabrir({{ $n->nomina_id }})"
-                                        class="rounded-lg border border-line px-2.5 py-1 text-xs text-ink-soft transition hover:bg-raised">
-                                    {{ __('Reabrir') }}
-                                </button>
+                            @if ($n->estado === 'pagada')
+                                <span class="badge-ok rounded px-2 py-0.5 text-xs">{{ __('Pagada') }}</span>
+                            @elseif ($pagadosN > 0)
+                                <span class="badge-warn rounded px-2 py-0.5 text-xs">{{ __('Pagados :n de :total', ['n' => $pagadosN, 'total' => $totalN]) }}</span>
+                            @else
+                                <span class="badge-warn rounded px-2 py-0.5 text-xs">{{ __('Abierta') }}</span>
                             @endif
                         </td>
+                        <td class="whitespace-nowrap px-3 py-2 text-right">
+                            <a href="{{ route('payments.payroll.show', $n->nomina_id) }}" wire:navigate
+                               class="rounded-lg border border-line px-2.5 py-1 text-xs text-ink-soft transition hover:bg-raised">
+                                {{ __('Abrir') }}
+                            </a>
+                        </td>
                     </tr>
-
-                    @if ($abierta === $n->nomina_id)
-                        <tr>
-                            <td colspan="5" class="bg-raised px-3 py-4">
-                                <table class="w-full text-sm">
-                                    <thead class="text-xs uppercase tracking-wide text-ink-faint">
-                                        <tr>
-                                            <th class="py-1.5 pr-3 text-left font-semibold">{{ __('Empleado') }}</th>
-                                            <th class="py-1.5 pr-3 text-right font-semibold">{{ __('Percepciones') }}</th>
-                                            <th class="py-1.5 pr-3 text-right font-semibold">{{ __('Deducciones') }}</th>
-                                            <th class="py-1.5 pr-3 text-right font-semibold">{{ __('Neto') }}</th>
-                                            <th class="py-1.5 pr-3 text-right font-semibold" title="{{ __('IMSS, retiro, cesantía e INFONAVIT que paga la empresa. No baja el neto.') }}">{{ __('Costo patronal') }}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-line">
-                                        @foreach ($detalle as $e)
-                                            <tr>
-                                                <td class="py-1.5 pr-3">
-                                                    <span class="text-ink">{{ $e->nombre }}</span>
-                                                    @if ($e->puesto)
-                                                        <span class="ml-1 text-xs text-ink-faint">{{ $e->puesto }}</span>
-                                                    @endif
-
-                                                    {{-- El desglose va debajo del nombre: es lo que se reclama
-                                                         cuando el neto no cuadra, y así se ve sin otro clic. --}}
-                                                    <span class="mt-0.5 block text-xs text-ink-faint">
-                                                        @foreach ($renglones[$e->empleado_id] ?? [] as $r)
-                                                            <span class="mr-3 inline-block whitespace-nowrap {{ $r->tipo === 'patronal' ? 'italic' : '' }}">
-                                                                {{ $r->concepto }}
-                                                                <span class="{{ $r->tipo === 'deduccion' ? 'text-(--danger-ink)' : 'text-ink-soft' }}">
-                                                                    {{ ['deduccion' => '−', 'percepcion' => '+'][$r->tipo] ?? '' }}{{ $dinero($r->importe) }}
-                                                                </span>
-                                                                {{-- Lo automático se rehace solo: quitarlo no serviría. --}}
-                                                                @if ($n->estado === 'abierta' && ! $r->automatico)
-                                                                    <button wire:click="quitarRenglon({{ $r->renglon_id }})"
-                                                                            title="{{ __('Quitar') }}"
-                                                                            class="ml-0.5 px-0.5 hover:text-brand">×</button>
-                                                                @endif
-                                                            </span>
-                                                        @endforeach
-                                                    </span>
-
-                                                    @php $recibo = $recibos[$e->empleado_id] ?? null; @endphp
-                                                    @if ($recibo?->estado === 'timbrado')
-                                                        <span class="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                                                            <span class="badge-ok rounded px-2 py-0.5">{{ __('Timbrado') }}</span>
-                                                            <span class="font-mono text-ink-faint">{{ $recibo->uuid }}</span>
-                                                            <button wire:click="descargarRecibo({{ $recibo->recibo_id }}, 'xml')" class="text-brand hover:underline">XML</button>
-                                                            <button wire:click="descargarRecibo({{ $recibo->recibo_id }}, 'pdf')" class="text-brand hover:underline">PDF</button>
-                                                            <button wire:click="cancelarRecibo({{ $recibo->recibo_id }})"
-                                                                    wire:confirm="{{ __('¿Cancelar este recibo ante el SAT?') }}"
-                                                                    class="text-ink-faint hover:text-brand">{{ __('Cancelar') }}</button>
-                                                        </span>
-                                                    @elseif ($recibo?->estado === 'error')
-                                                        <span class="mt-1 block text-xs text-(--danger-ink)">{{ __('No se timbró') }}: {{ $recibo->mensaje }}</span>
-                                                    @elseif ($recibo?->estado === 'cancelado')
-                                                        <span class="mt-1 block text-xs text-ink-faint">{{ __('Recibo cancelado') }} · <span class="font-mono">{{ $recibo->uuid }}</span></span>
-                                                    @elseif ($n->estado === 'pagada' && ! $timbrable->has($e->empleado_id))
-                                                        <span class="mt-1 block text-xs text-ink-faint">{{ __('Sin régimen de nómina: no se timbra.') }}</span>
-                                                    @endif
-                                                </td>
-                                                <td class="py-1.5 pr-3 text-right tabular-nums text-ink">{{ $dinero($e->percepciones) }}</td>
-                                                <td class="py-1.5 pr-3 text-right tabular-nums {{ $e->deducciones > 0 ? 'text-(--danger-ink)' : 'text-ink-faint' }}">{{ $dinero($e->deducciones) }}</td>
-                                                <td class="py-1.5 pr-3 text-right font-semibold tabular-nums text-ink">{{ $dinero($e->neto) }}</td>
-                                                <td class="py-1.5 pr-3 text-right tabular-nums text-ink-faint">{{ $dinero($e->patronal) }}</td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                    <tfoot class="border-t border-line">
-                                        <tr>
-                                            <td class="pt-2 text-xs text-ink-muted">
-                                                {{ $totales['empleados'] }} {{ mb_strtolower(__('Empleados')) }}
-                                            </td>
-                                            <td class="pt-2 text-right tabular-nums text-ink-soft">{{ $dinero($totales['percepciones']) }}</td>
-                                            <td class="pt-2 text-right tabular-nums text-ink-soft">{{ $dinero($totales['deducciones']) }}</td>
-                                            <td class="pt-2 text-right text-base font-semibold tabular-nums text-ink">{{ $dinero($totales['neto']) }}</td>
-                                            <td class="pt-2 text-right tabular-nums text-ink-soft">{{ $dinero($totales['patronal']) }}</td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-
-                                @if ($n->estado === 'pagada' && config('timbrado.habilitado'))
-                                    <div class="mt-4 flex flex-wrap items-end gap-2">
-                                        @if ($n->company_id === null)
-                                            <label class="block">
-                                                <span class="field-label">{{ __('Compañía que timbra') }}</span>
-                                                <select wire:model="emisor" class="field-input mt-1.5">
-                                                    <option value="">{{ __('Elige…') }}</option>
-                                                    @foreach ($companias as $id => $nombre)
-                                                        <option value="{{ $id }}" @selected((string) $id === $emisor)>{{ $nombre }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </label>
-                                        @endif
-                                        <x-submit-button wire:click="timbrar({{ $n->nomina_id }})">{{ __('Timbrar recibos') }}</x-submit-button>
-                                    </div>
-                                @endif
-
-                                @if ($n->estado === 'abierta')
-                                    <div class="mt-4 grid gap-2 sm:grid-cols-5">
-                                        <select wire:model="empleado" class="field-input">
-                                            <option value="">{{ __('Empleado') }}</option>
-                                            @foreach ($empleados as $id => $nombre)
-                                                <option value="{{ $id }}" @selected((string) $id === $empleado)>{{ $nombre }}</option>
-                                            @endforeach
-                                        </select>
-                                        <input type="text" wire:model="concepto" value="{{ $concepto }}"
-                                               class="field-input sm:col-span-2" placeholder="{{ __('Concepto') }}">
-                                        <select wire:model="tipo" class="field-input">
-                                            <option value="percepcion" @selected($tipo === 'percepcion')>{{ __('Percepción') }}</option>
-                                            <option value="deduccion" @selected($tipo === 'deduccion')>{{ __('Deducción') }}</option>
-                                        </select>
-                                        <div class="flex gap-2">
-                                            <input type="number" step="0.01" wire:model="importe" value="{{ $importe }}"
-                                                   class="field-input" placeholder="0.00">
-                                            <button wire:click="agregarRenglon"
-                                                    class="shrink-0 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:bg-panel">
-                                                {{ __('Agregar') }}
-                                            </button>
-                                        </div>
-                                    </div>
-                                @endif
-                            </td>
-                        </tr>
-                    @endif
                 @empty
                     <tr>
                         <td colspan="5" class="px-3 py-12 text-center text-ink-faint">{{ __('No hay nóminas.') }}</td>

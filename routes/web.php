@@ -32,6 +32,7 @@ use App\Livewire\Payments\PaymentRequestDetail;
 use App\Livewire\Payments\PaymentRequestForm;
 use App\Livewire\Payments\PaymentRequestList;
 use App\Livewire\Payments\PaymentsReport;
+use App\Livewire\Payments\PayrollDetail;
 use App\Livewire\Payments\PayrollManager;
 use App\Livewire\Payments\SettlementManager;
 use App\Livewire\Portal\PortalDocument;
@@ -164,6 +165,7 @@ Route::middleware(['auth', EnsureUserIsInternal::class])->group(function () {
         // Liquidaciones de operadores: solo tienen sentido con flota propia.
         Route::get('/liquidaciones', SettlementManager::class)->name('settlements');
         Route::get('/nomina', PayrollManager::class)->name('payroll');
+        Route::get('/nomina/{nomina}', PayrollDetail::class)->whereNumber('nomina')->name('payroll.show');
         Route::get('/solicitudes/nueva', PaymentRequestForm::class)->name('requests.create');
         Route::get('/solicitudes/{request}/documento.pdf', PaymentRequestDocumentController::class)
             ->whereNumber('request')->name('requests.document');

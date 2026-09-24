@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Payments;
 
+use App\Livewire\Payments\PayrollDetail;
 use App\Livewire\Payments\PayrollManager;
 use App\Models\User;
 use App\Support\Cfdi\PacClient;
@@ -50,19 +51,25 @@ class NominaTimbradoTest extends TestCase
         ], 'empleado_id');
     }
 
-    /** Crea la nómina de la quincena y la marca pagada. */
-    private function pagada(): Testable
+    /** Crea la nómina de la quincena y abre su página, sin pagar todavía. */
+    private function abierta(): Testable
     {
         $admin = User::forceCreate([
             'username' => 'jefa', 'password' => 'secreto-de-prueba',
             'role' => User::ROLE_ADMIN, 'access' => User::ACCESS_INTERNAL, 'status' => 1,
         ]);
 
-        $pantalla = Livewire::actingAs($admin)->test(PayrollManager::class)
+        Livewire::actingAs($admin)->test(PayrollManager::class)
             ->set('desde', '2026-06-01')->set('hasta', '2026-06-15')->set('periodicidad', 'quincenal')
             ->call('crear');
 
-        return $pantalla->call('pagar', (int) DB::table('nomina')->value('nomina_id'));
+        return Livewire::test(PayrollDetail::class, ['nomina' => $this->nomina()]);
+    }
+
+    /** Ídem, con la nómina entera pagada. */
+    private function pagada(): Testable
+    {
+        return $this->abierta()->call('pagar');
     }
 
     private function nomina(): int
@@ -74,7 +81,7 @@ class NominaTimbradoTest extends TestCase
     {
         $this->empleado();
 
-        $this->pagada()->set('emisor', '1')->call('timbrar', $this->nomina())->assertHasNoErrors();
+        $this->pagada()->set('emisor', '1')->call('timbrar')->assertHasNoErrors();
 
         $this->assertSame('timbrado', DB::table('nomina_recibo')->value('estado'));
         $this->assertStringContainsString("[ComplementoNomina]\nVersion=1.2", $this->pac->layoutRecibido);
@@ -91,7 +98,7 @@ class NominaTimbradoTest extends TestCase
     public function test_el_total_del_cfdi_es_el_neto_de_la_nomina(): void
     {
         $id = $this->empleado();
-        $this->pagada()->set('emisor', '1')->call('timbrar', $this->nomina());
+        $this->pagada()->set('emisor', '1')->call('timbrar');
 
         $neto = DB::table('nomina_renglon')->where('empleado_id', $id)->get()
             ->sum(fn ($r) => ['percepcion' => 1, 'deduccion' => -1, 'patronal' => 0][$r->tipo] * round((float) $r->importe, 2));
@@ -103,7 +110,7 @@ class NominaTimbradoTest extends TestCase
     {
         $this->empleado('asimilados');
 
-        $this->pagada()->set('emisor', '1')->call('timbrar', $this->nomina());
+        $this->pagada()->set('emisor', '1')->call('timbrar');
 
         $this->assertStringContainsString("TipoRegimen=09\n", $this->pac->layoutRecibido);
         $this->assertStringContainsString("TipoPercepcion=046\n", $this->pac->layoutRecibido);
@@ -113,7 +120,7 @@ class NominaTimbradoTest extends TestCase
     public function test_una_nomina_abierta_no_se_timbra(): void
     {
         $this->empleado();
-        $this->pagada()->call('reabrir', $this->nomina());
+        $this->pagada()->call('reabrir');
 
         $this->assertNull($this->pac->layoutRecibido);
     }
@@ -124,7 +131,7 @@ class NominaTimbradoTest extends TestCase
         $this->empleado();
         $this->empleado(mas: ['nombre' => 'Sin Curp', 'curp' => null]);
 
-        $this->pagada()->set('emisor', '1')->call('timbrar', $this->nomina());
+        $this->pagada()->set('emisor', '1')->call('timbrar');
 
         $this->assertSame(['error', 'timbrado'], DB::table('nomina_recibo')->orderBy('estado')->pluck('estado')->all());
     }
@@ -134,7 +141,7 @@ class NominaTimbradoTest extends TestCase
     {
         $this->empleado('honorarios');
 
-        $this->pagada()->set('emisor', '1')->call('timbrar', $this->nomina());
+        $this->pagada()->set('emisor', '1')->call('timbrar');
 
         $this->assertNull($this->pac->layoutRecibido);
     }
@@ -143,10 +150,10 @@ class NominaTimbradoTest extends TestCase
     public function test_no_se_timbra_dos_veces_el_mismo_recibo(): void
     {
         $this->empleado();
-        $pantalla = $this->pagada()->set('emisor', '1')->call('timbrar', $this->nomina());
+        $pantalla = $this->pagada()->set('emisor', '1')->call('timbrar');
         $this->pac->layoutRecibido = null;
 
-        $pantalla->call('timbrar', $this->nomina());
+        $pantalla->call('timbrar');
 
         $this->assertNull($this->pac->layoutRecibido);
     }
@@ -158,18 +165,73 @@ class NominaTimbradoTest extends TestCase
             'username' => 'super', 'password' => 'secreto-de-prueba',
             'role' => User::ROLE_SUPER_ADMIN, 'access' => User::ACCESS_INTERNAL, 'status' => 1,
         ]);
-        $this->pagada()->set('emisor', '1')->call('timbrar', $this->nomina());
+        $this->pagada()->set('emisor', '1')->call('timbrar');
 
-        Livewire::actingAs($super)->test(PayrollManager::class)->call('reabrir', $this->nomina())->assertStatus(422);
+        Livewire::actingAs($super)->test(PayrollDetail::class, ['nomina' => $this->nomina()])->call('reabrir')->assertStatus(422);
     }
 
     public function test_cancelar_libera_el_recibo_para_volver_a_timbrar(): void
     {
         $this->empleado();
-        $pantalla = $this->pagada()->set('emisor', '1')->call('timbrar', $this->nomina());
+        $pantalla = $this->pagada()->set('emisor', '1')->call('timbrar');
 
         $pantalla->call('cancelarRecibo', (int) DB::table('nomina_recibo')->value('recibo_id'));
 
         $this->assertSame([['uuid' => $this->pac->uuid, 'rfcEmisor' => 'TDE010101AB1', 'motivo' => '02', 'sustituye' => null]], $this->pac->cancelaciones);
+    }
+
+    /** Pagar a uno solo deja timbrar su recibo sin esperar a los demás. */
+    public function test_un_empleado_pagado_por_separado_se_timbra_solo(): void
+    {
+        $ana = $this->empleado();
+        $this->empleado(mas: ['nombre' => 'Luis Pérez']);
+
+        $this->abierta()->set('emisor', '1')->call('pagarEmpleado', $ana)->call('timbrar', $ana)->assertHasNoErrors();
+
+        $this->assertSame([$ana => 'timbrado'], DB::table('nomina_recibo')->whereNotNull('uuid')->pluck('estado', 'empleado_id')->all());
+    }
+
+    public function test_lo_que_no_se_ha_pagado_no_se_timbra(): void
+    {
+        $ana = $this->empleado();
+
+        $this->abierta()->set('emisor', '1')->call('timbrar', $ana)->assertHasErrors('timbrado');
+
+        $this->assertNull($this->pac->layoutRecibido);
+    }
+
+    /** A quien ya se le pagó no se le agrega nada: su dinero ya salió. */
+    public function test_al_empleado_pagado_no_se_le_puede_agregar_nada(): void
+    {
+        $ana = $this->empleado();
+
+        $this->abierta()->call('pagarEmpleado', $ana)
+            ->set('empleado', (string) $ana)->set('concepto', 'Bono')->set('importe', '100')
+            ->call('agregarRenglon')
+            ->assertStatus(422);
+    }
+
+    /** Pagados todos uno por uno, la nómina queda pagada sola. */
+    public function test_pagar_a_todos_por_separado_cierra_la_nomina(): void
+    {
+        $ana = $this->empleado();
+        $luis = $this->empleado(mas: ['nombre' => 'Luis Pérez']);
+
+        $this->abierta()->call('pagarEmpleado', $ana)->call('pagarEmpleado', $luis);
+
+        $this->assertSame('pagada', DB::table('nomina')->value('estado'));
+    }
+
+    /** Un ISR recalculado por otro empleado no mueve el recibo de quien ya cobró. */
+    public function test_recalcular_no_toca_al_empleado_pagado(): void
+    {
+        $ana = $this->empleado();
+        $luis = $this->empleado(mas: ['nombre' => 'Luis Pérez']);
+        $pantalla = $this->abierta()->call('pagarEmpleado', $ana);
+        $antes = DB::table('nomina_renglon')->where('empleado_id', $ana)->orderBy('renglon_id')->get()->toArray();
+
+        $pantalla->set('empleado', (string) $luis)->set('concepto', 'Bono')->set('importe', '100')->call('agregarRenglon');
+
+        $this->assertEquals($antes, DB::table('nomina_renglon')->where('empleado_id', $ana)->orderBy('renglon_id')->get()->toArray());
     }
 }

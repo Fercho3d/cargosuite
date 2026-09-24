@@ -15,21 +15,21 @@ use Illuminate\Support\Facades\Storage;
 /**
  * Timbra los recibos de nómina (CFDI 4.0 + Nómina 1.2) ante el PAC.
  *
- * Solo una nómina **pagada**: sus importes ya no se mueven y la fecha de pago
- * del recibo es la del pago. Cada recibo se timbra por su cuenta; si uno falla
- * (le falta la CURP, el PAC lo rechaza) los demás siguen y el error queda
- * guardado en su renglón para enseñarlo.
+ * Solo lo **pagado** —la nómina entera o el empleado por separado—: sus
+ * importes ya no se mueven y la fecha de pago del recibo es la del pago. Cada
+ * recibo se timbra por su cuenta; si uno falla (le falta la CURP, el PAC lo
+ * rechaza) los demás siguen y el error queda guardado en su renglón.
  */
 class StampPayslip
 {
     public function __construct(private PacClient $pac) {}
 
     /**
-     * Timbra lo que falte de la nómina.
+     * Timbra lo que falte de la nómina, o solo el recibo de `$empleadoId`.
      *
      * @return array{timbrados: int, errores: int}
      */
-    public function handle(int $nominaId, ?int $companyId = null): array
+    public function handle(int $nominaId, ?int $companyId = null, ?int $empleadoId = null): array
     {
         if (! config('timbrado.habilitado')) {
             throw new CfdiException(__('Esta instalación no factura con CFDI.'));
@@ -37,8 +37,16 @@ class StampPayslip
 
         $nomina = DB::table('nomina')->where('nomina_id', $nominaId)->first();
 
-        if ($nomina === null || $nomina->estado !== 'pagada') {
-            throw new CfdiException(__('Solo se timbra una nómina ya pagada.'));
+        if ($nomina === null) {
+            throw new CfdiException(__('La nómina no existe.'));
+        }
+
+        // Fecha de pago de cada empleado: la suya, o la de la nómina entera.
+        $pagos = DB::table('nomina_recibo')->where('nomina_id', $nominaId)->whereNotNull('pagado_en')->pluck('pagado_en', 'empleado_id');
+        $pagadoEn = fn (int $empleado) => $pagos[$empleado] ?? ($nomina->estado === 'pagada' ? ($nomina->pagada_en ?? now()->toDateTimeString()) : null);
+
+        if ($empleadoId !== null ? $pagadoEn($empleadoId) === null : ($nomina->estado !== 'pagada' && $pagos->isEmpty())) {
+            throw new CfdiException(__('Solo se timbra lo que ya se pagó.'));
         }
 
         $emisor = Company::find($nomina->company_id ?? $companyId);
@@ -60,11 +68,13 @@ class StampPayslip
         $cuenta = ['timbrados' => 0, 'errores' => 0];
 
         $empleados = DB::table('empleado')->whereIn('empleado_id', $renglones->keys())
-            ->whereIn('regimen', ['sueldos', 'asimilados'])->whereNotIn('empleado_id', $hechos)->get();
+            ->when($empleadoId !== null, fn ($q) => $q->where('empleado_id', $empleadoId))
+            ->whereIn('regimen', ['sueldos', 'asimilados'])->whereNotIn('empleado_id', $hechos)->get()
+            ->filter(fn (object $e) => $pagadoEn((int) $e->empleado_id) !== null);
 
         foreach ($empleados as $empleado) {
             try {
-                $this->timbra($nomina, $empleado, $emisor, $renglones[$empleado->empleado_id]);
+                $this->timbra($nomina, $empleado, $emisor, $renglones[$empleado->empleado_id], $pagadoEn((int) $empleado->empleado_id));
                 $cuenta['timbrados']++;
             } catch (CfdiException $e) {
                 $this->guarda($nomina, $empleado, ['estado' => 'error', 'mensaje' => mb_substr($e->getMessage(), 0, 500)]);
@@ -82,7 +92,7 @@ class StampPayslip
     }
 
     /** @param  Collection<int, object>  $renglones */
-    private function timbra(object $nomina, object $empleado, Company $emisor, Collection $renglones): void
+    private function timbra(object $nomina, object $empleado, Company $emisor, Collection $renglones, string $pagadoEn): void
     {
         $faltan = NominaLayout::faltantes($empleado, $emisor);
 
@@ -108,7 +118,7 @@ class StampPayslip
             emisor: $emisor,
             renglones: $renglones,
             folio: $nomina->nomina_id.'-'.$empleado->empleado_id,
-            fechaPago: Carbon::parse($nomina->pagada_en ?? now())->toDateString(),
+            fechaPago: Carbon::parse($pagadoEn)->toDateString(),
             salarioIntegrado: $asimilado ? 0 : Impuestos::salarioIntegrado($empleado, $nomina->hasta),
             subsidioCausado: $asimilado ? 0 : Impuestos::subsidioCausado($gravado, $dias, $nomina->hasta),
         ))->build();

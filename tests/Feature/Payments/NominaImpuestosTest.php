@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Payments;
 
+use App\Livewire\Payments\PayrollDetail;
 use App\Livewire\Payments\PayrollManager;
 use App\Models\User;
 use App\Support\Catalogs\CatalogRegistry;
@@ -171,7 +172,9 @@ class NominaImpuestosTest extends TestCase
     {
         $id = $this->empleado(600);
 
-        $this->pantalla()->set('empleado', (string) $id)->set('concepto', 'Bono')
+        $this->pantalla();
+
+        Livewire::test(PayrollDetail::class, ['nomina' => (int) DB::table('nomina')->value('nomina_id')])->set('empleado', (string) $id)->set('concepto', 'Bono')
             ->set('tipo', 'percepcion')->set('importe', '1000')->call('agregarRenglon');
 
         $this->assertSame(1, DB::table('nomina_renglon')->where('concepto', 'like', 'ISR%')->count());
