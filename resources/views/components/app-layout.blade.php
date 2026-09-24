@@ -35,8 +35,9 @@
     $primerCatalogo = collect(\App\Support\Catalogs\CatalogRegistry::visibles())
         ->first(fn ($catalogo) => $esSuperAdmin || ! $catalogo->superAdmin);
 
+    $panel = [[__('Panel'), route('dashboard'), request()->routeIs('dashboard'), 'panel']];
+
     $nav = array_merge(
-        [[__('Panel'), route('dashboard'), request()->routeIs('dashboard'), 'panel']],
         $esAdmin ? [
             [__('Ingresos'), route('transactions.invoice'), request()->routeIs('transactions.invoice'), 'factura'],
             [__('Gastos'), route('transactions.bill'), request()->routeIs('transactions.bill'), 'costo'],
@@ -48,7 +49,7 @@
                 : []),
             // La nómina se apaga entera en quien ya la lleva en otro sistema.
             ...(config('marca.nomina')
-                ? [[__('Nómina'), route('payments.payroll'), request()->routeIs('payments.payroll'), 'nomina']]
+                ? [[__('Nómina'), route('payments.payroll'), request()->routeIs('payments.payroll*'), 'nomina']]
                 : []),
             // El taller solo con flota propia: quien subcontrata no repara nada.
             ...(config('marca.taller') && \App\Support\Expediente::visible('unidadId')
@@ -137,7 +138,8 @@
         </div>
 
         <nav class="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3 text-sm">
-            @foreach ([['', $nav], [__('Operación'), $operacion], [__('Reportes'), $reportes], ['', $ajustes]] as [$seccion, $items])
+            {{-- Operación va justo después del panel: es lo que usa todo el personal a diario. --}}
+            @foreach ([['', $panel], [__('Operación'), $operacion], ['', $nav], [__('Reportes'), $reportes], ['', $ajustes]] as [$seccion, $items])
             @if ($seccion !== '')
                 <p class="mt-4 px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-faint" :class="colapsado && 'lg:hidden'">{{ $seccion }}</p>
                 <hr class="my-2 hidden border-line" :class="colapsado && 'lg:block'">
