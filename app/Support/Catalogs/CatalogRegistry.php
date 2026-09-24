@@ -147,16 +147,6 @@ class CatalogRegistry
                     new CatalogField('rfc', __('RFC'), rules: ['nullable', 'string', 'max:20'], inList: false),
                     new CatalogField('curp', __('CURP'), rules: ['nullable', 'string', 'max:20'], inList: false),
                     new CatalogField('nss', __('NSS'), rules: ['nullable', 'string', 'max:20'], inList: false),
-                    // Los dos que pide el CFDI de nómina además de RFC y CURP.
-                    new CatalogField('codigo_postal', __('C.P. fiscal'), rules: ['nullable', 'string', 'regex:/^\d{5}$/'], inList: false),
-                    new CatalogField(
-                        'entidad',
-                        __('Estado donde labora'),
-                        type: 'select',
-                        rules: ['nullable', Rule::in(array_keys(NominaLayout::ENTIDADES))],
-                        inList: false,
-                        options: fn () => NominaLayout::ENTIDADES,
-                    ),
                     new CatalogField('ingreso', __('Ingreso'), type: 'date', rules: ['nullable', 'date'], inList: false),
                     new CatalogField('notas', __('Notas'), rules: ['nullable', 'string', 'max:255'], inList: false),
                     new CatalogField('activo', __('Activo'), type: 'boolean', rules: ['boolean']),
