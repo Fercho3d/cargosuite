@@ -199,13 +199,16 @@
 
             <h1 class="min-w-0 flex-1 truncate text-sm font-semibold text-ink-soft">{{ $title }}</h1>
 
-            <a href="{{ config('services.legacy.url') ?: 'http://'.request()->getHost() }}" target="_blank" rel="noopener"
-               class="btn-ghost shrink-0 !px-3 !py-1.5 text-xs" title="{{ __('Abrir el sistema anterior en otra pestaña') }}">
-                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M14 5h5v5M19 5l-8 8M10 5H5v14h14v-5"/>
-                </svg>
-                <span class="hidden sm:inline">{{ __('Sistema anterior') }}</span>
-            </a>
+            {{-- Solo mientras conviven los dos sistemas (LEGACY_URL). --}}
+            @if (config('services.legacy.url'))
+                <a href="{{ config('services.legacy.url') }}" target="_blank" rel="noopener"
+                   class="btn-ghost shrink-0 !px-3 !py-1.5 text-xs" title="{{ __('Abrir el sistema anterior en otra pestaña') }}">
+                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 5h5v5M19 5l-8 8M10 5H5v14h14v-5"/>
+                    </svg>
+                    <span class="hidden sm:inline">{{ __('Sistema anterior') }}</span>
+                </a>
+            @endif
 
             <x-notice-bell />
 

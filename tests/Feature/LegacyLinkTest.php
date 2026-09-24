@@ -20,4 +20,17 @@ class LegacyLinkTest extends TestCase
         $this->actingAs($usuario)->get(route('dashboard'))
             ->assertSee('href="http://viejo.test"', false);
     }
+
+    /** Una instalación sin sistema anterior no enseña el botón. */
+    public function test_sin_sistema_anterior_no_hay_boton(): void
+    {
+        CoreSchema::create();
+        CoreSchema::createUsers();
+        config(['services.legacy.url' => null]);
+
+        $usuario = User::forceCreate(['username' => 'operador', 'password' => 'secreto-de-prueba', 'role' => User::ROLE_ADMIN, 'status' => 1]);
+
+        $this->actingAs($usuario)->get(route('dashboard'))
+            ->assertDontSee(__('Sistema anterior'));
+    }
 }

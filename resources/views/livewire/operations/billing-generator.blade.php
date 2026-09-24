@@ -21,7 +21,7 @@
         <p class="mt-1 text-sm text-ink-muted">{{ $cliente ?: __('Sin cliente') }}</p>
 
         <p class="mt-4 max-w-3xl text-sm text-ink-muted">
-            {{ __('Estos son los servicios contratados que empatan con la ruta del booking y con los contenedores que lleva. Es la misma propuesta que armaba el sistema anterior, entera y marcada: confirmar sin tocar nada escribe lo mismo que él. Nada se guarda hasta que confirmes, y abajo verás') }}
+            {{ __('Estos son los servicios contratados que empatan con la ruta del booking y con los contenedores que lleva, todos marcados: confirmar sin tocar nada los agrega completos. Nada se guarda hasta que confirmes, y abajo verás') }}
             {{ __('exactamente qué documentos van a quedar, con fecha :fecha.', ['fecha' => $hoy->format('d/m/Y')]) }}
         </p>
 
@@ -136,7 +136,7 @@
                 @if ($descartados > 0)
                     <p class="border-t border-line px-5 py-3 text-xs" style="color: var(--warn-ink)">
                         {{ __('Con esta ruta empatan :n precios distintos de este transportista.', ['n' => $descartados + 1]) }}
-                        {{ __('El sistema toma el primero y abre un costo por cada contenedor y por cada precio que empató, que es lo que hacía el sistema anterior. Si no es lo que corresponde, quita el renglón y captura el costo a mano.') }}
+                        {{ __('El sistema toma el primero y abre un costo por cada contenedor y por cada precio que empató. Si no es lo que corresponde, quita el renglón y captura el costo a mano.') }}
                     </p>
                 @endif
 
