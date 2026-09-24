@@ -53,7 +53,7 @@ class Settings extends Component
         abort_unless(config('marca.ajustes'), 404);
         abort_unless(auth()->user()?->isSuperAdmin() ?? false, 403);
 
-        $this->modalidades = Expediente::modalidades();
+        $this->modalidades = array_values(array_intersect(Expediente::modalidades(), self::disponibles())) ?: self::disponibles();
         $this->taller = (bool) config('marca.taller');
         $this->nomina = (bool) config('marca.nomina');
         $this->timbrado = (bool) config('timbrado.habilitado');
@@ -64,11 +64,31 @@ class Settings extends Component
         $this->logoAcento = (string) config('marca.logo.texto.acento');
     }
 
-    /** @return list<string> */
+    /**
+     * Las formas de transporte que se ofrecen aquí.
+     *
+     * @return list<string>
+     */
+    public static function disponibles(): array
+    {
+        $elegidas = array_values(array_intersect(
+            ['maritimo', 'terrestre'],
+            array_map('trim', explode(',', (string) config('marca.modalidades_disponibles'))),
+        ));
+
+        return $elegidas === [] ? ['maritimo', 'terrestre'] : $elegidas;
+    }
+
+    /**
+     * Sin lo marítimo, tampoco sus vocabularios: el de origen y «embarques».
+     *
+     * @return list<string>
+     */
     public function vocabularios(): array
     {
         return collect(glob(lang_path('vocabulario/*'), GLOB_ONLYDIR) ?: [])
             ->map(fn (string $ruta) => basename($ruta))
+            ->reject(fn (string $v) => $v === 'embarques' && ! in_array('maritimo', self::disponibles(), true))
             ->values()
             ->all();
     }
@@ -79,16 +99,18 @@ class Settings extends Component
 
         $this->validate([
             'modalidades' => ['required', 'array', 'min:1'],
-            'modalidades.*' => ['in:maritimo,terrestre'],
+            'modalidades.*' => ['in:'.implode(',', self::disponibles())],
             'vocabulario' => ['nullable', 'string', 'max:40'],
             'idiomaDocumentos' => ['in:es,en'],
             // Termina dentro de un <style>: solo #rrggbb, nada que cierre la regla.
-            'color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'logoPrincipal' => ['required', 'string', 'max:30'],
-            'logoAcento' => ['nullable', 'string', 'max:30'],
-            // Sin SVG: puede llevar código y se sirve desde el mismo dominio.
-            'logoClaro' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:1024'],
-            'logoOscuro' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:1024'],
+            ...(config('marca.editar_marca') ? [
+                'color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
+                'logoPrincipal' => ['required', 'string', 'max:30'],
+                'logoAcento' => ['nullable', 'string', 'max:30'],
+                // Sin SVG: puede llevar código y se sirve desde el mismo dominio.
+                'logoClaro' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:1024'],
+                'logoOscuro' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:1024'],
+            ] : []),
         ], [
             // Sin modalidad, el expediente se queda sin medio de transporte.
             'modalidades.required' => __('Elige al menos una forma de transporte.'),
@@ -104,10 +126,14 @@ class Settings extends Component
             'timbrado.habilitado' => $this->timbrado,
             'marca.vocabulario' => $this->vocabulario,
             'marca.idioma_documentos' => $this->idiomaDocumentos,
-            'marca.logo.texto.principal' => $this->logoPrincipal,
-            'marca.logo.texto.acento' => (string) $this->logoAcento,
-            ...collect(Marca::paleta($this->color))->mapWithKeys(fn ($v, $k) => ["marca.colores.$k" => $v]),
-            ...$this->imagenesDelLogo(),
+            // Sin el apartado a la vista no se guarda: si no, se pisarían los
+            // tonos que se pusieron a mano en el `.env` con los calculados.
+            ...(config('marca.editar_marca') ? [
+                'marca.logo.texto.principal' => $this->logoPrincipal,
+                'marca.logo.texto.acento' => (string) $this->logoAcento,
+                ...collect(Marca::paleta($this->color))->mapWithKeys(fn ($v, $k) => ["marca.colores.$k" => $v]),
+                ...$this->imagenesDelLogo(),
+            ] : []),
         ], auth()->id());
 
         $this->reset('logoClaro', 'logoOscuro', 'quitarLogo');
@@ -146,6 +172,7 @@ class Settings extends Component
     {
         abort_unless(auth()->user()?->isSuperAdmin() ?? false, 403);
         abort_unless(RellenaDatosDemo::permitido(), 403);
+        abort_unless(in_array($vertical, self::disponibles(), true), 403);
 
         app(RellenaDatosDemo::class)($vertical, auth()->id());
 
@@ -161,6 +188,7 @@ class Settings extends Component
     {
         return view('livewire.settings', [
             'demo' => RellenaDatosDemo::permitido(),
+            'disponibles' => self::disponibles(),
             'vertical' => RellenaDatosDemo::permitido() ? RellenaDatosDemo::vertical() : null,
         ])->layout('components.app-layout', ['title' => __('Ajustes')]);
     }

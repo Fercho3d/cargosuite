@@ -134,6 +134,20 @@ return [
     'demo' => filter_var(env('MARCA_DEMO', false), FILTER_VALIDATE_BOOL),
 
     /**
+     * Qué formas de transporte se le OFRECEN a esta instalación en Ajustes (y
+     * en los datos de demostración). Una empresa de puro autotransporte no
+     * tiene por qué ver nada marítimo. `modalidades` es lo que usa; esto es de
+     * lo que puede escoger.
+     */
+    'modalidades_disponibles' => env('MARCA_MODALIDADES_DISPONIBLES', 'maritimo,terrestre'),
+
+    /**
+     * ¿Se ve «Logotipo y color» en Ajustes? Apagado de fábrica: la marca la
+     * configura quien instala, por cliente, no el cliente.
+     */
+    'editar_marca' => filter_var(env('MARCA_EDITAR_MARCA', false), FILTER_VALIDATE_BOOL),
+
+    /**
      * Página pública de presentación (la portada con «Solicitar demostración»
      * y el contacto).
      *

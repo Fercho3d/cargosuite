@@ -45,6 +45,9 @@ class AjustesTest extends TestCase
 
     private function pantalla(int $rol = User::ROLE_SUPER_ADMIN): Testable
     {
+        // El logotipo y el color los configura quien instala; aquí se prueban.
+        config(['marca.editar_marca' => true]);
+
         return Livewire::actingAs($this->usuario($rol))->test(Settings::class);
     }
 
@@ -205,5 +208,35 @@ class AjustesTest extends TestCase
 
         $this->pantalla()->set('logoClaro', UploadedFile::fake()->create('logo.svg', 5, 'image/svg+xml'))
             ->set('modalidades', ['maritimo'])->call('guardar')->assertHasErrors('logoClaro');
+    }
+
+    /** El cliente no cambia la marca: la pone quien instala, por cliente. */
+    public function test_de_fabrica_no_se_ofrece_cambiar_logotipo_ni_color(): void
+    {
+        config(['marca.editar_marca' => false]);
+
+        Livewire::actingAs($this->usuario())->test(Settings::class)->assertDontSee(__('Logotipo y color'));
+    }
+
+    /** Guardar otros ajustes no pisa los colores que se pusieron en el `.env`. */
+    public function test_sin_editar_la_marca_guardar_no_toca_los_colores(): void
+    {
+        config(['marca.editar_marca' => false]);
+
+        Livewire::actingAs($this->usuario())->test(Settings::class)
+            ->set('modalidades', ['terrestre'])->call('guardar');
+
+        $this->assertSame(0, DB::table('configuracion')->where('clave', 'like', 'marca.colores.%')->count());
+    }
+
+    /** Una instalación de puro autotransporte no enseña nada marítimo. */
+    public function test_con_solo_terrestre_no_se_ofrece_nada_maritimo(): void
+    {
+        config(['marca.modalidades_disponibles' => 'terrestre', 'marca.demo' => true]);
+
+        Livewire::actingAs($this->usuario())->test(Settings::class)
+            ->assertDontSee(__('Marítima'))
+            ->assertDontSee(__('El de origen (carga marítima)'))
+            ->assertDontSee(__('Agente de carga marítima'));
     }
 }

@@ -13,6 +13,8 @@
     @endif
 
     <form wire:submit="guardar" class="space-y-5">
+        {{-- La marca la pone quien instala, por cliente (MARCA_EDITAR_MARCA). --}}
+        @if (config('marca.editar_marca'))
         <fieldset class="rounded-2xl border border-line bg-panel p-5">
             <legend class="px-1 text-sm font-semibold text-ink">{{ __('Logotipo y color') }}</legend>
             <p class="mt-1 text-sm text-ink-muted">
@@ -73,7 +75,10 @@
                 </div>
             @endif
         </fieldset>
+        @endif
 
+        {{-- Con una sola forma de transporte disponible no hay nada que escoger. --}}
+        @if (count($disponibles) > 1)
         <fieldset class="rounded-2xl border border-line bg-panel p-5">
             <legend class="px-1 text-sm font-semibold text-ink">{{ __('Forma de transporte') }}</legend>
             <p class="mt-1 text-sm text-ink-muted">
@@ -81,10 +86,10 @@
             </p>
 
             <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                @foreach ([
+                @foreach (array_filter([
                     ['maritimo', __('Marítima'), __('Buque en el expediente y catálogo de buques.')],
                     ['terrestre', __('Terrestre'), __('Operador, tractor y caja; catálogos de operadores y unidades, y liquidaciones.')],
-                ] as [$valor, $etiqueta, $detalle])
+                ], fn ($m) => in_array($m[0], $disponibles)) as [$valor, $etiqueta, $detalle])
                     <label class="flex cursor-pointer gap-3 rounded-xl border border-line bg-surface p-4 transition hover:bg-raised">
                         <input type="checkbox" wire:model="modalidades" value="{{ $valor }}"
                                class="mt-0.5 h-4 w-4 shrink-0 rounded border-line">
@@ -96,6 +101,7 @@
                 @endforeach
             </div>
         </fieldset>
+        @endif
 
         <fieldset class="rounded-2xl border border-line bg-panel p-5">
             <legend class="px-1 text-sm font-semibold text-ink">{{ __('Facturación') }}</legend>
@@ -142,7 +148,9 @@
                 <label class="block">
                     <span class="field-label">{{ __('Vocabulario del negocio') }}</span>
                     <select wire:model="vocabulario" class="field-input mt-1.5">
-                        <option value="">{{ __('El de origen (carga marítima)') }}</option>
+                        @if (in_array('maritimo', $disponibles))
+                            <option value="">{{ __('El de origen (carga marítima)') }}</option>
+                        @endif
                         @foreach ($this->vocabularios() as $v)
                             <option value="{{ $v }}" @selected($v === $vocabulario)>{{ $v }}</option>
                         @endforeach
@@ -174,10 +182,10 @@
             </p>
 
             <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                @foreach ([
+                @foreach (array_filter([
                     ['maritimo', __('Agente de carga marítima'), __('Puertos, buques, navieras y agentes aduanales. Fletes en dólares por contenedor, tránsitos de semanas.')],
                     ['terrestre', __('Autotransporte de carga (México)'), __('Rutas reales entre patios y ciudades con sus kilómetros, operadores y tractores propios. Fletes en pesos por kilómetro con IVA y retención del 4 %, diésel y casetas de cada viaje, liquidaciones y nómina.')],
-                ] as [$clave, $titulo, $detalle])
+                ], fn ($v) => in_array($v[0], $disponibles)) as [$clave, $titulo, $detalle])
                     <div class="flex flex-col rounded-xl border {{ $vertical === $clave ? 'border-accent-500' : 'border-line' }} p-4">
                         <p class="text-sm font-medium text-ink">
                             {{ $titulo }}
