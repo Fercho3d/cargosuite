@@ -48,7 +48,7 @@ class DemoCamionesTest extends DemoDatabaseTestCase
         $this->abre([
             '/dashboard', '/operacion/bookings', '/operacion/bookings/1',
             "/operacion/bookings/{$ultimo}", '/operacion/continuidad',
-            '/pagos/liquidaciones', '/pagos/nomina', '/pagos/nomina/1',
+            '/pagos/liquidaciones', '/pagos/nomina', '/pagos/nomina/1', '/rutas', '/rutas/1',
             '/catalogos/operadores', '/catalogos/unidades', '/catalogos/empleados', '/catalogos/refacciones',
             '/taller/mantenimiento', '/taller/almacen',
             '/transacciones', '/transacciones/costos', '/transacciones/reporte/booking',

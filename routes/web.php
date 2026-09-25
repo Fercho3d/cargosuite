@@ -36,6 +36,8 @@ use App\Livewire\Payments\PayrollManager;
 use App\Livewire\Payments\SettlementManager;
 use App\Livewire\Portal\PortalDocument;
 use App\Livewire\Portal\PortalHome;
+use App\Livewire\Rutas\RouteDetail;
+use App\Livewire\Rutas\RouteList;
 use App\Livewire\Services\ServiceForm;
 use App\Livewire\Services\ServiceManager;
 use App\Livewire\Settings;
@@ -112,7 +114,7 @@ Route::middleware(['auth', EnsureUserIsInternal::class])->group(function () {
 
     /*
      * Lo que es solo del dueño del software: los usuarios (igual que el
-     * `UserController` de Yii2), las solicitudes de demostración y los ajustes
+     * `UserController` de Yii2) y los ajustes
      * de la instalación (qué mueve la empresa, si factura con CFDI…). Un
      * administrador normal recibe 403.
      */
@@ -178,6 +180,12 @@ Route::middleware(['auth', EnsureUserIsInternal::class])->group(function () {
      * El taller: mantenimiento de la flota y su almacén de refacciones. Solo con
      * flota propia; el menú no los enseña sin ella (`MARCA_TALLER`).
      */
+    // Rutas con su tarifa, su costo y el diésel del día (ver `App\Support\Rutas\Tarifario`).
+    Route::middleware(EnsureUserIsAdmin::class)->prefix('rutas')->name('rutas.')->group(function () {
+        Route::get('/', RouteList::class)->name('index');
+        Route::get('/{ruta}', RouteDetail::class)->whereNumber('ruta')->name('show');
+    });
+
     Route::middleware(EnsureUserIsAdmin::class)->prefix('taller')->name('workshop.')->group(function () {
         Route::get('/mantenimiento', MaintenanceManager::class)->name('maintenance');
         Route::get('/almacen', InventoryManager::class)->name('inventory');

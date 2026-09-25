@@ -23,6 +23,9 @@
         @case('usuarios')
             <path stroke-linecap="round" stroke-linejoin="round" d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 7.5a3 3 0 1 0 0 .01M21 19v-1a4 4 0 0 0-3-3.87M16 4.13a4 4 0 0 1 0 7.75"/>
             @break
+        @case('ruta')
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 19a2 2 0 1 0 0-.01M18 5a2 2 0 1 0 0 .01M6 17V9a3 3 0 0 1 3-3h2m2 12h2a3 3 0 0 0 3-3V7"/>
+            @break
         @case('mapa')
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3zm0 0V3m6 18V6"/>
             @break

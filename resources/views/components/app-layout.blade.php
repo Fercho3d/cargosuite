@@ -64,6 +64,10 @@
             : [],
         $esAdmin ? [
             [__('Clientes y proveedores'), route('parties.clients'), request()->routeIs('parties.clients', 'parties.providers'), 'contactos'],
+            // Tarifas y costos por ruta: es de autotransporte.
+            ...(\App\Support\Expediente::usa('terrestre')
+                ? [[__('Configuración de rutas'), route('rutas.index'), request()->routeIs('rutas.*'), 'ruta']]
+                : []),
             ...($primerCatalogo
                 ? [[__('Catálogos'), route('catalogs.show', $primerCatalogo->slug), request()->routeIs('catalogs.*'), 'catalogo']]
                 : []),

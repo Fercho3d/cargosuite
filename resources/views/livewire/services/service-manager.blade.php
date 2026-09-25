@@ -8,6 +8,7 @@
 @endphp
 
 <div class="space-y-4">
+    @include('partials.servicios-tabs')
 
     @if ($volver !== '')
         <a href="{{ $volver }}" wire:navigate

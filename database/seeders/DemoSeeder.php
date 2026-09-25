@@ -91,6 +91,7 @@ class DemoSeeder extends Seeder
         $this->hitos();
         $this->taller();
         $this->nomina();
+        $this->rutas();
         $this->usuarios();
         $this->tiposDeCambio();
         $this->embarques();
@@ -157,6 +158,7 @@ class DemoSeeder extends Seeder
             'movimiento_refaccion', 'mantenimiento_refaccion', 'mantenimiento', 'refaccion',
             'nomina_renglon', 'nomina', 'empleado', 'liquidacion_renglon', 'liquidacion', 'operador',
             'gps_posicion', 'gps_dispositivo', 'unidad',
+            'tarifa_ruta', 'ruta', 'precio_diesel',
             // El catálogo de hitos cambia con la vertical: un camión no pasa por
             // el corte documental de un embarque marítimo.
             'hito',
@@ -691,6 +693,18 @@ class DemoSeeder extends Seeder
         }
 
         $nomina->run();
+    }
+
+    /** Rutas con tarifa y costos, y el diésel de las últimas semanas (solo si el perfil trae rutas). */
+    private function rutas(): void
+    {
+        $rutas = (new RutasDemoSeeder)->conPerfil($this->perfil);
+
+        if ($this->command !== null) {
+            $rutas->setCommand($this->command);
+        }
+
+        $rutas->run();
     }
 
     private function usuarios(): void
