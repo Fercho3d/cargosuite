@@ -135,6 +135,20 @@ class RutasTest extends TestCase
         $this->assertSame([25.45], DB::table('precio_diesel')->pluck('precio')->map(fn ($p) => (float) $p)->all());
     }
 
+    /** «Cambiar precio» toma el vigente y guarda uno nuevo con sus mismos datos; el viejo queda. */
+    public function test_cambiar_precio_conserva_concepto_cliente_y_tipo_de_cargo(): void
+    {
+        DB::table('tarifa_ruta')->insert(['tarifa_id' => 5, 'ruta_id' => 1, 'tipo' => 'venta', 'concepto' => 'Flete', 'client_id' => 1,
+            'precio' => 24000, 'vigente_desde' => '2026-01-01', 'charge_type_id' => 1]);
+
+        Livewire::actingAs($this->admin())->test(RouteDetail::class, ['ruta' => 1])
+            ->call('cambiarPrecio', 5)->assertSet('cambiando', 5)
+            ->set('precio', '25000')->set('vigenteDesde', '2026-09-01')->call('agregarPrecio')->assertHasNoErrors();
+
+        $this->assertSame([['Flete', 1, 1, 24000.0], ['Flete', 1, 1, 25000.0]], DB::table('tarifa_ruta')->orderBy('vigente_desde')->get()
+            ->map(fn ($t) => [$t->concepto, (int) $t->client_id, (int) $t->charge_type_id, (float) $t->precio])->all());
+    }
+
     /** Lo que se factura necesita tipo de cargo: sin él no sabría qué IVA ni qué retención llevar. */
     public function test_un_precio_de_venta_sin_tipo_de_cargo_no_se_guarda(): void
     {

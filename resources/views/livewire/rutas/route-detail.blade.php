@@ -81,18 +81,38 @@
         </div>
     </section>
 
-    {{-- Precios por sección, con su historial --}}
+    {{-- Precios por sección, con su historial. Cada sección agrega los suyos y
+         «Cambiar precio» se captura en el mismo renglón: el nuevo se guarda con
+         su fecha y el anterior queda como historial. --}}
     @foreach ($secciones as $tipoSeccion => [$titulo, $ayuda])
         <section class="overflow-x-auto rounded-2xl border border-line bg-panel">
-            <div class="border-b border-line px-4 py-3">
-                <h2 class="text-sm font-semibold text-ink">{{ $titulo }}</h2>
-                <p class="text-xs text-ink-muted">{{ $ayuda }}</p>
+            <div class="flex flex-wrap items-start justify-between gap-3 border-b border-line px-4 py-3">
+                <div>
+                    <h2 class="text-sm font-semibold text-ink">{{ $titulo }}</h2>
+                    <p class="text-xs text-ink-muted">{{ $ayuda }}</p>
+                </div>
+                @if ($agregando !== $tipoSeccion)
+                    <button wire:click="abrirAlta('{{ $tipoSeccion }}')"
+                            class="rounded-lg bg-accent-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-accent-600">
+                        + {{ __('Agregar') }}
+                    </button>
+                @endif
             </div>
-            <table class="w-full min-w-[40rem] text-sm">
+
+            @if ($agregando === $tipoSeccion)
+                <div class="border-b border-line bg-raised px-4 py-3">
+                    @include('livewire.rutas.partials.precio-form', ['nuevo' => true])
+                </div>
+            @endif
+
+            <table class="w-full min-w-[44rem] table-fixed text-sm">
+                <colgroup>
+                    <col><col class="w-56"><col class="w-36"><col class="w-44">
+                </colgroup>
                 <tbody class="divide-y divide-line">
                     @forelse ($tarifas[$tipoSeccion] ?? [] as $t)
                         <tr class="{{ $t->vigente ? '' : 'text-ink-faint' }}">
-                            <td class="px-4 py-2">
+                            <td class="truncate px-4 py-2">
                                 <span class="{{ $t->vigente ? 'font-medium text-ink' : '' }}">{{ $t->concepto }}</span>
                                 @if ($t->quien)
                                     <span class="ml-1 text-xs text-ink-muted">· {{ $t->quien }}</span>
@@ -122,78 +142,18 @@
                                         class="ml-2 text-ink-faint hover:text-brand">{{ __('Borrar') }}</button>
                             </td>
                         </tr>
+                        @if ($cambiando === $t->tarifa_id)
+                            <tr>
+                                <td colspan="4" class="bg-raised px-4 py-3">
+                                    @include('livewire.rutas.partials.precio-form', ['nuevo' => false])
+                                </td>
+                            </tr>
+                        @endif
                     @empty
-                        <tr><td class="px-4 py-4 text-sm text-ink-faint">{{ __('Sin precios.') }}</td></tr>
+                        <tr><td colspan="4" class="px-4 py-4 text-sm text-ink-faint">{{ __('Sin precios. Agrega el primero con «+ Agregar».') }}</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </section>
     @endforeach
-
-    {{-- Precio nuevo --}}
-    <section class="rounded-2xl border border-line bg-panel p-4">
-        <p class="text-sm font-medium text-ink">{{ __('Precio nuevo') }}</p>
-        <p class="mt-0.5 text-xs text-ink-muted">{{ __('Para cambiar un precio captura uno nuevo con la fecha desde la que vale: el anterior queda en el historial.') }}</p>
-        <div class="mt-3 grid gap-3 sm:grid-cols-7">
-            <label class="block">
-                <span class="field-label">{{ __('Tipo') }}</span>
-                <select wire:model.live="tipo" class="field-input mt-1.5">
-                    <option value="venta" @selected($tipo === 'venta')>{{ __('Venta') }}</option>
-                    <option value="costo" @selected($tipo === 'costo')>{{ __('Costo') }}</option>
-                    <option value="subcontrato" @selected($tipo === 'subcontrato')>{{ __('Subcontrato') }}</option>
-                </select>
-            </label>
-            <label class="block sm:col-span-2">
-                <span class="field-label">{{ __('Concepto') }}</span>
-                <input type="text" wire:model="concepto" value="{{ $concepto }}" list="conceptos-ruta" class="field-input mt-1.5"
-                       placeholder="{{ __('Flete, maniobras, casetas…') }}">
-                <datalist id="conceptos-ruta">
-                    @foreach ([__('Flete'), __('Maniobras'), __('Casetas'), __('Viáticos'), __('Custodia'), __('Flete subcontratado')] as $sugerido)
-                        <option value="{{ $sugerido }}"></option>
-                    @endforeach
-                </datalist>
-            </label>
-            @if ($tipo === 'venta')
-                <label class="block">
-                    <span class="field-label">{{ __('Cliente') }}</span>
-                    <select wire:model="cliente" class="field-input mt-1.5">
-                        <option value="">{{ __('General (todos)') }}</option>
-                        @foreach ($clientes as $id => $nombre)
-                            <option value="{{ $id }}" @selected((string) $id === $cliente)>{{ $nombre }}</option>
-                        @endforeach
-                    </select>
-                </label>
-            @else
-                <label class="block">
-                    <span class="field-label">{{ __('Proveedor') }}</span>
-                    <select wire:model="proveedor" class="field-input mt-1.5">
-                        <option value="">{{ $tipo === 'subcontrato' ? __('Elige…') : __('Ninguno') }}</option>
-                        @foreach ($proveedores as $id => $nombre)
-                            <option value="{{ $id }}" @selected((string) $id === $proveedor)>{{ $nombre }}</option>
-                        @endforeach
-                    </select>
-                </label>
-            @endif
-            <label class="block">
-                <span class="field-label">{{ __('Tipo de cargo') }}</span>
-                <select wire:model="tipoCargo" class="field-input mt-1.5">
-                    <option value="">{{ $tipo === 'costo' ? __('Ninguno') : __('Elige…') }}</option>
-                    @foreach ($tiposCargo as $id => $nombre)
-                        <option value="{{ $id }}" @selected((string) $id === $tipoCargo)>{{ $nombre }}</option>
-                    @endforeach
-                </select>
-            </label>
-            <label class="block">
-                <span class="field-label">{{ __('Precio') }}</span>
-                <input type="number" step="0.01" wire:model="precio" value="{{ $precio }}" class="field-input mt-1.5" placeholder="0.00">
-            </label>
-            <label class="block">
-                <span class="field-label">{{ __('Vigente desde') }}</span>
-                <input type="date" wire:model="vigenteDesde" value="{{ $vigenteDesde }}" class="field-input mt-1.5">
-            </label>
-        </div>
-        <div class="mt-3">
-            <x-submit-button wire:click="agregarPrecio">{{ __('Agregar precio') }}</x-submit-button>
-        </div>
-    </section>
 </div>

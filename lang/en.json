@@ -1477,5 +1477,8 @@
     "Ver la ruta": "View the route",
     "Va con unidad propia: su costo real se captura en Gastos de viaje.": "It runs with an own unit: its actual cost is entered in Trip expenses.",
     "La ruta no tiene precio para esto. Agrégalo en su ficha.": "The route has no price for this. Add it on its page.",
-    "sin tipo de cargo: no se factura": "no charge type: not invoiced"
+    "sin tipo de cargo: no se factura": "no charge type: not invoiced",
+    "Sin precios. Agrega el primero con «+ Agregar».": "No prices. Add the first one with “+ Add”.",
+    "Precio nuevo de «:concepto»": "New price for “:concepto”",
+    "El actual queda en el historial.": "The current one stays in the history."
 }

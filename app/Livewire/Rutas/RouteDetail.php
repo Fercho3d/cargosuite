@@ -41,6 +41,12 @@ class RouteDetail extends Component
 
     public string $vigenteDesde = '';
 
+    /** Sección donde se está agregando un precio (venta, costo, subcontrato). */
+    public ?string $agregando = null;
+
+    /** Precio vigente al que se le está capturando uno nuevo. */
+    public ?int $cambiando = null;
+
     /** Fecha con la que se calcula la ficha: hoy, o una pasada para ver cómo estaba. */
     public string $fecha = '';
 
@@ -112,7 +118,7 @@ class RouteDetail extends Component
             'created_at' => now(),
         ]);
 
-        $this->reset(['concepto', 'cliente', 'proveedor', 'precio', 'tipoCargo']);
+        $this->reset(['concepto', 'cliente', 'proveedor', 'precio', 'tipoCargo', 'agregando', 'cambiando']);
         session()->flash('status', __('Precio agregado. El anterior queda en el historial.'));
     }
 
@@ -122,6 +128,24 @@ class RouteDetail extends Component
         abort_unless(auth()->user()?->isAdmin() ?? false, 403);
 
         DB::table('tarifa_ruta')->where('tarifa_id', $tarifa)->where('ruta_id', $this->rutaId)->delete();
+    }
+
+    /** Abre la captura de un precio nuevo dentro de su sección. */
+    public function abrirAlta(string $tipo): void
+    {
+        abort_unless(in_array($tipo, ['venta', 'costo', 'subcontrato'], true), 404);
+
+        $this->reset(['concepto', 'cliente', 'proveedor', 'precio', 'tipoCargo', 'cambiando']);
+        $this->resetErrorBag();
+        $this->tipo = $tipo;
+        $this->agregando = $tipo;
+        $this->vigenteDesde = now()->toDateString();
+    }
+
+    public function cancelar(): void
+    {
+        $this->reset(['agregando', 'cambiando']);
+        $this->resetErrorBag();
     }
 
     /** Toma un precio vigente para capturarle uno nuevo sin reescribir sus datos. */
@@ -136,6 +160,9 @@ class RouteDetail extends Component
         $this->tipoCargo = (string) ($fila->charge_type_id ?? '');
         $this->precio = '';
         $this->vigenteDesde = now()->toDateString();
+        $this->agregando = null;
+        $this->cambiando = $tarifa;
+        $this->resetErrorBag();
     }
 
     public function render()
