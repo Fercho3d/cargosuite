@@ -74,9 +74,9 @@ class PaymentsReportTest extends LegacyDatabaseTestCase
 
         // El modo viaja como valor por omisión de la ruta hasta el `mount()`;
         // si eso se rompiera, las tres direcciones mostrarían lo mismo.
-        $this->get(route('payments.report.customer'))->assertOk()->assertSee('<title>'.__('Cobros por cliente'), false);
+        $this->get(route('payments.report.customer'))->assertOk()->assertSee('<title>'.__('Reporte de pagos por cliente'), false);
         $this->get(route('payments.report.vendor'))->assertOk()->assertSee('<title>'.__('Reporte de pagos por proveedor'), false);
-        $this->get(route('payments.report.general'))->assertOk()->assertSee('<title>'.__('Cobros y pagos'), false);
+        $this->get(route('payments.report.general'))->assertOk()->assertSee('<title>'.__('Reporte de pagos'), false);
     }
 
     public function test_el_reporte_general_separa_cobros_de_pagos(): void

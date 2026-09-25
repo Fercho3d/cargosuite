@@ -144,6 +144,19 @@ class TransactionTableTest extends LegacyDatabaseTestCase
         }
     }
 
+    /** El proveedor se elige de una lista y trae solo sus gastos. */
+    public function test_elegir_un_proveedor_trae_solo_sus_gastos(): void
+    {
+        $this->actAsUser();
+
+        $componente = Livewire::test(TransactionTable::class, ['screen' => 'bill']);
+        $proveedor = (int) $componente->viewData('rows')->first()->vendor;
+
+        $rows = $componente->set('appliedTo', 'p:'.$proveedor)->viewData('rows');
+
+        $this->assertSame([$proveedor], collect($rows->items())->pluck('vendor')->map(fn ($v) => (int) $v)->unique()->values()->all());
+    }
+
     public function test_filtrar_reduce_el_total_y_regresa_a_la_primera_pagina(): void
     {
         $this->actAsUser();

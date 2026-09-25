@@ -8,7 +8,9 @@ use App\Actions\Transactions\StampTransaction;
 use App\Models\CfdiCancelacion;
 use App\Models\Core\Account;
 use App\Models\Core\Booking;
+use App\Models\Core\Client;
 use App\Models\Core\Company;
+use App\Models\Core\Provider;
 use App\Models\Core\Transaction;
 use App\Queries\ProfitByBooking;
 use App\Queries\TransactionFilters;
@@ -748,7 +750,11 @@ class TransactionTable extends Component
         $filters = TransactionFilters::make([
             'tran_number' => $this->tranNumber ?: null,
             'booking_number' => $this->bookingNumber ?: null,
-            'appliedTo' => $this->appliedTo ?: null,
+            // El select manda «p:ID» (proveedor) o «c:ID» (cliente); un texto
+            // de un enlace viejo (`?q=nombre`) sigue buscando por nombre.
+            'vendor' => preg_match('/^p:(\d+)$/', $this->appliedTo, $m) === 1 ? (int) $m[1] : null,
+            'customer' => preg_match('/^c:(\d+)$/', $this->appliedTo, $m) === 1 ? (int) $m[1] : null,
+            'appliedTo' => preg_match('/^[pc]:\d+$/', $this->appliedTo) === 1 ? null : ($this->appliedTo ?: null),
             'dates' => $this->dates ?: null,
             'company_id' => $this->companyId !== '' ? (int) $this->companyId : null,
             'account' => $this->accountId !== '' ? (int) $this->accountId : null,
@@ -807,6 +813,11 @@ class TransactionTable extends Component
                 ->whereIn('transc_id', collect($rows->items())->pluck('transc_id')->all())
                 ->get()
                 ->keyBy('transc_id'),
+            // Gastos: proveedores; ingresos: clientes; la lista general, los dos.
+            'partes' => array_filter([
+                __('Proveedores') => $this->screen === 'invoice' ? [] : Provider::options(),
+                __('Clientes') => $this->screen === 'bill' ? [] : Client::options(),
+            ]),
             'companies' => Company::options(),
             'currencies' => Account::options(),
             'booking' => $this->booking(),

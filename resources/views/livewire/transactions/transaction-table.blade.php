@@ -175,8 +175,18 @@
             </label>
 
             <label class="block">
-                <span class="field-label text-xs">{{ __('Cliente o proveedor') }}</span>
-                <input type="text" wire:model="appliedTo" value="{{ $appliedTo }}" class="field-input mt-1 py-1.5 text-sm" placeholder="{{ __('Nombre') }}">
+                <span class="field-label text-xs">{{ $screen === 'bill' ? __('Proveedor') : ($screen === 'invoice' ? __('Cliente') : __('Cliente o proveedor')) }}</span>
+                <select wire:model.live="appliedTo" class="field-input mt-1 py-1.5 text-sm">
+                    <option value="">{{ __('Todos') }}</option>
+                    @foreach ($partes as $grupo => $opciones)
+                        @if (count($partes) > 1) <optgroup label="{{ $grupo }}"> @endif
+                        @foreach ($opciones as $id => $nombre)
+                            @php $valor = ($grupo === __('Proveedores') ? 'p:' : 'c:').$id; @endphp
+                            <option value="{{ $valor }}" @selected($valor === $appliedTo)>{{ $nombre }}</option>
+                        @endforeach
+                        @if (count($partes) > 1) </optgroup> @endif
+                    @endforeach
+                </select>
             </label>
 
             {{-- El calendario lo maneja flatpickr (ver `dateRangePicker` en app.js);
