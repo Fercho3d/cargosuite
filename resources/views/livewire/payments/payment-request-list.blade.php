@@ -28,7 +28,7 @@
     <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
             <h2 class="text-lg font-semibold text-ink">
-                {{ __('Solicitudes de pago') }}
+                {{ __('Pagos') }}
                 @if ($contraparte)
                     <span class="text-ink-muted">· {{ $contraparte }}</span>
                 @endif

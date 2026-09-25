@@ -15,7 +15,6 @@ use App\Http\Middleware\EnsureUserIsPortal;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Livewire\Catalogs\CatalogManager;
 use App\Livewire\Dashboard;
-use App\Livewire\DemoRequests;
 use App\Livewire\Exchange\ExchangeManager;
 use App\Livewire\Fleet\FleetMap;
 use App\Livewire\Home;
@@ -119,7 +118,6 @@ Route::middleware(['auth', EnsureUserIsInternal::class])->group(function () {
      */
     Route::middleware(EnsureUserIsSuperAdmin::class)->group(function () {
         Route::get('/usuarios', UserManager::class)->name('users');
-        Route::get('/solicitudes-demo', DemoRequests::class)->name('demo-requests');
         Route::get('/ajustes', Settings::class)->name('settings');
     });
 

@@ -332,7 +332,7 @@ class PaymentRequestList extends Component
                 $this->providerId !== '' => Provider::whereKey($this->providerId)->value('fullName'),
                 default => null,
             },
-        ])->layout('components.app-layout', ['title' => __('Solicitudes de pago')]);
+        ])->layout('components.app-layout', ['title' => __('Pagos')]);
     }
 
     public function paginationView(): string

@@ -16,13 +16,9 @@
         </p>
 
         <div class="mt-8 flex flex-wrap items-center gap-3">
-            <a href="#demo"
-               class="rounded-xl bg-accent-500 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-600">
-                {{ __('Solicitar una demostración') }}
-            </a>
             <a href="{{ route('login') }}" wire:navigate
-               class="rounded-xl border border-line px-5 py-3 text-sm font-semibold text-ink-soft transition hover:bg-raised">
-                {{ __('Ya tengo cuenta') }}
+               class="rounded-xl bg-accent-500 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-600">
+                {{ __('Iniciar sesión') }}
             </a>
         </div>
     </section>
@@ -88,57 +84,5 @@
                 @endforeach
             </ul>
         </div>
-    </section>
-
-    {{-- Solicitud --}}
-    <section id="demo" class="mx-auto max-w-3xl scroll-mt-20 px-4 py-16 sm:px-6">
-        <h2 class="text-2xl font-bold tracking-tight text-ink sm:text-3xl">{{ __('Solicitar una demostración') }}</h2>
-        <p class="mt-3 text-sm leading-relaxed text-ink-muted">
-            {{ __('Déjanos tus datos y te enseñamos el sistema funcionando con una operación de ejemplo. Sin instalar nada.') }}
-        </p>
-
-        @if ($enviada)
-            <div class="mt-8 rounded-xl border border-line bg-panel p-6 text-center">
-                <p class="text-base font-semibold text-ink">{{ __('Solicitud recibida.') }}</p>
-                <p class="mt-2 text-sm text-ink-muted">{{ __('Te contactamos en breve para agendar la demostración.') }}</p>
-            </div>
-        @else
-            <form wire:submit="solicitar" class="mt-8 grid gap-4 sm:grid-cols-2">
-                @foreach ([
-                    ['nombre', __('Nombre'), 'text', true],
-                    ['empresa', __('Empresa'), 'text', false],
-                    ['correo', __('Correo'), 'email', true],
-                    ['telefono', __('Teléfono'), 'text', false],
-                ] as [$campo, $etiqueta, $tipo, $obligatorio])
-                    <label class="block">
-                        <span class="field-label">
-                            {{ $etiqueta }} @if ($obligatorio) <span class="text-brand">*</span> @endif
-                        </span>
-                        <input type="{{ $tipo }}" wire:model="{{ $campo }}" value="{{ $$campo }}"
-                               class="field-input mt-1.5" @required($obligatorio)>
-                        @error($campo) <span class="mt-1 block text-xs text-brand">{{ $message }}</span> @enderror
-                    </label>
-                @endforeach
-
-                <label class="block sm:col-span-2">
-                    <span class="field-label">{{ __('¿Qué te gustaría ver?') }}</span>
-                    <textarea wire:model="mensaje" rows="3" class="field-input mt-1.5">{{ $mensaje }}</textarea>
-                    @error('mensaje') <span class="mt-1 block text-xs text-brand">{{ $message }}</span> @enderror
-                </label>
-
-                {{-- Trampa para robots: nadie la ve, así que si viene llena es
-                     que no la llenó una persona. `aria-hidden` y `tabindex` la
-                     esconden también de un lector de pantalla. --}}
-                <div class="hidden" aria-hidden="true">
-                    <label>{{ __('Sitio web') }}
-                        <input type="text" wire:model="sitioWeb" tabindex="-1" autocomplete="off">
-                    </label>
-                </div>
-
-                <div class="sm:col-span-2">
-                    <x-submit-button>{{ __('Enviar solicitud') }}</x-submit-button>
-                </div>
-            </form>
-        @endif
     </section>
 </div>

@@ -56,7 +56,7 @@ class MenuPorRolTest extends TestCase
             ->assertSee($this->enlaces('dashboard', 'operations.bookings', 'operations.bookings.create', 'operations.continuity'), false)
             ->assertSee('href="'.route('operations.bookings', ['tipo' => 1]).'"', false)
             ->assertSee('href="'.route('operations.bookings', ['tipo' => 2]).'"', false)
-            ->assertDontSee($this->enlaces('parties.clients', 'parties.services', 'exchange', 'users', 'settings', 'demo-requests', 'transactions.invoice'), false)
+            ->assertDontSee($this->enlaces('parties.clients', 'parties.services', 'exchange', 'users', 'settings', 'transactions.invoice'), false)
             ->assertDontSee('/catalogos/');
     }
 
@@ -66,13 +66,13 @@ class MenuPorRolTest extends TestCase
             ->assertSee($this->enlaces('parties.clients', 'transactions.invoice', 'operations.bookings.create'), false)
             // El primer catálogo que ÉL puede abrir: `puertos-descarga` es solo del super administrador.
             ->assertSee('href="'.route('catalogs.show', 'modalidades').'"', false)
-            ->assertDontSee($this->enlaces('parties.services', 'exchange', 'users', 'settings', 'demo-requests'), false);
+            ->assertDontSee($this->enlaces('parties.services', 'exchange', 'users', 'settings'), false);
     }
 
     public function test_el_super_administrador_lo_ve_todo(): void
     {
         $this->menu(User::ROLE_SUPER_ADMIN)
-            ->assertSee($this->enlaces('parties.clients', 'parties.services', 'exchange', 'users', 'settings', 'demo-requests', 'transactions.invoice'), false)
+            ->assertSee($this->enlaces('parties.clients', 'parties.services', 'exchange', 'users', 'settings', 'transactions.invoice'), false)
             ->assertSee('href="'.route('catalogs.show', 'puertos-descarga').'"', false);
     }
 }
