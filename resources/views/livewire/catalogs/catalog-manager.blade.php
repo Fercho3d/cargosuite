@@ -1,15 +1,30 @@
-<div class="space-y-4">
+<div class="lg:flex lg:items-start lg:gap-6">
 
-    {{-- Selector de catálogo: los dieciséis viven en la misma pantalla --}}
-    <nav class="flex flex-wrap gap-1.5">
+    {{-- Selector de catálogo: todos viven en la misma pantalla. En escritorio es
+         una columna fija a la izquierda; en el celular, un desplegable para no
+         empujar la tabla hacia abajo. --}}
+    <nav class="sticky top-4 hidden max-h-[calc(100vh-2rem)] w-56 shrink-0 overflow-y-auto rounded-2xl border border-line bg-panel p-2 lg:block"
+         aria-label="{{ __('Catálogos') }}">
         @foreach ($catalogos as $otro)
             <a href="{{ route('catalogs.show', $otro->slug) }}" wire:navigate
-               class="rounded-lg px-3 py-1.5 text-xs font-medium transition
-                      {{ $otro->slug === $slug ? 'bg-accent-500 text-white' : 'border border-line text-ink-muted hover:bg-raised hover:text-ink' }}">
+               @if ($otro->slug === $slug) aria-current="page" @endif
+               class="block rounded-lg px-3 py-1.5 text-sm transition
+                      {{ $otro->slug === $slug ? 'bg-raised font-medium text-ink shadow-sm' : 'text-ink-muted hover:bg-raised hover:text-ink' }}">
                 {{ $otro->plural }}
             </a>
         @endforeach
     </nav>
+
+    <label class="mb-4 block lg:hidden">
+        <span class="field-label">{{ __('Catálogo') }}</span>
+        <select class="field-input mt-1.5" x-on:change="Livewire.navigate($event.target.value)">
+            @foreach ($catalogos as $otro)
+                <option value="{{ route('catalogs.show', $otro->slug) }}" @selected($otro->slug === $slug)>{{ $otro->plural }}</option>
+            @endforeach
+        </select>
+    </label>
+
+<div class="min-w-0 flex-1 space-y-4">
 
     <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -219,4 +234,5 @@
     </div>
 
     <div>{{ $filas->links() }}</div>
+</div>
 </div>
