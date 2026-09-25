@@ -1190,7 +1190,8 @@ class DemoSeeder extends Seeder
             'provider_id' => $proveedor,
             'currency_id' => $divisa,
             'bank_id' => $divisa === 2 ? 2 : 1,
-            'type' => 1,
+            // 2 = pago a proveedor (1 es cobro a cliente), como `CreatePaymentRequest`.
+            'type' => 2,
             'paid' => $pagada ? 1 : 0,
             'opened' => $pagada ? 0 : 1,
             'date' => $pedida->toDateString(),

@@ -1,192 +1,59 @@
 /*
- * Hoja de estilo de la solicitud de pago (el cheque impreso), copiada tal cual
- * de `PaymentRequest::generateCss()` en Yii2.
- *
- * Está medida en centímetros para caer sobre el formato preimpreso: no se toca.
+ * Solicitud de pago: diseño propio de CargoSuite para mPDF (tablas, sin
+ * flexbox). El color de acento llega en línea desde la plantilla.
  */
-
-html{
-    width: 21cm;
-    height: 29.7cm;
-    padding: 1cm;
-    border: .5px solid;
-    font-family: arial;
+@page {
+    margin: 14mm 14mm 18mm 14mm;
+    margin-footer: 8mm;
+    footer: html_pie;
 }
 
-body{
-    border: .5px solid;
-    width: 100%;
-    height: 100%;
-    padding: 0px;
-    margin:0px;
-    float: left;
-}
+body { font-family: dejavusans; font-size: 9pt; color: #1f2937; }
 
-.paycheck{ 
-    border: .5px solid;
-    height: 7.5cm;
-    padding: 0.5cm;
-    width: 100%;
-    float: left;
-    width: 20cm;
-    position: relative;
-    background-color: #b6f0cf;
-}
+table { border-collapse: collapse; width: 100%; }
+td, th { vertical-align: top; }
 
-.company-name{
-    font-size: 18pt;
-    font-weight: bolder;
-    width: 10cm;
-    height:1cm;
-}
+.encabezado td { padding: 0; }
+.marca { width: 58%; }
+.logo { height: 16mm; }
+.empresa { font-size: 17pt; font-weight: bold; }
+.membrete { margin-top: 2mm; font-size: 8pt; color: #6b7280; line-height: 1.4; }
 
-.address{
-    font-size: 11pt;
-    margin-top: 1cm;
-    width:8cm;
-    float:left;
-}
+.folio { width: 42%; text-align: right; }
+.titulo { font-size: 15pt; font-weight: bold; color: #111827; text-transform: uppercase; letter-spacing: 1px; }
+.datos-folio { width: auto; margin-top: 2mm; margin-left: auto; }
+.datos-folio td { padding: 0.6mm 0 0.6mm 4mm; font-size: 9pt; }
+.datos-folio .etq { color: #6b7280; text-align: right; }
+.datos-folio .val { font-weight: bold; text-align: right; }
+.folio-num { font-size: 13pt; }
 
- .date{
-    width: 4cm;
-    float: right;
-    text-align: right;
-    position: relative;
-    maring-top: 10cm;
-    marging-right: .5cm;
-    border-bottom: 2px solid;
-}
+.franja { height: 1.2mm; margin: 5mm 0 6mm 0; }
 
+.bloque .caja { border: 0.3mm solid #e5e7eb; padding: 4mm 5mm; }
+.bloque .separa { width: 4mm; }
+.beneficiario { width: 62%; background-color: #f9fafb; }
+.importe { width: 38%; text-align: right; }
+.etq { font-size: 7pt; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+.nombre { font-size: 12pt; font-weight: bold; margin-top: 1.5mm; }
+.dato { font-size: 8.5pt; color: #4b5563; margin-top: 1mm; }
+.cifra { font-size: 20pt; font-weight: bold; margin-top: 1mm; }
+.divisa { font-size: 8pt; color: #6b7280; }
 
-.number{ 
-    float: right;
-    text-align: right;
-    position: relative !important;
-    width: 5cm;
-    font-weight: bold;
-    color:red;
-    margin-top:-1cm;
-}
-       
-.pay{
-    margin-top: .1cm;
-    width: 20cm;
-    float:left;
-    position: relative;
-}
+.letra { margin-top: 3mm; padding: 2.5mm 4mm; background-color: #f3f4f6; font-size: 8.5pt; }
 
-.vendor-name{
-     width: 14cm;
-     float: left;
-     position: relative;
-     border-bottom: 2px solid;
-}
+.seccion { margin-top: 7mm; margin-bottom: 2mm; font-size: 8pt; font-weight: bold; color: #374151; text-transform: uppercase; letter-spacing: 0.5px; }
 
-.pay .label{
-    width: 1.5cm;
-    float: left;
-    position: relative;
-    font-weight: bold;
-}
+.docs th { color: #ffffff; font-size: 7.5pt; font-weight: bold; padding: 2mm 2mm; text-align: right; }
+.docs td { padding: 1.8mm 2mm; text-align: right; border-bottom: 0.2mm solid #e5e7eb; font-size: 8.5pt; }
+.docs .izq { text-align: left; }
+.docs .par td { background-color: #f9fafb; }
+.docs .fuerte { font-weight: bold; }
+.docs tfoot td { border-top: 0.5mm solid #111827; border-bottom: none; font-weight: bold; padding-top: 2.5mm; }
 
-.pay .amount{
-     width: 3.5cm;
-     float: left;
-     position: relative;
-     border-bottom: 2px solid;
-     margin-left: .4cm;
-}
+.firmas { margin-top: 22mm; }
+.firmas .firma { width: 33%; padding: 0 6mm; }
+.nombre-firma { font-size: 8.5pt; text-align: center; padding-bottom: 1mm; }
+.rol { font-size: 7.5pt; color: #6b7280; text-align: center; padding-top: 1.5mm; border-top: 0.3mm solid #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
 
-.pay .amount-text{
-   width: 3cm;
-   float: left;
-   position: relative;
-   border-bottom: 2px solid;
-}
-.amount-text span{
-    float: left;
-    position:relative;
-}
-
- .amount-text{
-   width: 20cm;
-   float: left;
-   position: relative;
-   margin-top: 10pt;
-   border-bottom: 2px solid;
-}
-.to-the span{
-    font-weight: bold;
-}
-
- .to-the{
-   width: 20cm;
-   float: left;
-   position: relative;
-   margin-top: 20pt;
-}
-
-.memo .label{
-    font-weight: bold;
-    width: 1.5cm;
-    position: relative;
-    float: left;
-}
-
-.memo{
-   width: 19cm;
-   float: left;
-   position: relative;
-   margin-top: 20pt;
-   
-}
-
-.memo .col-1{
-   width: 8.5cm;
-   float: left;
-   position: relative;
-   border-bottom: 2px solid;
-  
-   display: inline-block;
-}
-
-.memo .col-2{
-   width: 8.75cm;
-   float: left;
-   position: relative;
-   border-bottom: 2px solid;
-   margin-left: .5cm;
-}
-
-.last-number{
-   width: 8.75cm;
-   float: left;
-   position: relative;
-   margin-top: 5pt;
-   margin-left:2cm;
-   text-align: center;
-}
-
-.bills{
-    margin-top: 1cm;
-    float: left;
-    font-size: 12px;
-    border-spacing: 0px;
-    border-collapse: separate;
-    width: 100%;
-}
-
-.bills td{
-    border:.5pt solid #d0d0d0;
-    margin-left: 10px;
-    padding: 4px;
-}
-
-.bills td, .bills tr{
-    border-collapse: collapse;
-    border-spacing: 0;
-}
-
-.total{
-    text-align: right;
-}
+.pie td { font-size: 7pt; color: #9ca3af; border-top: 0.2mm solid #e5e7eb; padding-top: 2mm; }
+.pie .der { text-align: right; }

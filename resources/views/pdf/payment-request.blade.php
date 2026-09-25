@@ -1,60 +1,124 @@
 {{--
-    La solicitud de pago impresa: un cheque con el importe en letra y, debajo,
-    las facturas que cubre. Copia de `PaymentRequest::generateDocument()` de
-    Yii2, con los mismos textos en inglés.
+    Solicitud de pago o de cobro. Diseño propio de CargoSuite (ya no el «cheque»
+    del sistema anterior): encabezado con la marca, a quién y cuánto con letra,
+    el desglose de los documentos que cubre y espacio para firmas.
+
+    mPDF no maneja flexbox: todo el acomodo va con tablas.
 --}}
-<div class="paycheck">
-    <div class="company-name">{{ \App\Support\Marca::empresa() }}</div>
-    <div class="number">{{ $solicitud->number }}</div>
-    <div class="address">
-        @include('pdf.membrete')
-    </div>
-    <div class="date">{{ $fecha }}</div>
-    <div class="pay">
-        <div class="label">{{ __('impresos.pay') }}</div>
-        <div class="vendor-name">{{ $beneficiario }}</div>
-        <div class="amount">$ {{ $importe }}</div>
-    </div>
-    <div class="amount-text">
-        <span>{{ $importeEnLetra }}</span>
-        <span>{{ $centavos }}/100{{ $divisa }}</span>
-    </div>
-    <div class="to-the"><span>{{ __('impresos.to_the_order') }}</span> {{ $beneficiario }}</div>
-    <div class="memo">
-        <div class="label">{{ __('impresos.memo') }}</div>
-        <div class="col-1">&nbsp;</div>
-        <div class="col-2">&nbsp;</div>
-    </div>
-    <div class="last-number">{{ $cuentaBancaria }}</div>
+@php
+    $n = fn ($v) => number_format((float) $v, 2);
+    $titulo = $esCobro ? __('impresos.collection_request_title') : __('impresos.payment_request_title');
+@endphp
+
+<htmlpagefooter name="pie">
+    <table class="pie"><tr>
+        <td>{{ \App\Support\Marca::empresa() }} · {{ $titulo }} {{ $solicitud->number }}</td>
+        <td class="der">{{ __('impresos.page') }} {PAGENO} / {nbpg}</td>
+    </tr></table>
+</htmlpagefooter>
+
+{{-- Encabezado: marca a la izquierda, folio y fecha a la derecha --}}
+<table class="encabezado">
+    <tr>
+        <td class="marca">
+            @if ($logo)
+                <img src="{{ $logo }}" class="logo">
+            @else
+                <div class="empresa" style="color: {{ $color }}">{{ \App\Support\Marca::empresa() }}</div>
+            @endif
+            <div class="membrete">@include('pdf.membrete')</div>
+        </td>
+        <td class="folio">
+            <div class="titulo">{{ $titulo }}</div>
+            <table class="datos-folio">
+                <tr><td class="etq">{{ __('impresos.folio') }}</td><td class="val folio-num" style="color: {{ $color }}">{{ $solicitud->number }}</td></tr>
+                <tr><td class="etq">{{ __('impresos.date') }}</td><td class="val">{{ $fecha }}</td></tr>
+                <tr><td class="etq">{{ __('impresos.currency') }}</td><td class="val">{{ $divisa }}</td></tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+<div class="franja" style="background-color: {{ $color }}"></div>
+
+{{-- A quién y cuánto --}}
+<table class="bloque">
+    <tr>
+        <td class="caja beneficiario">
+            <div class="etq">{{ $esCobro ? __('impresos.customer') : __('impresos.pay_to') }}</div>
+            <div class="nombre">{{ $beneficiario }}</div>
+            @if ($rfc)
+                <div class="dato">RFC {{ $rfc }}</div>
+            @endif
+            @if ($banco || $cuentaBancaria)
+                <div class="dato">{{ __('impresos.bank_account') }}: {{ trim($banco.' '.$cuentaBancaria) }}</div>
+            @endif
+        </td>
+        <td class="separa"></td>
+        <td class="caja importe" style="border: 0.6mm solid {{ $color }}">
+            <div class="etq">{{ __('impresos.amount') }}</div>
+            <div class="cifra" style="color: {{ $color }}">$ {{ $importe }}</div>
+            <div class="divisa">{{ $divisa }}</div>
+        </td>
+    </tr>
+</table>
+
+<div class="letra">
+    <span class="etq">{{ __('impresos.amount_in_words') }}:</span> {{ $importeEnLetra }}
 </div>
 
-<table class="bills">
-    <tr>
-        <th>{{ __('impresos.number') }}</th>
-        <th>{{ __('Booking') }}</th>
-        <th>{{ __('impresos.amount') }}</th>
-        <th>Subtotal %0</th>
-        <th>Subtotal %16</th>
-        <th>VAT 16%</th>
-        <th>{{ __('impresos.ret_vat') }}</th>
-        <th>{{ __('impresos.non_deductible') }}</th>
-        <th>{{ __('impresos.amount') }}</th>
-    </tr>
-    @foreach ($transacciones as $transaccion)
-        <tr>
-            <td>{{ $transaccion->tran_number }}</td>
-            <td>{{ $transaccion->booking_number }}</td>
-            <td style="text-align:right">{{ number_format((float) $transaccion->tran_paid_amount, 2) }}</td>
-            <td style="text-align:right">{{ number_format((float) $transaccion->sub_0_paid, 2) }}</td>
-            <td style="text-align:right">{{ number_format((float) $transaccion->sub_16_paid, 2) }}</td>
-            <td style="text-align:right">{{ number_format((float) $transaccion->tax_16_mxn, 2) }}</td>
-            <td style="text-align:right">{{ number_format((float) $transaccion->tax_ret_mxn, 2) }}</td>
-            <td style="text-align:right">{{ number_format((float) $transaccion->non_dec, 2) }}</td>
-            <td style="text-align:right">{{ number_format((float) $transaccion->tran_paid_amount, 2) }}</td>
+{{-- Documentos que cubre --}}
+<div class="seccion">{{ __('impresos.documents_covered') }}</div>
+<table class="docs">
+    <thead>
+        <tr style="background-color: {{ $color }}">
+            <th class="izq">{{ __('impresos.number') }}</th>
+            <th class="izq">{{ __('Booking') }}</th>
+            <th>{{ __('impresos.subtotal_0') }}</th>
+            <th>{{ __('impresos.subtotal_16') }}</th>
+            <th>{{ __('impresos.vat_16') }}</th>
+            <th>{{ __('impresos.ret_vat') }}</th>
+            <th>{{ __('impresos.non_deductible') }}</th>
+            <th>{{ __('impresos.amount') }}</th>
         </tr>
-    @endforeach
+    </thead>
+    <tbody>
+        @foreach ($transacciones as $i => $t)
+            <tr class="{{ $i % 2 ? 'par' : '' }}">
+                <td class="izq">{{ $t->tran_number }}</td>
+                <td class="izq">{{ $t->booking_number }}</td>
+                <td>{{ $n($t->sub_0_paid) }}</td>
+                <td>{{ $n($t->sub_16_paid) }}</td>
+                <td>{{ $n($t->tax_16_mxn) }}</td>
+                <td>{{ $n($t->tax_ret_mxn) }}</td>
+                <td>{{ $n($t->non_dec) }}</td>
+                <td class="fuerte">{{ $n($t->tran_paid_amount) }}</td>
+            </tr>
+        @endforeach
+    </tbody>
+    <tfoot>
+        <tr>
+            <td class="izq" colspan="2">{{ __('impresos.total') }} · {{ trans_choice('impresos.documents_count', $transacciones->count(), ['n' => $transacciones->count()]) }}</td>
+            <td>{{ $n($totales['sub_0_paid']) }}</td>
+            <td>{{ $n($totales['sub_16_paid']) }}</td>
+            <td>{{ $n($totales['tax_16_mxn']) }}</td>
+            <td>{{ $n($totales['tax_ret_mxn']) }}</td>
+            <td>{{ $n($totales['non_dec']) }}</td>
+            <td class="fuerte">$ {{ $n($totales['tran_paid_amount']) }}</td>
+        </tr>
+    </tfoot>
+</table>
+
+{{-- Firmas --}}
+<table class="firmas">
     <tr>
-        <td colspan="8" class="total">{{ __('impresos.total') }}</td>
-        <td class="total"><strong>$ {{ number_format($total, 2) }}</strong></td>
+        @foreach ([__('impresos.prepared_by'), __('impresos.authorized_by'), $esCobro ? __('impresos.paid_by') : __('impresos.received_by')] as $i => $rol)
+            <td class="firma">
+                <table>
+                    <tr><td class="nombre-firma">{{ $i === 0 ? $elaboro : '' }}&nbsp;</td></tr>
+                    <tr><td class="rol">{{ $rol }}</td></tr>
+                </table>
+            </td>
+        @endforeach
     </tr>
 </table>

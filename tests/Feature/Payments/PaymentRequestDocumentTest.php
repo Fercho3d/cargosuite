@@ -48,18 +48,25 @@ class PaymentRequestDocumentTest extends TestCase
         ]);
     }
 
-    public function test_el_cheque_lleva_el_importe_con_letra_y_los_centavos_aparte(): void
+    public function test_la_solicitud_lleva_beneficiario_importe_y_documentos(): void
     {
         $html = app(PaymentRequestDocument::class)->html(PaymentRequest::findOrFail(9));
 
         $this->assertStringContainsString('Autotransportes del Norte', $html);
         $this->assertStringContainsString('$ 1,234.56', $html);
-        // En inglés y rellenado con guiones, como en el original.
-        $this->assertStringContainsString('one thousand two hundred thirty-four', $html);
-        $this->assertStringContainsString('0.56/100', $html);
         $this->assertStringContainsString('0123456789', $html);
         $this->assertStringContainsString('20/01/2026', $html);
         $this->assertStringContainsString('BK-77', $html);
+    }
+
+    /** Con letra, en el idioma de los documentos y con los centavos en «/100». */
+    public function test_el_importe_con_letra_sale_en_espanol_con_moneda(): void
+    {
+        config(['marca.idioma_documentos' => 'es']);
+
+        $html = app(PaymentRequestDocument::class)->html(PaymentRequest::findOrFail(9));
+
+        $this->assertStringContainsString('MIL DOSCIENTOS TREINTA Y CUATRO PESOS 56/100 M.N.', $html);
     }
 
     /** El original solo leía el proveedor: el cobro a cliente salía sin beneficiario. */
