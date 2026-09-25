@@ -157,6 +157,8 @@
                 </select>
             </label>
 
+            {{-- Por carretera se cotiza en el módulo de Cotizaciones (sobre rutas), no aquí. --}}
+            @if (\App\Support\Expediente::usa('maritimo'))
             <label class="block">
                 <span class="field-label text-xs">{{ __('Ver') }}</span>
                 <select wire:model.live="mode" class="field-input mt-1 py-1.5 text-sm">
@@ -165,6 +167,7 @@
                     @endforeach
                 </select>
             </label>
+            @endif
 
             @if ($verTipo)
                 <label class="block">

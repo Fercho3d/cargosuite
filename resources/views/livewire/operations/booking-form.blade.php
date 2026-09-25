@@ -82,6 +82,15 @@
 
         @include('partials.validation-errors')
 
+        @if ($cotizacionId)
+            <div class="alert-ok rounded-lg px-3 py-2 text-sm">
+                {{ __('Viaje de la cotización :numero: se facturará con lo cotizado.', ['numero' => \Illuminate\Support\Facades\DB::table('cotizacion')->where('cotizacion_id', $cotizacionId)->value('numero')]) }}
+                @if ($clientId === '')
+                    {{ __('Era un prospecto: da de alta al cliente y elígelo aquí.') }}
+                @endif
+            </div>
+        @endif
+
         @foreach ($grupos as $titulo => $campos)
             <fieldset class="space-y-4" @disabled($locked)>
                 <legend class="text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $titulo }}</legend>

@@ -53,6 +53,11 @@ class ServiceMatcher
     /** @return list<ServiceCandidate> */
     public function forBlock(Booking $booking, BillingBlock $bloque): array
     {
+        // Un viaje que salió de una cotización se factura con lo cotizado.
+        if ($bloque === BillingBlock::Invoice && ($cotizados = QuoteBilling::invoice($booking)) !== null) {
+            return $cotizados;
+        }
+
         // Con ruta configurada, el precio sale de la ruta (ver `RouteBilling`).
         if (($ruta = RouteBilling::rutaDe($booking)) !== null) {
             return RouteBilling::forBlock($booking, $bloque, $ruta);

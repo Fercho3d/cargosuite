@@ -57,3 +57,11 @@ td, th { vertical-align: top; }
 
 .pie td { font-size: 7pt; color: #9ca3af; border-top: 0.2mm solid #e5e7eb; padding-top: 2mm; }
 .pie .der { text-align: right; }
+
+/* Totales a la derecha (cotización). */
+.totales { margin-top: 3mm; }
+.totales td { padding: 1.2mm 2mm; font-size: 9pt; }
+.totales .hueco { width: 55%; }
+.etq-total { color: #6b7280; text-align: right; width: 20%; }
+.val-total { text-align: right; font-weight: bold; width: 25%; white-space: nowrap; }
+.gran { font-size: 12pt; border-top: 0.5mm solid #111827; padding-top: 2mm; }

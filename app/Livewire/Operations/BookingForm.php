@@ -6,6 +6,7 @@ use App\Models\Core\Booking;
 use App\Models\Core\Client;
 use App\Models\Core\Provider;
 use App\Support\Expediente;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -93,6 +94,9 @@ class BookingForm extends Component
      */
     public bool $esCotizacion = false;
 
+    /** La cotización aceptada de la que sale el viaje: se factura con lo cotizado. */
+    public ?int $cotizacionId = null;
+
     public function mount(?int $booking = null): void
     {
         // Dar de alta lo puede hacer cualquier usuario interno, como en el
@@ -119,6 +123,11 @@ class BookingForm extends Component
             $this->copia(Booking::findOrFail($origen));
         }
 
+        // «Convertir en viaje» de una cotización aceptada: cliente, ruta y fechas.
+        if (($cotizacion = request()->integer('cotizacion')) > 0) {
+            $this->deCotizacion($cotizacion);
+        }
+
         if (request()->query('modo') === 'cotizacion') {
             $this->esCotizacion = true;
         }
@@ -127,6 +136,22 @@ class BookingForm extends Component
         if (array_key_exists($tipo = request()->integer('tipo'), Booking::typeLabels())) {
             $this->bookingType = (string) $tipo;
         }
+    }
+
+    private function deCotizacion(int $id): void
+    {
+        $c = DB::table('cotizacion as c')->join('ruta as r', 'r.ruta_id', '=', 'c.ruta_id')
+            ->where('c.cotizacion_id', $id)->where('c.estado', 'aceptada')
+            ->first(['c.cotizacion_id', 'c.client_id', 'c.fecha_carga', 'r.origen_id', 'r.destino_id', 'r.km']);
+        abort_if($c === null, 404);
+
+        $this->cotizacionId = (int) $c->cotizacion_id;
+        $this->clientId = (string) ($c->client_id ?? '');
+        $this->loadingPort = (string) $c->origen_id;
+        $this->dischargePort = (string) $c->destino_id;
+        $this->loadingDate = $c->fecha_carga ?: now()->toDateString();
+        // Un día por cada 650 km, que es la jornada del operador.
+        $this->arrivalDate = Carbon::parse($this->loadingDate)->addDays(max(1, (int) ceil((float) $c->km / 650)))->toDateString();
     }
 
     private function copia(Booking $origen): void
@@ -252,6 +277,7 @@ class BookingForm extends Component
             // manda al confirmarlo, ya con carga. Mandarla aquí le hacía llegar
             // un PDF sin contenedores.
             $modelo->forceFill([
+                'cotizacion_id' => $this->cotizacionId,
                 'is_draft' => 1,
                 'mode' => $this->esCotizacion ? Booking::MODE_QUOTATION : Booking::MODE_BOOKING,
                 'locked' => 0,

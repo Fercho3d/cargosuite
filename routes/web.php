@@ -5,6 +5,7 @@ use App\Http\Controllers\BookingFileController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\PaymentRequestDocumentController;
 use App\Http\Controllers\PortalFileController;
+use App\Http\Controllers\QuoteDocumentController;
 use App\Http\Controllers\ServiceContractController;
 use App\Http\Controllers\ThemeController;
 use App\Http\Controllers\TransactionExportController;
@@ -14,6 +15,8 @@ use App\Http\Middleware\EnsureUserIsInternal;
 use App\Http\Middleware\EnsureUserIsPortal;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Livewire\Catalogs\CatalogManager;
+use App\Livewire\Cotizaciones\QuoteDetail;
+use App\Livewire\Cotizaciones\QuoteList;
 use App\Livewire\Dashboard;
 use App\Livewire\Exchange\ExchangeManager;
 use App\Livewire\Fleet\FleetMap;
@@ -181,6 +184,13 @@ Route::middleware(['auth', EnsureUserIsInternal::class])->group(function () {
      * flota propia; el menú no los enseña sin ella (`MARCA_TALLER`).
      */
     // Rutas con su tarifa, su costo y el diésel del día (ver `App\Support\Rutas\Tarifario`).
+    // Cotizaciones de viaje, sobre las rutas (ver `App\Support\Cotizaciones\Cotizaciones`).
+    Route::middleware(EnsureUserIsAdmin::class)->prefix('cotizaciones')->name('cotizaciones.')->group(function () {
+        Route::get('/', QuoteList::class)->name('index');
+        Route::get('/{cotizacion}', QuoteDetail::class)->whereNumber('cotizacion')->name('show');
+        Route::get('/{cotizacion}/cotizacion.pdf', QuoteDocumentController::class)->whereNumber('cotizacion')->name('pdf');
+    });
+
     Route::middleware(EnsureUserIsAdmin::class)->prefix('rutas')->name('rutas.')->group(function () {
         Route::get('/', RouteList::class)->name('index');
         Route::get('/{ruta}', RouteDetail::class)->whereNumber('ruta')->name('show');

@@ -93,6 +93,7 @@ class DemoSeeder extends Seeder
         $this->nomina();
         $this->rutas();
         $this->usuarios();
+        (new CotizacionesDemoSeeder)->run();
         $this->tiposDeCambio();
         $this->embarques();
         $this->facturacion();
@@ -158,7 +159,7 @@ class DemoSeeder extends Seeder
             'movimiento_refaccion', 'mantenimiento_refaccion', 'mantenimiento', 'refaccion',
             'nomina_renglon', 'nomina', 'empleado', 'liquidacion_renglon', 'liquidacion', 'operador',
             'gps_posicion', 'gps_dispositivo', 'unidad',
-            'tarifa_ruta', 'ruta', 'precio_diesel',
+            'cotizacion_renglon', 'cotizacion', 'tarifa_ruta', 'ruta', 'precio_diesel',
             // El catálogo de hitos cambia con la vertical: un camión no pasa por
             // el corte documental de un embarque marítimo.
             'hito',

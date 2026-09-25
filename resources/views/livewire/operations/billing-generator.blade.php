@@ -20,6 +20,13 @@
         </h2>
         <p class="mt-1 text-sm text-ink-muted">{{ $cliente ?: __('Sin cliente') }}</p>
 
+        @if ($booking->cotizacion_id)
+            <p class="mt-4 max-w-3xl text-sm font-medium text-ink">
+                {{ __('La factura al cliente sale de la cotización :numero, con los precios que se le cotizaron.', ['numero' => \Illuminate\Support\Facades\DB::table('cotizacion')->where('cotizacion_id', $booking->cotizacion_id)->value('numero')]) }}
+                <a href="{{ route('cotizaciones.show', $booking->cotizacion_id) }}" wire:navigate class="font-normal text-brand hover:underline">{{ __('Ver la cotización') }}</a>
+            </p>
+        @endif
+
         @if ($ruta)
             <p class="mt-4 max-w-3xl text-sm text-ink-muted">
                 {{ __('Los precios salen de la ruta :ruta, vigentes en la fecha de carga. Con unidad propia no se genera costo: el diésel y las casetas reales se capturan en Gastos de viaje. Nada se guarda hasta que confirmes.', ['ruta' => $ruta->origen_nombre.' → '.$ruta->destino_nombre]) }}

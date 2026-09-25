@@ -91,6 +91,10 @@
             ]
             : []),
         [__('Nuevo booking'), route('operations.bookings.create'), request()->routeIs('operations.bookings.create'), 'nuevo'],
+        // Cotizar es de administradores: lleva precios y márgenes.
+        ...(\App\Support\Expediente::usa('terrestre') && $esAdmin
+            ? [[__('Cotizaciones'), route('cotizaciones.index'), request()->routeIs('cotizaciones.*'), 'factura']]
+            : []),
         // El rastreo GPS es de flota propia.
         ...(\App\Support\Expediente::usa('terrestre')
             ? [[__('Mapa de la flota'), route('fleet.map'), request()->routeIs('fleet.map'), 'mapa']]

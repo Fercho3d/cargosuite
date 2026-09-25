@@ -51,6 +51,8 @@ final class ServiceCandidate
         public readonly ?int $tarifaId = null,
         /** A quién se le paga, cuando no es el proveedor del expediente (el subcontratista de la ruta). */
         public readonly ?int $providerId = null,
+        /** El renglón de la cotización del que salió, si el viaje viene de una. */
+        public readonly ?int $renglonCotizacionId = null,
     ) {}
 
     /**
@@ -63,6 +65,10 @@ final class ServiceCandidate
      */
     public function key(): string
     {
+        if ($this->renglonCotizacionId !== null) {
+            return $this->block->value.':cotizacion:'.$this->renglonCotizacionId;
+        }
+
         if ($this->tarifaId !== null) {
             return $this->block->value.':ruta:'.$this->tarifaId;
         }
