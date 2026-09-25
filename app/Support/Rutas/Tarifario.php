@@ -48,16 +48,25 @@ class Tarifario
     }
 
     /**
-     * Cuánto se le cobra al cliente: por concepto, su tarifa especial si la
-     * tiene y si no la general.
+     * Lo que se le cobra al cliente, por concepto: su tarifa especial si la
+     * tiene y si no la general, en el orden de la general.
+     *
+     * @return list<object>
      */
+    public static function ventaPorConcepto(Collection $vigentes, ?int $cliente = null): array
+    {
+        $venta = $vigentes->where('tipo', 'venta');
+        $clave = fn (object $t) => mb_strtolower($t->concepto);
+        $especiales = $cliente === null ? collect() : $venta->where('client_id', $cliente)->keyBy($clave);
+
+        return $venta->whereNull('client_id')->sortBy('tarifa_id')->keyBy($clave)
+            ->map(fn (object $general, string $concepto) => $especiales[$concepto] ?? $general)
+            ->union($especiales)->values()->all();
+    }
+
     public static function venta(Collection $vigentes, ?int $cliente = null): float
     {
-        $porConcepto = fn (Collection $tarifas) => $tarifas->keyBy(fn (object $t) => mb_strtolower($t->concepto));
-        $venta = $vigentes->where('tipo', 'venta');
-        $especiales = $cliente === null ? collect() : $porConcepto($venta->where('client_id', $cliente));
-
-        return round((float) $especiales->union($porConcepto($venta->whereNull('client_id')))->sum('precio'), 2);
+        return round((float) collect(self::ventaPorConcepto($vigentes, $cliente))->sum('precio'), 2);
     }
 
     /**

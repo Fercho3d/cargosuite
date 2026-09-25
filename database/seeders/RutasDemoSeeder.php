@@ -44,6 +44,9 @@ class RutasDemoSeeder extends Seeder
         $subcontratistas = DB::table('provider')->where('type_id', 2)->orderBy('provider_id')->limit(2)->pluck('provider_id');
         $casetas = DB::table('provider')->where('fullName', 'like', 'Peajes%')->value('provider_id');
         $cliente = DB::table('client')->orderBy('client_id')->value('client_id');
+        // El tipo de cargo del concepto (IVA, retención, clave SAT); el subcontrato se paga como flete.
+        $tipos = DB::table('charge_type')->pluck('charge_type_id', 'charge_type_name');
+        $tipoDe = fn (string $concepto) => $tipos[$concepto === 'Flete subcontratado' ? 'Flete' : $concepto] ?? null;
 
         foreach (collect($perfil->rutas())->unique(fn ($r) => $r['origen'].'-'.$r['destino'])->values() as $n => $r) {
             $km = (float) $r['km'];
@@ -79,7 +82,7 @@ class RutasDemoSeeder extends Seeder
             foreach ($tarifas as [$tipo, $concepto, $client, $provider, $precio, $desde]) {
                 DB::table('tarifa_ruta')->insert([
                     'ruta_id' => $ruta, 'tipo' => $tipo, 'concepto' => $concepto,
-                    'client_id' => $client, 'provider_id' => $provider,
+                    'client_id' => $client, 'provider_id' => $provider, 'charge_type_id' => $tipoDe($concepto),
                     'precio' => $precio, 'vigente_desde' => $desde->toDateString(),
                     'created_by' => 1, 'created_at' => $desde->copy()->setTime(9, 0),
                 ]);

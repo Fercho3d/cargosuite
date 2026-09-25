@@ -47,6 +47,10 @@ final class ServiceCandidate
          * el transportista, y está aquí para que la pantalla lo pueda decir.
          */
         public readonly int $discarded = 0,
+        /** El precio de la ruta del que salió, cuando no viene de un servicio (`tarifa_ruta`). */
+        public readonly ?int $tarifaId = null,
+        /** A quién se le paga, cuando no es el proveedor del expediente (el subcontratista de la ruta). */
+        public readonly ?int $providerId = null,
     ) {}
 
     /**
@@ -59,6 +63,10 @@ final class ServiceCandidate
      */
     public function key(): string
     {
+        if ($this->tarifaId !== null) {
+            return $this->block->value.':ruta:'.$this->tarifaId;
+        }
+
         return $this->block->value.':'.$this->serviceId.':'.($this->containerTypeId ?? 0);
     }
 

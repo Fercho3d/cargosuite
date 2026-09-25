@@ -53,6 +53,11 @@ class ServiceMatcher
     /** @return list<ServiceCandidate> */
     public function forBlock(Booking $booking, BillingBlock $bloque): array
     {
+        // Con ruta configurada, el precio sale de la ruta (ver `RouteBilling`).
+        if (($ruta = RouteBilling::rutaDe($booking)) !== null) {
+            return RouteBilling::forBlock($booking, $bloque, $ruta);
+        }
+
         return match ($bloque) {
             BillingBlock::Invoice => $this->invoiceCandidates($booking),
             BillingBlock::Carrier => $this->carrierCandidates($booking),

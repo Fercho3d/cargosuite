@@ -116,5 +116,7 @@
     "{1}No se puede borrar: el booking tiene :count transacción sin cancelar.|[2,*]No se puede borrar: el booking tiene :count transacciones sin cancelar.": "{1}No se puede borrar: el viaje tiene :count transacción sin cancelar.|[2,*]No se puede borrar: el viaje tiene :count transacciones sin cancelar.",
     "¿Quitar este contenedor del booking?": "¿Quitar esta carga del viaje?",
     "¿Quitar este documento del booking?": "¿Quitar este documento del viaje?",
-    "Reporte de ganancias por booking": "Reporte de ganancias por viaje"
+    "Reporte de ganancias por booking": "Reporte de ganancias por viaje",
+    "Servicios y precios": "Otros cargos",
+    "El precio pactado con cada tercero. Un servicio en <strong>0</strong> es precio abierto: se captura a mano al agregar el concepto.": "Cargos que no dependen de la ruta: estadía, custodia, falso flete… El flete de cada viaje sale de <strong>Configuración de rutas</strong>. Un cargo en <strong>0</strong> es precio abierto: se captura a mano."
 }

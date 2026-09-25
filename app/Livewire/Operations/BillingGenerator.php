@@ -11,6 +11,7 @@ use App\Models\Core\Provider;
 use App\Models\Core\Transaction;
 use App\Support\Billing\BillingBlock;
 use App\Support\Billing\BillingPlan;
+use App\Support\Billing\RouteBilling;
 use App\Support\Billing\ServiceCandidate;
 use App\Support\Billing\ServiceMatcher;
 use Illuminate\Support\Carbon;
@@ -151,17 +152,23 @@ class BillingGenerator extends Component
     public function render()
     {
         $booking = $this->booking();
+        $ruta = RouteBilling::rutaDe($booking);
 
         return view('livewire.operations.billing-generator', [
             'booking' => $booking,
+            'ruta' => $ruta,
             'plan' => $this->plan(),
             'existentes' => $this->existing(),
-            'bloques' => BillingBlock::cases(),
+            // Por carretera no hay naviera ni agente aduanal.
+            'bloques' => $ruta === null ? BillingBlock::cases() : [BillingBlock::Invoice, BillingBlock::Transport],
             'divisas' => Account::options(),
             'cliente' => Client::find($booking->client)?->fullName,
             'proveedores' => [
                 BillingBlock::Carrier->value => Provider::find($booking->carrier_id)?->fullName,
-                BillingBlock::Transport->value => Provider::find($booking->transport_id)?->fullName,
+                // Con ruta, el costo va al subcontratista que eligió la ruta.
+                BillingBlock::Transport->value => Provider::find(
+                    collect($this->candidates()[BillingBlock::Transport->value] ?? [])->first()?->providerId ?? $booking->transport_id
+                )?->fullName,
                 BillingBlock::Broker->value => Provider::find($booking->custom_brocker_id)?->fullName,
             ],
         ])->layout('components.app-layout', ['title' => __('Generar factura y costos')]);

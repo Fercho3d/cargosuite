@@ -20,10 +20,17 @@
         </h2>
         <p class="mt-1 text-sm text-ink-muted">{{ $cliente ?: __('Sin cliente') }}</p>
 
+        @if ($ruta)
+            <p class="mt-4 max-w-3xl text-sm text-ink-muted">
+                {{ __('Los precios salen de la ruta :ruta, vigentes en la fecha de carga. Con unidad propia no se genera costo: el diésel y las casetas reales se capturan en Gastos de viaje. Nada se guarda hasta que confirmes.', ['ruta' => $ruta->origen_nombre.' → '.$ruta->destino_nombre]) }}
+                <a href="{{ route('rutas.show', $ruta->ruta_id) }}" wire:navigate class="text-brand hover:underline">{{ __('Ver la ruta') }}</a>
+            </p>
+        @else
         <p class="mt-4 max-w-3xl text-sm text-ink-muted">
             {{ __('Estos son los servicios contratados que empatan con la ruta del booking y con los contenedores que lleva, todos marcados: confirmar sin tocar nada los agrega completos. Nada se guarda hasta que confirmes, y abajo verás') }}
             {{ __('exactamente qué documentos van a quedar, con fecha :fecha.', ['fecha' => $hoy->format('d/m/Y')]) }}
         </p>
+        @endif
 
         @if ($existentes->isNotEmpty())
             <div class="alert-warn mt-4">
@@ -59,7 +66,11 @@
 
             @if ($renglones === [])
                 <p class="px-5 py-8 text-center text-sm text-ink-faint">
-                    @if ($bloque->isBill() && $tercero === null)
+                    @if ($ruta && $bloque->isBill() && $booking->unidad_id !== null)
+                        {{ __('Va con unidad propia: su costo real se captura en Gastos de viaje.') }}
+                    @elseif ($ruta)
+                        {{ __('La ruta no tiene precio para esto. Agrégalo en su ficha.') }}
+                    @elseif ($bloque->isBill() && $tercero === null)
                         El booking no tiene {{ $bloque->party() }}: no hay nada que costear.
                     @else
                         {{ __('Ningún servicio contratado empata con esta ruta.') }}

@@ -97,6 +97,10 @@
                                 @if ($t->quien)
                                     <span class="ml-1 text-xs text-ink-muted">· {{ $t->quien }}</span>
                                 @endif
+                                {{-- Sin tipo de cargo no se puede facturar ni pagar: la generación lo omite. --}}
+                                @if ($t->vigente && $t->tipo !== 'costo' && $t->charge_type_id === null)
+                                    <span class="ml-1 text-xs text-(--danger-ink)">· {{ __('sin tipo de cargo: no se factura') }}</span>
+                                @endif
                             </td>
                             <td class="px-4 py-2 text-xs">
                                 @if ($t->vigente)
@@ -130,7 +134,7 @@
     <section class="rounded-2xl border border-line bg-panel p-4">
         <p class="text-sm font-medium text-ink">{{ __('Precio nuevo') }}</p>
         <p class="mt-0.5 text-xs text-ink-muted">{{ __('Para cambiar un precio captura uno nuevo con la fecha desde la que vale: el anterior queda en el historial.') }}</p>
-        <div class="mt-3 grid gap-3 sm:grid-cols-6">
+        <div class="mt-3 grid gap-3 sm:grid-cols-7">
             <label class="block">
                 <span class="field-label">{{ __('Tipo') }}</span>
                 <select wire:model.live="tipo" class="field-input mt-1.5">
@@ -170,6 +174,15 @@
                     </select>
                 </label>
             @endif
+            <label class="block">
+                <span class="field-label">{{ __('Tipo de cargo') }}</span>
+                <select wire:model="tipoCargo" class="field-input mt-1.5">
+                    <option value="">{{ $tipo === 'costo' ? __('Ninguno') : __('Elige…') }}</option>
+                    @foreach ($tiposCargo as $id => $nombre)
+                        <option value="{{ $id }}" @selected((string) $id === $tipoCargo)>{{ $nombre }}</option>
+                    @endforeach
+                </select>
+            </label>
             <label class="block">
                 <span class="field-label">{{ __('Precio') }}</span>
                 <input type="number" step="0.01" wire:model="precio" value="{{ $precio }}" class="field-input mt-1.5" placeholder="0.00">

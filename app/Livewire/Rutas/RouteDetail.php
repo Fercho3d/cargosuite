@@ -37,6 +37,8 @@ class RouteDetail extends Component
 
     public string $precio = '';
 
+    public string $tipoCargo = '';
+
     public string $vigenteDesde = '';
 
     /** Fecha con la que se calcula la ficha: hoy, o una pasada para ver cómo estaba. */
@@ -87,8 +89,11 @@ class RouteDetail extends Component
             'cliente' => ['nullable', 'integer', 'exists:client,client_id'],
             'proveedor' => [$this->tipo === 'subcontrato' ? 'required' : 'nullable', 'integer', 'exists:provider,provider_id'],
             'precio' => ['required', 'numeric', 'min:0'],
+            // Lo que se factura o se paga necesita su tipo de cargo (IVA, retención, clave SAT).
+            'tipoCargo' => [$this->tipo === 'costo' ? 'nullable' : 'required', 'integer', 'exists:charge_type,charge_type_id'],
             'vigenteDesde' => ['required', 'date'],
         ], attributes: [
+            'tipoCargo' => mb_strtolower(__('Tipo de cargo')),
             'concepto' => mb_strtolower(__('Concepto')), 'proveedor' => mb_strtolower(__('Proveedor')),
             'precio' => mb_strtolower(__('Precio')), 'vigenteDesde' => mb_strtolower(__('Vigente desde')),
         ]);
@@ -101,12 +106,13 @@ class RouteDetail extends Component
             'client_id' => $this->tipo === 'venta' && $this->cliente !== '' ? (int) $this->cliente : null,
             'provider_id' => $this->tipo !== 'venta' && $this->proveedor !== '' ? (int) $this->proveedor : null,
             'precio' => (float) $this->precio,
+            'charge_type_id' => $this->tipoCargo === '' ? null : (int) $this->tipoCargo,
             'vigente_desde' => $this->vigenteDesde,
             'created_by' => auth()->id(),
             'created_at' => now(),
         ]);
 
-        $this->reset(['concepto', 'cliente', 'proveedor', 'precio']);
+        $this->reset(['concepto', 'cliente', 'proveedor', 'precio', 'tipoCargo']);
         session()->flash('status', __('Precio agregado. El anterior queda en el historial.'));
     }
 
@@ -127,6 +133,7 @@ class RouteDetail extends Component
         $this->concepto = $fila->concepto;
         $this->cliente = (string) ($fila->client_id ?? '');
         $this->proveedor = (string) ($fila->provider_id ?? '');
+        $this->tipoCargo = (string) ($fila->charge_type_id ?? '');
         $this->precio = '';
         $this->vigenteDesde = now()->toDateString();
     }
@@ -165,6 +172,8 @@ class RouteDetail extends Component
             'litros' => (float) $ruta->rendimiento > 0 ? round((float) $ruta->km / (float) $ruta->rendimiento, 1) : null,
             'clientes' => $clientes,
             'proveedores' => $proveedores,
+            'tiposCargo' => DB::table('charge_type')->where(fn ($q) => $q->whereNull('deleted')->orWhere('deleted', 0))
+                ->orderBy('charge_type_name')->pluck('charge_type_name', 'charge_type_id')->all(),
         ])->layout('components.app-layout', ['title' => $ruta->origen.' → '.$ruta->destino]);
     }
 }

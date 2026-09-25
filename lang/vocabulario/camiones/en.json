@@ -116,5 +116,7 @@
     "{1}No se puede borrar: el booking tiene :count transacción sin cancelar.|[2,*]No se puede borrar: el booking tiene :count transacciones sin cancelar.": "{1}It cannot be deleted: the trip has :count transaction that is not cancelled.|[2,*]It cannot be deleted: the trip has :count transactions that are not cancelled.",
     "¿Quitar este contenedor del booking?": "Remove this load from the trip?",
     "¿Quitar este documento del booking?": "Remove this document from the trip?",
-    "Reporte de ganancias por booking": "Profit report by trip"
+    "Reporte de ganancias por booking": "Profit report by trip",
+    "Servicios y precios": "Other charges",
+    "El precio pactado con cada tercero. Un servicio en <strong>0</strong> es precio abierto: se captura a mano al agregar el concepto.": "Charges that don't depend on the route: detention, escort, dead freight… Each trip's freight comes from <strong>Route settings</strong>. A charge at <strong>0</strong> is an open price: entered by hand."
 }

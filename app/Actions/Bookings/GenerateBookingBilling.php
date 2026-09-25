@@ -98,7 +98,8 @@ class GenerateBookingBilling
     {
         Charge::create([
             'transaction' => $transaccion->transc_id,
-            'service_id' => $renglon->serviceId,
+            // Un precio de la ruta no es un servicio: el concepto queda sin él.
+            'service_id' => $renglon->serviceId ?: null,
             'type' => $renglon->chargeTypeId,
             'description' => mb_substr($renglon->lineDescription(), 0, 100),
             'quantity' => $renglon->quantity,

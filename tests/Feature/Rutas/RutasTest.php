@@ -30,6 +30,7 @@ class RutasTest extends TestCase
         DB::table('dicharge_port')->insert(['dicharge_port_id' => 1, 'name' => 'Ciudad de México', 'deleted' => 0]);
         DB::table('client')->insert([['client_id' => 1, 'fullName' => 'Cementos'], ['client_id' => 2, 'fullName' => 'Aceros']]);
         DB::table('provider')->insert([['provider_id' => 1, 'fullName' => 'Fletes Uno'], ['provider_id' => 2, 'fullName' => 'Fletes Dos']]);
+        DB::table('charge_type')->insert(['charge_type_id' => 1, 'charge_type_name' => 'Flete', 'tax_rate' => 0.16]);
         DB::table('ruta')->insert(['ruta_id' => 1, 'origen_id' => 1, 'destino_id' => 1, 'km' => 900, 'rendimiento' => 2.25, 'activo' => 1]);
     }
 
@@ -117,7 +118,7 @@ class RutasTest extends TestCase
         $this->tarifa('venta', 'Flete', 24000, '2026-01-01');
 
         Livewire::actingAs($this->admin())->test(RouteDetail::class, ['ruta' => 1])
-            ->set('tipo', 'venta')->set('concepto', 'Flete')->set('precio', '25500')->set('vigenteDesde', '2026-09-01')
+            ->set('tipo', 'venta')->set('concepto', 'Flete')->set('precio', '25500')->set('tipoCargo', '1')->set('vigenteDesde', '2026-09-01')
             ->call('agregarPrecio')->assertHasNoErrors();
 
         $this->assertSame([24000.0, 25500.0], DB::table('tarifa_ruta')->orderBy('vigente_desde')->pluck('precio')->map(fn ($p) => (float) $p)->all());
@@ -132,6 +133,14 @@ class RutasTest extends TestCase
         $pantalla->set('dieselPrecio', '25.45')->call('guardarDiesel');
 
         $this->assertSame([25.45], DB::table('precio_diesel')->pluck('precio')->map(fn ($p) => (float) $p)->all());
+    }
+
+    /** Lo que se factura necesita tipo de cargo: sin él no sabría qué IVA ni qué retención llevar. */
+    public function test_un_precio_de_venta_sin_tipo_de_cargo_no_se_guarda(): void
+    {
+        Livewire::actingAs($this->admin())->test(RouteDetail::class, ['ruta' => 1])
+            ->set('tipo', 'venta')->set('concepto', 'Flete')->set('precio', '25500')
+            ->call('agregarPrecio')->assertHasErrors('tipoCargo');
     }
 
     public function test_una_ruta_no_se_da_de_alta_dos_veces(): void

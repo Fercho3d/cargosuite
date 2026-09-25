@@ -89,7 +89,8 @@ class PlanBookingBilling
             block: $bloque,
             accountId: $lineas[0]->accountId,
             customerId: $bloque->isBill() ? null : (int) $booking->client,
-            vendorId: $columna === null ? null : (int) $booking->{$columna},
+            // El subcontratista de la ruta manda sobre el proveedor del expediente.
+            vendorId: $lineas[0]->providerId ?? ($columna === null ? null : (int) $booking->{$columna}),
             lines: array_values($lineas),
             copies: $copias,
         );
