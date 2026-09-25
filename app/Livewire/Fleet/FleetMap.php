@@ -24,6 +24,9 @@ class FleetMap extends Component
 
     public bool $soloEnViaje = false;
 
+    /** Dentro del panel: sin encabezado ni filtros, con enlace al mapa completo. */
+    public bool $embebido = false;
+
     /** @var list<array<string, mixed>> */
     public array $puntos = [];
 

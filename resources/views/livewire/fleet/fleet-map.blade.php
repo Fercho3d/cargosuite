@@ -3,6 +3,12 @@
 @endassets
 
 <div class="space-y-4" wire:poll.30s>
+    @if ($embebido)
+        <header class="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 class="text-sm font-semibold text-ink">{{ __('Mapa de la flota') }}</h2>
+            <a href="{{ route('fleet.map') }}" wire:navigate class="text-xs text-brand hover:underline">{{ __('Abrir el mapa completo') }}</a>
+        </header>
+    @else
     <header class="flex flex-wrap items-baseline justify-between gap-3">
         <div>
             <h1 class="text-lg font-semibold text-ink">{{ __('Mapa de la flota') }}</h1>
@@ -35,6 +41,7 @@
             {{ __('Solo en viaje') }}
         </label>
     </div>
+    @endif
 
     @if ($desviadas->isNotEmpty())
         <div class="alert-danger flex flex-wrap items-center gap-x-4 gap-y-1">

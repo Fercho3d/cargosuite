@@ -101,6 +101,17 @@ class FleetMapTest extends TestCase
         $this->assertSame(['T-101'], $this->numeros($this->mapa()->set('soloEnViaje', true)));
     }
 
+    /** Con flota propia, el panel enseña el mapa de la flota y no el de rutas. */
+    public function test_el_panel_trae_el_mapa_de_la_flota(): void
+    {
+        $this->actingAs(User::forceCreate([
+            'username' => 'jefa', 'password' => 'secreto-de-prueba',
+            'role' => User::ROLE_ADMIN, 'access' => User::ACCESS_INTERNAL, 'status' => 1,
+        ]));
+
+        $this->get(route('dashboard'))->assertOk()->assertSee(__('Abrir el mapa completo'))->assertSee('T-101');
+    }
+
     public function test_sin_autotransporte_no_hay_mapa(): void
     {
         config(['marca.modalidades' => 'maritimo']);

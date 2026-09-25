@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Support\Dashboard\DashboardMetrics;
 use App\Support\Dashboard\RouteMap;
+use App\Support\Expediente;
 use Livewire\Component;
 
 /**
@@ -22,7 +23,7 @@ class Dashboard extends Component
             // Las rutas se piden aparte y sin caché: son doce filas y cambian
             // con cada captura de fecha; cachearlas dejaría el mapa desfasado
             // justo cuando alguien acaba de actualizar un embarque.
-            'rutas' => RouteMap::rutas(),
+            'rutas' => Expediente::usa('terrestre') ? [] : RouteMap::rutas(),
         ])->layout('components.app-layout', ['title' => __('Panel')]);
     }
 }

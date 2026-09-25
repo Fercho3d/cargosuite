@@ -71,8 +71,15 @@
         @endforeach
     </section>
 
-    {{-- Mapa de rutas en curso: arriba, tras las cifras del mes. --}}
-    @include('partials.mapa-rutas')
+    {{-- El mapa, arriba, tras las cifras del mes: con flota propia, dónde está
+         cada unidad; si no, las rutas marítimas en curso. --}}
+    @if (\App\Support\Expediente::usa('terrestre'))
+        <section class="card p-5">
+            <livewire:fleet.fleet-map :embebido="true" />
+        </section>
+    @else
+        @include('partials.mapa-rutas')
+    @endif
 
     <div class="grid gap-4 lg:grid-cols-3">
         {{-- Facturas emitidas por mes --}}

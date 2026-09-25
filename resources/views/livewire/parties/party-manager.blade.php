@@ -6,17 +6,23 @@
     $tipos = $this->optionsFor('type_id');
 @endphp
 
-<div class="space-y-4">
+<div class="lg:flex lg:items-start lg:gap-6">
 
-    <nav class="flex flex-wrap gap-1.5">
+    {{-- Clientes / proveedores: columna a la izquierda, como en Catálogos. En el
+         celular quedan como dos botones arriba. --}}
+    <nav class="mb-4 flex gap-1.5 lg:sticky lg:top-4 lg:mb-0 lg:w-56 lg:shrink-0 lg:flex-col lg:gap-0 lg:rounded-2xl lg:border lg:border-line lg:bg-panel lg:p-2"
+         aria-label="{{ __('Clientes y proveedores') }}">
         @foreach (['client' => __('Clientes'), 'provider' => __('Proveedores')] as $modo => $etiqueta)
             <a href="{{ route($modo === 'client' ? 'parties.clients' : 'parties.providers') }}" wire:navigate
-               class="rounded-lg px-3 py-1.5 text-xs font-medium transition
-                      {{ $mode === $modo ? 'bg-accent-500 text-white' : 'border border-line text-ink-muted hover:bg-raised hover:text-ink' }}">
+               @if ($mode === $modo) aria-current="page" @endif
+               class="rounded-lg px-3 py-1.5 text-sm transition
+                      {{ $mode === $modo ? 'bg-raised font-medium text-ink shadow-sm' : 'text-ink-muted hover:bg-raised hover:text-ink' }}">
                 {{ $etiqueta }}
             </a>
         @endforeach
     </nav>
+
+<div class="min-w-0 flex-1 space-y-4">
 
     <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -101,4 +107,5 @@
     </div>
 
     <div>{{ $filas->links() }}</div>
+</div>
 </div>
