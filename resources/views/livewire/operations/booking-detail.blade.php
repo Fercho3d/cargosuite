@@ -733,8 +733,10 @@
     @endif
 
     {{-- Lista de verificación del booking: las cinco fechas con hora de la
-         tabla `booking`, del formulario original. Las marca el administrador. --}}
+         tabla `booking`, del formulario original. Las marca el administrador.
+         Son de comercio exterior marítimo: sin esa modalidad la lista va vacía. --}}
     @php $puedeMarcarBooking = (auth()->user()?->isAdmin() ?? false) && ! $booking->locked; @endphp
+    @if ($listaDelBooking !== [])
     <section class="card p-5 sm:p-6">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h3 class="text-sm font-semibold text-ink">{{ __('Lista de verificación del booking') }}</h3>
@@ -789,4 +791,5 @@
             <p class="mt-2 text-xs text-brand">{{ $message }}</p>
         @enderror
     </section>
+    @endif
 </div>

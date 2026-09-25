@@ -453,10 +453,16 @@ class BookingDetail extends Component
      * el `_checklist.php` del formulario original. Son de administradores,
      * como el formulario donde vivían, y llevan fecha y hora.
      *
+     * Son pasos de comercio exterior marítimo: sin esa modalidad no se enseñan.
+     *
      * @return list<array{campo: string, etiqueta: string, fecha: ?string}>
      */
     private function listaDelBooking(): array
     {
+        if (! Expediente::usa('maritimo')) {
+            return [];
+        }
+
         $fila = DB::table('booking')->where('booking_id', $this->bookingId)->first(Booking::LISTA_DE_VERIFICACION);
 
         return array_map(fn (string $campo) => [
@@ -470,7 +476,7 @@ class BookingDetail extends Component
     public function marcaDelBooking(string $campo): void
     {
         $this->assertEditable();
-        abort_unless(in_array($campo, Booking::LISTA_DE_VERIFICACION, true), 404);
+        abort_unless(Expediente::usa('maritimo') && in_array($campo, Booking::LISTA_DE_VERIFICACION, true), 404);
 
         $tenia = DB::table('booking')->where('booking_id', $this->bookingId)->value($campo);
 
@@ -480,7 +486,7 @@ class BookingDetail extends Component
     public function editaFechaDelBooking(string $campo): void
     {
         $this->assertEditable();
-        abort_unless(in_array($campo, Booking::LISTA_DE_VERIFICACION, true), 404);
+        abort_unless(Expediente::usa('maritimo') && in_array($campo, Booking::LISTA_DE_VERIFICACION, true), 404);
 
         $this->bookingCheckEditando = $campo;
         $this->bookingCheckFecha = BookingMilestones::paraCaptura(DB::table('booking')->where('booking_id', $this->bookingId)->value($campo));
@@ -492,7 +498,7 @@ class BookingDetail extends Component
         $this->assertEditable();
 
         $campo = (string) $this->bookingCheckEditando;
-        abort_unless(in_array($campo, Booking::LISTA_DE_VERIFICACION, true), 404);
+        abort_unless(Expediente::usa('maritimo') && in_array($campo, Booking::LISTA_DE_VERIFICACION, true), 404);
 
         $this->validate(
             ['bookingCheckFecha' => ['nullable', 'date']],

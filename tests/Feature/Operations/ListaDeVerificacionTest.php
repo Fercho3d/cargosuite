@@ -266,6 +266,14 @@ class ListaDeVerificacionTest extends TestCase
         $this->detalle(User::ROLE_USER)->assertSee('Entregado al consignatario')->call('marcaDelBooking', 'arrival')->assertForbidden();
     }
 
+    /** Naviera, aduana y consignatario son de comercio exterior: en terrestre no salen. */
+    public function test_en_terrestre_no_hay_lista_del_booking(): void
+    {
+        config(['marca.modalidades' => 'terrestre']);
+
+        $this->detalle()->assertDontSee('Liberado por la naviera')->call('marcaDelBooking', 'arrival')->assertNotFound();
+    }
+
     public function test_un_paso_del_booking_inventado_no_pasa(): void
     {
         $this->detalle()->call('marcaDelBooking', 'locked')->assertNotFound();
